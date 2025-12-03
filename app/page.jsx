@@ -12,6 +12,7 @@ import { levelInfo } from '../data/levelInfo';
 export default function GPUSupplyChain() {
   const [history, setHistory] = useState([{ level: 0, items: supplyChainData.gpus, selectedItem: null }]);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [hoveredItem, setHoveredItem] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const currentState = history[history.length - 1];
@@ -71,6 +72,22 @@ export default function GPUSupplyChain() {
 
   const allLocations = currentState.items.flatMap(item => item.locations);
   const highlightLocation = selectedItem ? selectedItem.locations[0] : null;
+  const hoverLocations = hoveredItem ? hoveredItem.locations : [];
+
+  // Generate particle positions only on client side
+  const [particles, setParticles] = useState([]);
+  
+  React.useEffect(() => {
+    setParticles(
+      Array.from({ length: 20 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 3,
+        duration: 2 + Math.random() * 3,
+      }))
+    );
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-slate-950 to-zinc-900 text-white overflow-hidden">
@@ -86,11 +103,11 @@ export default function GPUSupplyChain() {
             />
           </div>
           
-          <div className="transform transition-all duration-500 ease-out">
+          <div className="transform transition-all duration-500 ease-out overflow-x-auto overflow-y-hidden">
             <Breadcrumb history={history} levelInfo={levelInfo} />
           </div>
 
-          <div className="flex-1 relative bg-slate-900/30 rounded-2xl border border-slate-800 overflow-hidden mt-6 transition-all duration-300">
+          <div className="flex-1 relative bg-slate-900/30 rounded-2xl border border-slate-800 mt-6 transition-all duration-300" style={{ overflow: 'visible' }}>
             <div 
               className={`absolute inset-0 transition-all duration-500 ${
                 isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
@@ -102,6 +119,7 @@ export default function GPUSupplyChain() {
                   item={item}
                   index={idx}
                   onClick={handleItemClick}
+                  onHover={setHoveredItem}
                 />
               ))}
             </div>
@@ -115,22 +133,22 @@ export default function GPUSupplyChain() {
         <div className="w-[512px] flex-shrink-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-800 transition-all duration-500">
           <h2 className="text-xl font-semibold mb-4 transition-all duration-300">Supply Chain Map</h2>
           <div className="h-[calc(100vh-120px)] transition-all duration-500">
-            <SimpleGlobe locations={allLocations} highlight={highlightLocation} />
+            <SimpleGlobe locations={allLocations} highlight={highlightLocation} hoverLocations={hoverLocations} />
           </div>
         </div>
       </div>
       
       {/* Animated background particles */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {[...Array(20)].map((_, i) => (
+        {particles.map((particle) => (
           <div
-            key={i}
+            key={particle.id}
             className="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-pulse"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 3}s`,
+              left: `${particle.left}%`,
+              top: `${particle.top}%`,
+              animationDelay: `${particle.delay}s`,
+              animationDuration: `${particle.duration}s`,
             }}
           />
         ))}
