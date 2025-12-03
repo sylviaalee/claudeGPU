@@ -10,35 +10,62 @@ import { supplyChainData } from '../data/supplyChainData';
 import { levelInfo } from '../data/levelInfo';
 
 export default function GPUSupplyChain() {
-  const [history, setHistory] = useState([{ level: 0, items: supplyChainData.gpus }]);
+  const [history, setHistory] = useState([{ level: 0, items: supplyChainData.gpus, selectedItem: null }]);
   const [selectedItem, setSelectedItem] = useState(null);
 
   const currentState = history[history.length - 1];
   const currentLevelInfo = levelInfo[currentState.level];
   const canGoBack = history.length > 1;
 
-  function handleItemClick(item) {
-    setSelectedItem(item);
-    
-    if (item.next && item.next.length > 0 && currentState.level < levelInfo.length - 1) {
-      const nextLevelKey = levelInfo[currentState.level + 1].key;
-      const nextItems = supplyChainData[nextLevelKey].filter(i => item.next.includes(i.id));
-      
-      setHistory([...history, {
-        level: currentState.level + 1,
-        items: nextItems,
-        parent: item
-      }]);
-    }
-  }
+  // inside your component (replace the old functions)
+function handleItemClick(item) {
+  // keep the top-level selectedItem for the right-side card
+  setSelectedItem(item);
 
-  function handleBack() {
-    if (canGoBack) {
-      const newHistory = history.slice(0, -1);
-      setHistory(newHistory);
-      setSelectedItem(newHistory[newHistory.length - 1].parent || null);
-    }
+  // If there are next-level items, update history: mark selectedItem on the current (last) entry,
+  // then push a new entry for the next level (with selectedItem: null).
+  if (item.next && item.next.length > 0 && currentState.level < levelInfo.length - 1) {
+    const nextLevelIndex = currentState.level + 1;
+    const nextLevelKey = levelInfo[nextLevelIndex].key;
+    const nextItems = supplyChainData[nextLevelKey].filter(i => item.next.includes(i.id));
+
+    // Build new history by copying and updating the last entry
+    const newHistory = history.map(h => ({ ...h }));
+    newHistory[newHistory.length - 1] = {
+      ...newHistory[newHistory.length - 1],
+      selectedItem: item,    // <-- set clicked item on the previous level
+      parent: newHistory[newHistory.length - 1].parent ?? null,
+    };
+
+    // Push next level entry
+    newHistory.push({
+      level: nextLevelIndex,
+      items: nextItems,
+      parent: item,         // parent pointer to the clicked item
+      selectedItem: null,   // nothing selected yet on the new level
+    });
+
+    setHistory(newHistory);
+  } else {
+    // No next level — just set selectedItem on current (last) history entry
+    const newHistory = history.map(h => ({ ...h }));
+    newHistory[newHistory.length - 1] = {
+      ...newHistory[newHistory.length - 1],
+      selectedItem: item,
+    };
+    setHistory(newHistory);
   }
+}
+
+function handleBack() {
+  if (!canGoBack) return;
+
+  const newHistory = history.slice(0, -1);
+  setHistory(newHistory);
+  // Keep the selectedItem synced to the last history entry's selectedItem (or null)
+  setSelectedItem(newHistory[newHistory.length - 1]?.selectedItem ?? null);
+}
+
 
   const allLocations = currentState.items.flatMap(item => item.locations);
   const highlightLocation = selectedItem ? selectedItem.locations[0] : null;
@@ -66,6 +93,7 @@ export default function GPUSupplyChain() {
                 onClick={handleItemClick}
               />
             ))}
+            
 
             <SelectedItemCard item={selectedItem} />
           </div>
