@@ -75,7 +75,7 @@ export default function GPUSupplyChain() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-slate-950 to-zinc-900 text-white overflow-hidden">
       <div className="flex flex-col lg:flex-row h-screen">
-        <div className="flex-1 flex flex-col p-6">
+        <div className="flex-1 flex flex-col p-6 overflow-x-auto">
           <div className="transition-all duration-500 ease-out">
             <LevelHeader
               levelInfo={currentLevelInfo}
@@ -112,9 +112,9 @@ export default function GPUSupplyChain() {
           </div>
         </div>
 
-        <div className="lg:w-[512px] p-6 border-t lg:border-t-0 lg:border-l border-slate-800 transition-all duration-500">
+        <div className="w-[512px] flex-shrink-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-800 transition-all duration-500">
           <h2 className="text-xl font-semibold mb-4 transition-all duration-300">Supply Chain Map</h2>
-          <div className="h-96 lg:h-[calc(100vh-120px)] transition-all duration-500">
+          <div className="h-[calc(100vh-120px)] transition-all duration-500">
             <SimpleGlobe locations={allLocations} highlight={highlightLocation} />
           </div>
         </div>
