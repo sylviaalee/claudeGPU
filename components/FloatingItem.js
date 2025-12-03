@@ -1,7 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
-export default function FloatingItem({ item, index, position, onClick, onHover = () => {} }) {
+export default function FloatingItem({ item, index, onClick, onHover = () => {} }) {
+  const [showRiskPopup, setShowRiskPopup] = useState(false);
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const itemRef = useRef(null);
+  const randomX = 10 + (index * 15) % 80;
+  const randomY = 10 + (index * 23) % 80;
   const randomDelay = index * 0.1;
+
+  useEffect(() => {
+    if (showRiskPopup && itemRef.current) {
+      const rect = itemRef.current.getBoundingClientRect();
+      setPopupPosition({
+        x: rect.right + 16,
+        y: rect.top
+      });
+    }
+  }, [showRiskPopup]);
   
   // Determine risk colors
   const getRiskColors = (risk) => {
@@ -41,17 +57,19 @@ export default function FloatingItem({ item, index, position, onClick, onHover =
   const colors = getRiskColors(item.risk || 5);
   
   return (
-    <div
-      onClick={() => onClick(item)}
-      onMouseEnter={() => onHover(item)}
-      onMouseLeave={() => onHover(null)}
-      className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
-      style={{
-        left: `${position.x}%`,
-        top: `${position.y}%`,
-        animationDelay: `${randomDelay}s`,
-      }}
-    >
+    <>
+      <div
+        ref={itemRef}
+        onClick={() => onClick(item)}
+        onMouseEnter={() => { onHover(item); setShowRiskPopup(true); }}
+        onMouseLeave={() => { onHover(null); setShowRiskPopup(false); }}
+        className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
+        style={{
+          left: `${randomX}%`,
+          top: `${randomY}%`,
+          animationDelay: `${randomDelay}s`,
+        }}
+      >
       {/* Pulsing glow effect */}
       <div className={`absolute inset-0 ${colors.glow} rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500`} />
       
@@ -95,6 +113,32 @@ export default function FloatingItem({ item, index, position, onClick, onHover =
       {/* Sparkle effects */}
       <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 group-hover:animate-ping" />
       <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-pink-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 group-hover:animate-ping" style={{ animationDelay: '0.1s' }} />
-    </div>
+      </div>
+
+      {/* Risk Analysis Popup - Rendered via Portal to top layer */}
+      {showRiskPopup && item.riskAnalysis && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed z-[99999] pointer-events-none animate-fade-in"
+          style={{
+            left: `${popupPosition.x}px`,
+            top: `${popupPosition.y}px`,
+          }}
+        >
+          <div className="bg-slate-900/98 backdrop-blur-md rounded-lg border-2 border-slate-700 shadow-2xl p-4 w-80">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`px-2 py-1 rounded-full text-xs font-bold ${
+                item.risk >= 8 ? 'bg-red-500' : item.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'
+              } text-white`}>
+                Risk Level: {item.risk}/10
+              </div>
+            </div>
+            <div className="text-sm text-slate-300 leading-relaxed">
+              {item.riskAnalysis}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
