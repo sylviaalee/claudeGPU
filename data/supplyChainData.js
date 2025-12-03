@@ -5,63 +5,72 @@ export const supplyChainData = {
       name: 'NVIDIA H100',
       image: '🎮',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
-      next: ['tsmc', 'samsung']
+      next: ['tsmc', 'samsung'],
+      risk: 8
     },
     {
       id: 'h200',
       name: 'NVIDIA H200',
       image: '🎮',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
-      next: ['tsmc']
+      next: ['tsmc'],
+      risk: 9
     },
     {
       id: 'mi300',
       name: 'AMD MI300',
       image: '💻',
       locations: [{ lat: 37.3894, lng: -121.9700, name: 'AMD HQ, Santa Clara, CA' }],
-      next: ['tsmc', 'globalfoundries']
+      next: ['tsmc', 'globalfoundries'],
+      risk: 7
     },
     {
       id: 'mi250',
       name: 'AMD MI250',
       image: '💻',
       locations: [{ lat: 37.3894, lng: -121.9700, name: 'AMD HQ, Santa Clara, CA' }],
-      next: ['tsmc', 'samsung']
+      next: ['tsmc', 'samsung'],
+      risk: 6
     },
     {
       id: 'a100',
       name: 'NVIDIA A100',
       image: '🖥️',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
-      next: ['tsmc']
+      next: ['tsmc'],
+      risk: 7
     },
     {
       id: 'l40s',
       name: 'NVIDIA L40S',
       image: '🖥️',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
-      next: ['tsmc', 'samsung']
+      next: ['tsmc', 'samsung'],
+      risk: 6
     },
     {
       id: 'gaudi3',
       name: 'Intel Gaudi 3',
       image: '🔷',
       locations: [{ lat: 32.0853, lng: 34.7818, name: 'Intel Haifa, Israel' }],
-      next: ['intel-fab', 'tsmc']
+      next: ['intel-fab', 'tsmc'],
+      risk: 7
     },
     {
       id: 'trainium2',
       name: 'AWS Trainium2',
       image: '☁️',
       locations: [{ lat: 37.4220, lng: -122.0841, name: 'AWS, Palo Alto, CA' }],
-      next: ['tsmc']
+      next: ['tsmc'],
+      risk: 8
     },
     {
       id: 'tpu-v5',
       name: 'Google TPU v5',
       image: '🌐',
       locations: [{ lat: 37.4220, lng: -122.0841, name: 'Google, Mountain View, CA' }],
-      next: ['tsmc', 'samsung']
+      next: ['tsmc', 'samsung'],
+      risk: 7
     }
   ],
   packaging: [
@@ -72,7 +81,8 @@ export const supplyChainData = {
       locations: [
         { lat: 24.1477, lng: 120.6736, name: 'TSMC, Taichung, Taiwan' },
       ],
-      next: ['kyocera-eds', 'ibiden-eds', 'at&s-eds']
+      next: ['kyocera-eds', 'ibiden-eds', 'at&s-eds'],
+      risk: 9
     },
     {
       id: 'samsung',
@@ -81,7 +91,8 @@ export const supplyChainData = {
       locations: [
         { lat: 37.5665, lng: 126.9780, name: 'Samsung, Seoul, South Korea' }
       ],
-      next: ['kyocera-eds', 'unimicron-eds']
+      next: ['kyocera-eds', 'unimicron-eds'],
+      risk: 6
     },
     {
       id: 'intel-fab',
@@ -90,7 +101,8 @@ export const supplyChainData = {
       locations: [
         { lat: 33.4484, lng: -112.0740, name: 'Intel, Chandler, AZ' }
       ],
-      next: ['at&s-eds', 'ibiden-eds']
+      next: ['at&s-eds', 'ibiden-eds'],
+      risk: 5
     },
     {
       id: 'globalfoundries',
@@ -99,14 +111,16 @@ export const supplyChainData = {
       locations: [
         { lat: 43.1030, lng: -73.7067, name: 'GlobalFoundries, Malta, NY' },
       ],
-      next: ['ibiden-eds', 'unimicron-eds']
+      next: ['ibiden-eds', 'unimicron-eds'],
+      risk: 5
     },
     {
       id: 'umc',
       name: 'UMC Packaging',
       image: '📦',
       locations: [{ lat: 24.7814, lng: 120.9978, name: 'UMC, Hsinchu, Taiwan' }],
-      next: ['unimicron-eds', 'nan-ya-eds']
+      next: ['unimicron-eds', 'nan-ya-eds'],
+      risk: 8
     }
   ],
   eds: [
@@ -117,7 +131,8 @@ export const supplyChainData = {
       locations: [
         { lat: 35.0116, lng: 135.7681, name: 'Kyocera, Kyoto, Japan' },
       ],
-      next: ['tanaka-wire', 'heraeus-wire', 'johnson-matthey-wire']
+      next: ['tanaka-wire', 'heraeus-wire', 'johnson-matthey-wire'],
+      risk: 6
     },
     {
       id: 'ibiden-eds',
@@ -126,7 +141,8 @@ export const supplyChainData = {
       locations: [
         { lat: 35.1815, lng: 136.9066, name: 'Ibiden, Ogaki, Japan' }
       ],
-      next: ['tanaka-wire', 'hitachi-wire']
+      next: ['tanaka-wire', 'hitachi-wire'],
+      risk: 7
     },
     {
       id: 'unimicron-eds',
@@ -135,7 +151,8 @@ export const supplyChainData = {
       locations: [
         { lat: 25.0330, lng: 121.5654, name: 'Unimicron, Taipei, Taiwan' },
       ],
-      next: ['tanaka-wire', 'heraeus-wire']
+      next: ['tanaka-wire', 'heraeus-wire'],
+      risk: 8
     },
     {
       id: 'at&s-eds',
@@ -144,14 +161,16 @@ export const supplyChainData = {
       locations: [
         { lat: 13.0827, lng: 80.2707, name: 'AT&S, Chennai, India' }
       ],
-      next: ['heraeus-wire', 'johnson-matthey-wire']
+      next: ['heraeus-wire', 'johnson-matthey-wire'],
+      risk: 6
     },
     {
       id: 'nan-ya-eds',
       name: 'Nan Ya PCB',
       image: '⚡',
       locations: [{ lat: 25.0330, lng: 121.5654, name: 'Nan Ya, Taipei, Taiwan' }],
-      next: ['tanaka-wire']
+      next: ['tanaka-wire'],
+      risk: 7
     }
   ],
   wiring: [
@@ -162,7 +181,8 @@ export const supplyChainData = {
       locations: [
         { lat: 34.6937, lng: 135.5023, name: 'Tanaka, Osaka, Japan' }
       ],
-      next: ['applied-deposition', 'lam-deposition', 'tokyo-deposition']
+      next: ['applied-deposition', 'lam-deposition', 'tokyo-deposition'],
+      risk: 7
     },
     {
       id: 'heraeus-wire',
@@ -171,21 +191,24 @@ export const supplyChainData = {
       locations: [
         { lat: 50.1109, lng: 8.6821, name: 'Heraeus, Hanau, Germany' },
       ],
-      next: ['applied-deposition', 'amat-deposition']
+      next: ['applied-deposition', 'amat-deposition'],
+      risk: 5
     },
     {
       id: 'johnson-matthey-wire',
       name: 'Johnson Matthey',
       image: '🔌',
       locations: [{ lat: 51.5074, lng: -0.1278, name: 'Johnson Matthey, London, UK' }],
-      next: ['applied-deposition', 'lam-deposition']
+      next: ['applied-deposition', 'lam-deposition'],
+      risk: 5
     },
     {
       id: 'hitachi-wire',
       name: 'Hitachi Metals',
       image: '🔌',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Hitachi, Tokyo, Japan' }],
-      next: ['tokyo-deposition', 'screen-deposition']
+      next: ['tokyo-deposition', 'screen-deposition'],
+      risk: 6
     }
   ],
   deposition: [
@@ -196,7 +219,8 @@ export const supplyChainData = {
       locations: [
         { lat: 30.2672, lng: -97.7431, name: 'Applied Materials, Austin, TX' }
       ],
-      next: ['lam-etch', 'tokyo-etch', 'applied-etch']
+      next: ['lam-etch', 'tokyo-etch', 'applied-etch'],
+      risk: 6
     },
     {
       id: 'lam-deposition',
@@ -205,7 +229,8 @@ export const supplyChainData = {
       locations: [
         { lat: 45.5425, lng: -122.9505, name: 'Lam Research, Tualatin, OR' }
       ],
-      next: ['lam-etch', 'applied-etch']
+      next: ['lam-etch', 'applied-etch'],
+      risk: 6
     },
     {
       id: 'tokyo-deposition',
@@ -214,21 +239,24 @@ export const supplyChainData = {
       locations: [
         { lat: 35.6762, lng: 139.6503, name: 'Tokyo Electron, Tokyo, Japan' },
       ],
-      next: ['tokyo-etch', 'hitachi-etch']
+      next: ['tokyo-etch', 'hitachi-etch'],
+      risk: 6
     },
     {
       id: 'amat-deposition',
       name: 'AMAT Endura',
       image: '💎',
       locations: [{ lat: 37.3894, lng: -122.0819, name: 'Applied Materials, Santa Clara, CA' }],
-      next: ['applied-etch', 'lam-etch']
+      next: ['applied-etch', 'lam-etch'],
+      risk: 6
     },
     {
       id: 'screen-deposition',
       name: 'SCREEN SPE',
       image: '💎',
       locations: [{ lat: 35.0116, lng: 135.7681, name: 'SCREEN, Kyoto, Japan' }],
-      next: ['tokyo-etch', 'hitachi-etch']
+      next: ['tokyo-etch', 'hitachi-etch'],
+      risk: 7
     }
   ],
   etching: [
@@ -239,7 +267,8 @@ export const supplyChainData = {
       locations: [
         { lat: 37.3541, lng: 127.9458, name: 'Lam Research, Seoul, South Korea' }
       ],
-      next: ['asml-litho', 'nikon-litho', 'canon-litho']
+      next: ['asml-litho', 'nikon-litho', 'canon-litho'],
+      risk: 6
     },
     {
       id: 'tokyo-etch',
@@ -249,21 +278,24 @@ export const supplyChainData = {
         { lat: 35.6762, lng: 139.6503, name: 'Tokyo Electron, Tokyo, Japan' },
         { lat: 35.4437, lng: 139.6380, name: 'Tokyo Electron, Yamanashi, Japan' }
       ],
-      next: ['asml-litho', 'canon-litho']
+      next: ['asml-litho', 'canon-litho'],
+      risk: 6
     },
     {
       id: 'applied-etch',
       name: 'Applied Materials Etch',
       image: '🔬',
       locations: [{ lat: 37.3894, lng: -122.0819, name: 'Applied Materials, Santa Clara, CA' }],
-      next: ['asml-litho', 'nikon-litho']
+      next: ['asml-litho', 'nikon-litho'],
+      risk: 5
     },
     {
       id: 'hitachi-etch',
       name: 'Hitachi High-Tech Etch',
       image: '🔬',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Hitachi, Tokyo, Japan' }],
-      next: ['canon-litho', 'nikon-litho']
+      next: ['canon-litho', 'nikon-litho'],
+      risk: 6
     }
   ],
   photolithography: [
@@ -274,7 +306,8 @@ export const supplyChainData = {
       locations: [
         { lat: 51.4416, lng: 5.4697, name: 'ASML, Veldhoven, Netherlands' },
       ],
-      next: ['applied-oxidation', 'kokusai-oxidation']
+      next: ['applied-oxidation', 'kokusai-oxidation'],
+      risk: 10
     },
     {
       id: 'nikon-litho',
@@ -283,7 +316,8 @@ export const supplyChainData = {
       locations: [
         { lat: 35.1815, lng: 136.9066, name: 'Nikon, Kumagaya, Japan' }
       ],
-      next: ['applied-oxidation', 'tokyo-oxidation']
+      next: ['applied-oxidation', 'tokyo-oxidation'],
+      risk: 7
     },
     {
       id: 'canon-litho',
@@ -292,7 +326,8 @@ export const supplyChainData = {
       locations: [
         { lat: 35.4437, lng: 139.6380, name: 'Canon, Utsunomiya, Japan' }
       ],
-      next: ['applied-oxidation', 'tokyo-oxidation']
+      next: ['applied-oxidation', 'tokyo-oxidation'],
+      risk: 7
     }
   ],
   oxidation: [
@@ -301,21 +336,24 @@ export const supplyChainData = {
       name: 'Applied Materials Oxidation',
       image: '🌡️',
       locations: [{ lat: 37.3894, lng: -122.0819, name: 'Applied Materials, Santa Clara, CA' }],
-      next: ['shin-etsu-wafer', 'sumco-wafer', 'globalwafers']
+      next: ['shin-etsu-wafer', 'sumco-wafer', 'globalwafers'],
+      risk: 5
     },
     {
       id: 'kokusai-oxidation',
       name: 'Kokusai Electric',
       image: '🌡️',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Kokusai, Tokyo, Japan' }],
-      next: ['shin-etsu-wafer', 'sumco-wafer']
+      next: ['shin-etsu-wafer', 'sumco-wafer'],
+      risk: 6
     },
     {
       id: 'tokyo-oxidation',
       name: 'Tokyo Electron Thermal',
       image: '🌡️',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Tokyo Electron, Tokyo, Japan' }],
-      next: ['sumco-wafer', 'siltronic-wafer']
+      next: ['sumco-wafer', 'siltronic-wafer'],
+      risk: 6
     }
   ],
   wafer: [
@@ -326,7 +364,8 @@ export const supplyChainData = {
       locations: [
         { lat: 47.6062, lng: -122.3321, name: 'Shin-Etsu, Vancouver, WA' }
       ],
-      next: ['cadence-design', 'synopsys-design', 'mentor-design']
+      next: ['cadence-design', 'synopsys-design', 'mentor-design'],
+      risk: 7
     },
     {
       id: 'sumco-wafer',
@@ -335,7 +374,8 @@ export const supplyChainData = {
       locations: [
         { lat: 34.3853, lng: 132.4553, name: 'SUMCO, Imari, Japan' }
       ],
-      next: ['cadence-design', 'synopsys-design']
+      next: ['cadence-design', 'synopsys-design'],
+      risk: 7
     },
     {
       id: 'globalwafers',
@@ -344,7 +384,8 @@ export const supplyChainData = {
       locations: [
         { lat: 30.2672, lng: -97.7431, name: 'GlobalWafers, Sherman, TX' }
       ],
-      next: ['cadence-design', 'mentor-design']
+      next: ['cadence-design', 'mentor-design'],
+      risk: 6
     },
     {
       id: 'siltronic-wafer',
@@ -353,14 +394,16 @@ export const supplyChainData = {
       locations: [
         { lat: 48.1351, lng: 11.5820, name: 'Siltronic, Munich, Germany' },
       ],
-      next: ['synopsys-design', 'cadence-design']
+      next: ['synopsys-design', 'cadence-design'],
+      risk: 5
     },
     {
       id: 'sk-siltron',
       name: 'SK Siltron',
       image: '⚪',
       locations: [{ lat: 37.2636, lng: 127.0286, name: 'SK Siltron, Gumi, South Korea' }],
-      next: ['cadence-design', 'synopsys-design']
+      next: ['cadence-design', 'synopsys-design'],
+      risk: 6
     }
   ],
   design: [
@@ -371,7 +414,8 @@ export const supplyChainData = {
       locations: [
         { lat: 37.3688, lng: -121.9785, name: 'Cadence, San Jose, CA' },
       ],
-      next: ['silicon-raw', 'polysilicon-raw', 'ultra-pure-silica']
+      next: ['silicon-raw', 'polysilicon-raw', 'ultra-pure-silica'],
+      risk: 4
     },
     {
       id: 'synopsys-design',
@@ -380,7 +424,8 @@ export const supplyChainData = {
       locations: [
         { lat: 37.4047, lng: -121.9467, name: 'Synopsys, Mountain View, CA' },
       ],
-      next: ['silicon-raw', 'polysilicon-raw']
+      next: ['silicon-raw', 'polysilicon-raw'],
+      risk: 4
     },
     {
       id: 'mentor-design',
@@ -389,14 +434,16 @@ export const supplyChainData = {
       locations: [
         { lat: 45.5152, lng: -122.6784, name: 'Siemens EDA, Wilsonville, OR' },
       ],
-      next: ['silicon-raw', 'ultra-pure-silica']
+      next: ['silicon-raw', 'ultra-pure-silica'],
+      risk: 4
     },
     {
       id: 'ansys-design',
       name: 'Ansys RedHawk',
       image: '🎨',
       locations: [{ lat: 40.4406, lng: -79.9959, name: 'Ansys, Canonsburg, PA' }],
-      next: ['polysilicon-raw', 'silicon-raw']
+      next: ['polysilicon-raw', 'silicon-raw'],
+      risk: 4
     }
   ],
   raw: [
@@ -407,7 +454,8 @@ export const supplyChainData = {
       locations: [
         { lat: 35.8617, lng: -78.5569, name: 'Quartz Mines, Spruce Pine, NC' },
       ],
-      next: []
+      next: [],
+      risk: 8
     },
     {
       id: 'polysilicon-raw',
@@ -416,7 +464,8 @@ export const supplyChainData = {
       locations: [
         { lat: 39.9042, lng: 116.4074, name: 'Daqo New Energy, Xinjiang, China' },
       ],
-      next: []
+      next: [],
+      risk: 9
     },
     {
       id: 'ultra-pure-silica',
@@ -425,7 +474,8 @@ export const supplyChainData = {
       locations: [
         { lat: 35.8617, lng: -78.5569, name: 'Sibelco, Spruce Pine, NC' },
       ],
-      next: []
+      next: [],
+      risk: 8
     },
     {
       id: 'rare-earth',
@@ -434,7 +484,8 @@ export const supplyChainData = {
       locations: [
         { lat: -34.6037, lng: 149.2642, name: 'Nolans Project, Northern Territory, Australia' },
       ],
-      next: []
+      next: [],
+      risk: 7
     },
     {
       id: 'copper-mining',
@@ -443,7 +494,8 @@ export const supplyChainData = {
       locations: [
         { lat: -22.9068, lng: -43.1729, name: 'Escondida, Chile' },
       ],
-      next: []
+      next: [],
+      risk: 6
     },
     {
       id: 'gold-mining',
@@ -452,7 +504,8 @@ export const supplyChainData = {
       locations: [
         { lat: -26.2041, lng: 28.0473, name: 'Witwatersrand, South Africa' },
       ],
-      next: []
+      next: [],
+      risk: 6
     }
   ]
 };

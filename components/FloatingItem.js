@@ -4,7 +4,44 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
   const randomX = 10 + (index * 15) % 80;
   const randomY = 10 + (index * 23) % 80;
   const randomDelay = index * 0.1;
-
+  
+  // Determine risk colors
+  const getRiskColors = (risk) => {
+    if (risk >= 8) {
+      return {
+        glow: 'bg-red-500/20',
+        ripple: 'border-red-400/30',
+        gradient: 'from-red-900/90 to-red-950/90',
+        border: 'border-red-700',
+        hoverShadow: 'hover:shadow-red-500/20',
+        hoverBorder: 'hover:border-red-500/50',
+        textGradient: 'group-hover:from-red-400 group-hover:to-orange-400'
+      };
+    } else if (risk >= 6) {
+      return {
+        glow: 'bg-yellow-500/20',
+        ripple: 'border-yellow-400/30',
+        gradient: 'from-yellow-900/90 to-amber-950/90',
+        border: 'border-yellow-700',
+        hoverShadow: 'hover:shadow-yellow-500/20',
+        hoverBorder: 'hover:border-yellow-500/50',
+        textGradient: 'group-hover:from-yellow-400 group-hover:to-amber-400'
+      };
+    } else {
+      return {
+        glow: 'bg-green-500/20',
+        ripple: 'border-green-400/30',
+        gradient: 'from-green-900/90 to-emerald-950/90',
+        border: 'border-green-700',
+        hoverShadow: 'hover:shadow-green-500/20',
+        hoverBorder: 'hover:border-green-500/50',
+        textGradient: 'group-hover:from-green-400 group-hover:to-emerald-400'
+      };
+    }
+  };
+  
+  const colors = getRiskColors(item.risk || 5);
+  
   return (
     <div
       onClick={() => onClick(item)}
@@ -18,26 +55,33 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
       }}
     >
       {/* Pulsing glow effect */}
-      <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500" />
+      <div className={`absolute inset-0 ${colors.glow} rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500`} />
       
       {/* Ripple effect on hover */}
-      <div className="absolute inset-0 rounded-full border-2 border-blue-400/30 opacity-0 group-hover:opacity-100 group-hover:animate-ping" />
+      <div className={`absolute inset-0 rounded-full border-2 ${colors.ripple} opacity-0 group-hover:opacity-100 group-hover:animate-ping`} />
       
       {/* Main item container */}
-      <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl p-4 border border-slate-700 shadow-xl transform transition-all duration-300 hover:scale-110 hover:shadow-2xl hover:shadow-blue-500/20 hover:border-blue-500/50 hover:-translate-y-2">
+      <div className={`relative bg-gradient-to-br ${colors.gradient} backdrop-blur-sm rounded-2xl p-4 border ${colors.border} shadow-xl transform transition-all duration-300 hover:scale-110 hover:shadow-2xl ${colors.hoverShadow} ${colors.hoverBorder} hover:-translate-y-2`}>
         {/* Item emoji with bounce animation */}
         <div className="text-4xl mb-2 transition-transform duration-300 group-hover:scale-125 group-hover:rotate-12">
           {item.image}
         </div>
         
         {/* Item name with gradient on hover */}
-        <div className="text-sm font-semibold text-center min-w-[100px] transition-all duration-300 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-cyan-400">
+        <div className={`text-sm font-semibold text-center min-w-[100px] transition-all duration-300 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r ${colors.textGradient}`}>
           {item.name}
         </div>
         
+        {/* Risk indicator badge */}
+        {item.risk && (
+          <div className={`absolute -top-2 -left-2 ${item.risk >= 8 ? 'bg-red-500' : item.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125`}>
+            {item.risk}
+          </div>
+        )}
+        
         {/* Location count badge */}
         {item.locations && item.locations.length > 1 && (
-          <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125 group-hover:rotate-12">
+          <div className={`absolute -top-2 -right-2 ${item.risk >= 8 ? 'bg-red-600' : item.risk >= 6 ? 'bg-yellow-600' : 'bg-green-600'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125 group-hover:rotate-12`}>
             {item.locations.length}
           </div>
         )}
