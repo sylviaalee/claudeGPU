@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import FloatingItem from '../components/FloatingItem';
 import SimpleGlobe from '../components/SimpleGlobe';
