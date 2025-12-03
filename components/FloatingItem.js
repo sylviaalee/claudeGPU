@@ -1,8 +1,6 @@
 import React from 'react';
 
-export default function FloatingItem({ item, index, onClick, onHover = () => {} }) {
-  const randomX = 10 + (index * 15) % 80;
-  const randomY = 10 + (index * 23) % 80;
+export default function FloatingItem({ item, index, position, onClick, onHover = () => {} }) {
   const randomDelay = index * 0.1;
 
   return (
@@ -12,8 +10,8 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
       onMouseLeave={() => onHover(null)}
       className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
       style={{
-        left: `${randomX}%`,
-        top: `${randomY}%`,
+        left: `${position.x}%`,
+        top: `${position.y}%`,
         animationDelay: `${randomDelay}s`,
       }}
     >
