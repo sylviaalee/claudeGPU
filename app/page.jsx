@@ -9,15 +9,75 @@ import SelectedItemCard from '../components/SelectedItemCard';
 import { supplyChainData } from '../data/supplyChainData';
 import { levelInfo } from '../data/levelInfo';
 
+// Function to calculate non-overlapping positions
+function calculateNonOverlappingPositions(items, containerWidth = 100, containerHeight = 100) {
+  const positions = [];
+  const itemSize = 12; // Approximate size of each item as percentage
+  const minDistance = itemSize + 8; // Minimum distance between centers
+  const maxAttempts = 100;
+  const padding = 12; // Padding from edges
+
+  for (let i = 0; i < items.length; i++) {
+    let position;
+    let attempts = 0;
+    let validPosition = false;
+
+    while (!validPosition && attempts < maxAttempts) {
+      // Generate random position in 2D space
+      position = {
+        x: padding + Math.random() * (containerWidth - 2 * padding - itemSize),
+        y: padding + Math.random() * (containerHeight - 2 * padding - itemSize),
+      };
+
+      // Check if position overlaps with existing positions using 2D distance
+      validPosition = true;
+      for (const existingPos of positions) {
+        const distance = Math.sqrt(
+          Math.pow(position.x - existingPos.x, 2) + 
+          Math.pow(position.y - existingPos.y, 2)
+        );
+        
+        if (distance < minDistance) {
+          validPosition = false;
+          break;
+        }
+      }
+      
+      attempts++;
+    }
+
+    // If we couldn't find a valid position after max attempts, use a grid fallback
+    if (!validPosition) {
+      const cols = Math.ceil(Math.sqrt(items.length));
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      position = {
+        x: padding + (col * (containerWidth - 2 * padding - itemSize) / cols),
+        y: padding + (row * (containerHeight - 2 * padding - itemSize) / cols),
+      };
+    }
+
+    positions.push(position);
+  }
+
+  return positions;
+}
+
 export default function GPUSupplyChain() {
   const [history, setHistory] = useState([{ level: 0, items: supplyChainData.gpus, selectedItem: null }]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [hoveredItem, setHoveredItem] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [itemPositions, setItemPositions] = useState([]);
 
   const currentState = history[history.length - 1];
   const currentLevelInfo = levelInfo[currentState.level];
   const canGoBack = history.length > 1;
+
+  // Recalculate positions whenever items change
+  React.useEffect(() => {
+    setItemPositions(calculateNonOverlappingPositions(currentState.items));
+  }, [currentState.items]);
 
   function handleItemClick(item) {
     setSelectedItem(item);
@@ -131,6 +191,7 @@ export default function GPUSupplyChain() {
                   key={item.id}
                   item={item}
                   index={idx}
+                  position={itemPositions[idx] || { x: 50, y: 50 }}
                   onClick={handleItemClick}
                   onHover={setHoveredItem}
                 />
