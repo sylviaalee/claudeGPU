@@ -56,29 +56,9 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       shininess: 5
     });
 
-const globe = new THREE.Mesh(globeGeometry, globeMaterial);
-scene.add(globe);
-globeRef.current = globe;
-
-    
-
-    // Add continents using simplified geometry
-    const continentsMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0x22c55e, 
-      transparent: true, 
-      opacity: 0.7 
-    });
-    
-    const continents = [
-      { lat: 45, lng: -100, width: 60, height: 40 },
-      { lat: -15, lng: -60, width: 30, height: 50 },
-      { lat: 50, lng: 15, width: 30, height: 20 },
-      { lat: 0, lng: 20, width: 40, height: 50 },
-      { lat: 45, lng: 90, width: 80, height: 50 },
-      { lat: -25, lng: 135, width: 30, height: 20 }
-    ];
-
-
+    const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+    scene.add(globe);
+    globeRef.current = globe;
 
     // Add grid lines
     const gridMaterial = new THREE.LineBasicMaterial({ 
@@ -261,7 +241,7 @@ globeRef.current = globe;
     };
   }, [onLocationClick]);
 
-  // Update markers when locations change
+  // Update markers when locations or hoverLocations change
   useEffect(() => {
     if (!globeRef.current || !sceneRef.current) return;
 
@@ -352,10 +332,20 @@ globeRef.current = globe;
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     
     locations.forEach((loc) => {
+      // Check if this location should be highlighted (yellow from hover)
+      const isHovered = hoverLocations.some(hLoc => 
+        hLoc.lat === loc.lat && hLoc.lng === loc.lng
+      );
+      
+      // Check if this location is the selected highlight (from click)
       const isHighlight = highlight && loc.lat === highlight.lat && loc.lng === highlight.lng;
-      const markerMaterial = new THREE.MeshBasicMaterial({ 
-        color: isHighlight ? 0xfbbf24 : 0x60a5fa 
-      });
+      
+      // Priority: hovered (yellow) > highlighted (amber) > default (blue)
+      let color = 0x60a5fa; // blue
+      if (isHighlight) color = 0xfbbf24; // amber
+      if (isHovered) color = 0xeab308; // yellow
+      
+      const markerMaterial = new THREE.MeshBasicMaterial({ color });
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       
       const pos = latLngToVector3(loc.lat, loc.lng);

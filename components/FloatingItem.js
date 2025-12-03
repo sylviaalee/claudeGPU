@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function FloatingItem({ item, index, onClick }) {
+export default function FloatingItem({ item, index, onClick, onHover = () => {} }) {
   const randomX = 10 + (index * 15) % 80;
   const randomY = 10 + (index * 23) % 80;
   const randomDelay = index * 0.1;
@@ -8,6 +8,8 @@ export default function FloatingItem({ item, index, onClick }) {
   return (
     <div
       onClick={() => onClick(item)}
+      onMouseEnter={() => onHover(item)}
+      onMouseLeave={() => onHover(null)}
       className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
       style={{
         left: `${randomX}%`,
@@ -16,10 +18,10 @@ export default function FloatingItem({ item, index, onClick }) {
       }}
     >
       {/* Pulsing glow effect */}
-      <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl scale-150 animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500" />
       
       {/* Ripple effect on hover */}
-      <div className="absolute inset-0 rounded-full border-2 border-blue-400/30 animate-ping opacity-0 group-hover:opacity-100" />
+      <div className="absolute inset-0 rounded-full border-2 border-blue-400/30 opacity-0 group-hover:opacity-100 group-hover:animate-ping" />
       
       {/* Main item container */}
       <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl p-4 border border-slate-700 shadow-xl transform transition-all duration-300 hover:scale-110 hover:shadow-2xl hover:shadow-blue-500/20 hover:border-blue-500/50 hover:-translate-y-2">
@@ -49,8 +51,8 @@ export default function FloatingItem({ item, index, onClick }) {
       </div>
       
       {/* Sparkle effects */}
-      <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 group-hover:animate-ping transition-opacity duration-300" />
-      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-pink-300 rounded-full opacity-0 group-hover:opacity-100 group-hover:animate-ping transition-opacity duration-300" style={{ animationDelay: '0.1s' }} />
+      <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 group-hover:animate-ping" />
+      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-pink-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 group-hover:animate-ping" style={{ animationDelay: '0.1s' }} />
     </div>
   );
 }
