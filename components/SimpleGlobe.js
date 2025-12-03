@@ -175,7 +175,21 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       }
     };
 
+    const onWheel = (e) => {
+      if (!cameraRef.current) return;
+
+      // Zoom speed
+      const zoomIntensity = 0.3;
+
+      // Move camera forward/backwards on scroll
+      cameraRef.current.position.z += e.deltaY * zoomIntensity * 0.01;
+
+      // Clamp zoom distance so you can’t go inside or too far away
+      cameraRef.current.position.z = Math.max(3, Math.min(10, cameraRef.current.position.z));
+    };
+
     renderer.domElement.style.cursor = 'grab';
+    renderer.domElement.addEventListener('wheel', onWheel);
     renderer.domElement.addEventListener('mousedown', onMouseDown);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('mouseup', onMouseUp);
