@@ -41,16 +41,25 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
 
     // Create globe
     const globeGeometry = new THREE.SphereGeometry(2, 64, 64);
+    // Load realistic Earth texture
+    const textureLoader = new THREE.TextureLoader();
+    const earthTexture = textureLoader.load(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/960px-Blue_Marble_2002.png"
+    );
+
     const globeMaterial = new THREE.MeshPhongMaterial({
-      color: 0x1e40af,
-      emissive: 0x0a1929,
-      shininess: 10,
-      transparent: true,
-      opacity: 0.9
+      map: earthTexture,
+      bumpMap: earthTexture,
+      bumpScale: 0.04,
+      specular: new THREE.Color(0x222222),
+      shininess: 5
     });
-    const globe = new THREE.Mesh(globeGeometry, globeMaterial);
-    scene.add(globe);
-    globeRef.current = globe;
+
+const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+scene.add(globe);
+globeRef.current = globe;
+
+    
 
     // Add continents using simplified geometry
     const continentsMaterial = new THREE.MeshBasicMaterial({ 
@@ -68,31 +77,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       { lat: -25, lng: 135, width: 30, height: 20 }
     ];
 
-    continents.forEach(cont => {
-      const shape = new THREE.Shape();
-      const widthRad = (cont.width * Math.PI) / 180;
-      const heightRad = (cont.height * Math.PI) / 180;
-      
-      shape.moveTo(-widthRad/2, -heightRad/2);
-      shape.lineTo(widthRad/2, -heightRad/2);
-      shape.lineTo(widthRad/2, heightRad/2);
-      shape.lineTo(-widthRad/2, heightRad/2);
-      shape.lineTo(-widthRad/2, -heightRad/2);
 
-      const geometry = new THREE.ShapeGeometry(shape);
-      const mesh = new THREE.Mesh(geometry, continentsMaterial);
-      
-      const phi = (90 - cont.lat) * Math.PI / 180;
-      const theta = (cont.lng + 180) * Math.PI / 180;
-      const radius = 2.01;
-      
-      mesh.position.x = -radius * Math.sin(phi) * Math.cos(theta);
-      mesh.position.y = radius * Math.cos(phi);
-      mesh.position.z = radius * Math.sin(phi) * Math.sin(theta);
-      
-      mesh.lookAt(0, 0, 0);
-      globe.add(mesh);
-    });
 
     // Add grid lines
     const gridMaterial = new THREE.LineBasicMaterial({ 
