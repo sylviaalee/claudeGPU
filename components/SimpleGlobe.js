@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { MapPin } from 'lucide-react';
 
-export default function SimpleGlobe({ locations = [], highlight, onLocationClick }) {
+export default function SimpleGlobe({ locations = [], highlight, onLocationClick, locationChain = [] }) {
   const containerRef = useRef(null);
   const [hoveredLocation, setHoveredLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -11,6 +11,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
   const rendererRef = useRef(null);
   const globeRef = useRef(null);
   const markersRef = useRef([]);
+  const connectionLinesRef = useRef([]);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const isDraggingRef = useRef(false);
@@ -200,6 +201,7 @@ globeRef.current = globe;
     renderer.domElement.addEventListener('mouseup', onMouseUp);
 
     // Animation loop
+    // Animation loop
     let animationId;
     const animate = () => {
       animationId = requestAnimationFrame(animate);
@@ -213,6 +215,24 @@ globeRef.current = globe;
         rotationVelocityRef.current.x *= 0.95;
         rotationVelocityRef.current.y *= 0.95;
       }
+      
+      // Animate particles along connection lines
+      connectionLinesRef.current.forEach(obj => {
+        if (obj.userData.curve) {
+          // Animate particle along curve
+          obj.userData.progress += obj.userData.speed;
+          if (obj.userData.progress > 1) obj.userData.progress = 0;
+          
+          const point = obj.userData.curve.getPoint(obj.userData.progress);
+          obj.position.copy(point);
+        } else if (obj.userData.pulseSpeed) {
+          // Animate pulsing ring
+          obj.userData.time += obj.userData.pulseSpeed;
+          const scale = obj.userData.baseScale + Math.sin(obj.userData.time) * 0.2;
+          obj.scale.set(scale, scale, 1);
+          obj.material.opacity = 0.3 + Math.sin(obj.userData.time) * 0.2;
+        }
+      });
       
       renderer.render(scene, camera);
     };
@@ -253,7 +273,82 @@ globeRef.current = globe;
     });
     markersRef.current = [];
 
-    // Add new markers
+    // Clear existing connection lines
+    connectionLinesRef.current.forEach(line => {
+      globeRef.current.remove(line);
+      line.geometry.dispose();
+      line.material.dispose();
+    });
+    connectionLinesRef.current = [];
+
+    // Helper function to convert lat/lng to 3D coordinates
+    const latLngToVector3 = (lat, lng, radius = 2.1) => {
+      const phi = (90 - lat) * Math.PI / 180;
+      const theta = (lng + 180) * Math.PI / 180;
+      
+      return new THREE.Vector3(
+        -radius * Math.sin(phi) * Math.cos(theta),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.sin(theta)
+      );
+    };
+
+    // Create connection lines between chain locations
+    if (locationChain.length > 1) {
+      for (let i = 0; i < locationChain.length - 1; i++) {
+        const fromLoc = locationChain[i].location;
+        const toLoc = locationChain[i + 1].location;
+        
+        const start = latLngToVector3(fromLoc.lat, fromLoc.lng);
+        const end = latLngToVector3(toLoc.lat, toLoc.lng);
+        
+        // Create a curved path between the two points
+        const distance = start.distanceTo(end);
+        const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+        midPoint.normalize().multiplyScalar(2.1 + distance * 0.3); // Curve height based on distance
+        
+        // Create a quadratic bezier curve
+        const curve = new THREE.QuadraticBezierCurve3(start, midPoint, end);
+        const points = curve.getPoints(50);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+        // Create animated gradient material
+        const lineMaterial = new THREE.LineBasicMaterial({ 
+          color: 0x3b82f6,
+          transparent: true,
+          opacity: 0.8,
+          linewidth: 2
+        });
+        
+        const line = new THREE.Line(geometry, lineMaterial);
+        connectionLinesRef.current.push(line);
+        globeRef.current.add(line);
+        
+        // Add animated particles along the line
+        const particleCount = 3;
+        for (let p = 0; p < particleCount; p++) {
+          const particleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+          const particleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x60a5fa,
+            transparent: true,
+            opacity: 0.9
+          });
+          const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+          
+          // Store animation data
+          particle.userData = {
+            curve: curve,
+            progress: p / particleCount,
+            speed: 0.001 + Math.random() * 0.001
+          };
+          
+          connectionLinesRef.current.push(particle);
+          globeRef.current.add(particle);
+        }
+      }
+    }
+
+    // Add markers for current level
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     
     locations.forEach((loc) => {
@@ -263,20 +358,60 @@ globeRef.current = globe;
       });
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       
-      // Convert lat/lng to 3D coordinates
-      const phi = (90 - loc.lat) * Math.PI / 180;
-      const theta = (loc.lng + 180) * Math.PI / 180;
-      const radius = 2.1;
-      
-      marker.position.x = -radius * Math.sin(phi) * Math.cos(theta);
-      marker.position.y = radius * Math.cos(phi);
-      marker.position.z = radius * Math.sin(phi) * Math.sin(theta);
+      const pos = latLngToVector3(loc.lat, loc.lng);
+      marker.position.copy(pos);
       
       marker.userData = { location: loc };
       markersRef.current.push(marker);
       globeRef.current.add(marker);
     });
-  }, [locations, highlight]);
+
+    // Add markers for chain locations (breadcrumb trail)
+    locationChain.forEach((chainItem, idx) => {
+      const loc = chainItem.location;
+      const isLastInChain = idx === locationChain.length - 1;
+      
+      // Use different colors for chain markers
+      const chainMarkerMaterial = new THREE.MeshBasicMaterial({ 
+        color: isLastInChain ? 0xfbbf24 : 0x10b981, // Gold for current, green for previous
+        transparent: true,
+        opacity: isLastInChain ? 1 : 0.7
+      });
+      
+      const chainMarker = new THREE.Mesh(
+        new THREE.SphereGeometry(isLastInChain ? 0.07 : 0.06, 16, 16), 
+        chainMarkerMaterial
+      );
+      
+      const pos = latLngToVector3(loc.lat, loc.lng);
+      chainMarker.position.copy(pos);
+      
+      // Add a pulsing ring around chain markers
+      const ringGeometry = new THREE.RingGeometry(0.08, 0.1, 32);
+      const ringMaterial = new THREE.MeshBasicMaterial({ 
+        color: isLastInChain ? 0xfbbf24 : 0x10b981,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide
+      });
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.lookAt(pos.clone().multiplyScalar(2));
+      ring.position.copy(pos);
+      
+      // Store animation data for pulsing
+      ring.userData = { 
+        baseScale: 1, 
+        pulseSpeed: 0.02,
+        time: idx * 0.5 
+      };
+      
+      chainMarker.userData = { location: loc, isChain: true, itemName: chainItem.itemName };
+      markersRef.current.push(chainMarker);
+      connectionLinesRef.current.push(ring);
+      globeRef.current.add(chainMarker);
+      globeRef.current.add(ring);
+    });
+  }, [locations, highlight, locationChain]);
 
   return (
     <div className="relative w-full h-full">

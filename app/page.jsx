@@ -72,6 +72,19 @@ export default function GPUSupplyChain() {
   const allLocations = currentState.items.flatMap(item => item.locations);
   const highlightLocation = selectedItem ? selectedItem.locations[0] : null;
 
+  // Build the chain of locations from history
+  const locationChain = [];
+  history.forEach((historyItem, idx) => {
+    if (historyItem.selectedItem && historyItem.selectedItem.locations) {
+      const primaryLocation = historyItem.selectedItem.locations[0];
+      locationChain.push({
+        location: primaryLocation,
+        level: idx,
+        itemName: historyItem.selectedItem.name
+      });
+    }
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-slate-950 to-zinc-900 text-white overflow-hidden">
       <div className="flex flex-col lg:flex-row h-screen">
@@ -115,7 +128,7 @@ export default function GPUSupplyChain() {
         <div className="w-[512px] flex-shrink-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-800 transition-all duration-500">
           <h2 className="text-xl font-semibold mb-4 transition-all duration-300">Supply Chain Map</h2>
           <div className="h-[calc(100vh-120px)] transition-all duration-500">
-            <SimpleGlobe locations={allLocations} highlight={highlightLocation} />
+            <SimpleGlobe locations={allLocations} highlight={highlightLocation} locationChain={locationChain}/>
           </div>
         </div>
       </div>
