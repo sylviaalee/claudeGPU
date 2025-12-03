@@ -179,32 +179,33 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       }
     };
 
-    const onMouseUp = () => {
-      isDraggingRef.current = false;
-      renderer.domElement.style.cursor = 'grab';
-    };
-
-    const onClick = (e) => {
-      const dragDistance = Math.sqrt(
-        Math.pow(e.clientX - previousMouseRef.current.x, 2) + 
-        Math.pow(e.clientY - previousMouseRef.current.y, 2)
-      );
-      
-      if (dragDistance > 5) {
-        return; // Was dragging, not clicking
-      }
-
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      const intersects = raycasterRef.current.intersectObjects(markersRef.current);
-      
-      if (intersects.length > 0) {
-        const clickedLocation = intersects[0].object.userData.location;
-        setSelectedLocation(clickedLocation);
-        if (onLocationClick) {
-          onLocationClick(clickedLocation);
+    const onMouseUp = (e) => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        renderer.domElement.style.cursor = 'grab';
+        
+        // Check if this was a click (minimal movement) vs a drag
+        const dragDistance = Math.sqrt(
+          Math.pow(e.clientX - previousMouseRef.current.x, 2) + 
+          Math.pow(e.clientY - previousMouseRef.current.y, 2)
+        );
+        
+        // Only handle click if there was minimal movement
+        if (dragDistance < 5) {
+          raycasterRef.current.setFromCamera(mouseRef.current, camera);
+          const intersects = raycasterRef.current.intersectObjects(markersRef.current);
+          
+          if (intersects.length > 0) {
+            const clickedLocation = intersects[0].object.userData.location;
+            setSelectedLocation(clickedLocation);
+            if (onLocationClick) {
+              onLocationClick(clickedLocation);
+            }
+          } else {
+            setSelectedLocation(null);
+          }
         }
-      } else {
-        setSelectedLocation(null);
+        // If there was significant movement, the velocity is already set and will continue spinning
       }
     };
 
@@ -212,7 +213,6 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     renderer.domElement.addEventListener('mousedown', onMouseDown);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('click', onClick);
 
     // Animation loop
     let animationId;
@@ -249,7 +249,6 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
       renderer.domElement.removeEventListener('mouseup', onMouseUp);
-      renderer.domElement.removeEventListener('click', onClick);
       if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
