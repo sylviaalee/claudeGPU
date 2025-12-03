@@ -146,7 +146,7 @@ export default function GPUSupplyChain() {
         <div className="w-[512px] flex-shrink-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-800 transition-all duration-500">
           <h2 className="text-xl font-semibold mb-4 transition-all duration-300">Supply Chain Map</h2>
           <div className="h-[calc(100vh-120px)] transition-all duration-500">
-            <SimpleGlobe locations={allLocations} highlight={highlightLocation} locationChain={locationChain}/>
+            <SimpleGlobe locations={allLocations} highlight={highlightLocation} hoverLocations = {hoverLocations} locationChain={locationChain}/>
           </div>
         </div>
       </div>

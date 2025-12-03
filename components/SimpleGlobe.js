@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { MapPin } from 'lucide-react';
 
-export default function SimpleGlobe({ locations = [], highlight, onLocationClick, locationChain = [] }) {
+export default function SimpleGlobe({ locations = [], highlight, onLocationClick, hoverLocations = [], locationChain = [] }) {
   const containerRef = useRef(null);
   const [hoveredLocation, setHoveredLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -350,11 +350,16 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       
       const pos = latLngToVector3(loc.lat, loc.lng);
       marker.position.copy(pos);
+
+      if (isHovered) {
+        marker.scale.set(1.3, 1.3, 1.3);
+      }
       
       marker.userData = { location: loc };
       markersRef.current.push(marker);
       globeRef.current.add(marker);
-    });
+    }); 
+    [locations, highlight, hoverLocations];
 
     // Add markers for chain locations (breadcrumb trail)
     locationChain.forEach((chainItem, idx) => {
