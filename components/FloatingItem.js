@@ -107,18 +107,18 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
         )}
         
         {/* Location count badge */}
-        {item.locations && item.locations.length > 1 && (
+        {/* {item.locations && item.locations.length > 1 && (
           <div className={`absolute -top-2 -right-2 ${item.risk >= 8 ? 'bg-red-600' : item.risk >= 6 ? 'bg-yellow-600' : 'bg-green-600'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125 group-hover:rotate-12`}>
             {item.locations.length}
           </div>
-        )}
+        )} */}
         
         {/* Next indicator with animated arrow */}
-        {item.next && item.next.length > 0 && (
+        {/* {item.next && item.next.length > 0 && (
           <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs rounded-full px-2 py-1 shadow-lg transform transition-all duration-300 group-hover:translate-x-1 group-hover:shadow-emerald-500/50">
             <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
           </div>
-        )}
+        )} */}
       </div>
       </div>
 
