@@ -234,7 +234,35 @@ export default function GPUSupplyChain() {
                       </div>
                     </div>
                   </div>
-
+                  {/* Risk Breakdown Section */}
+                  {selectedItem.riskScores && (
+                    <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-4">
+                      <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Breakdown</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {Object.entries(selectedItem.riskScores).map(([key, value]) => {
+                          const percentage = (value / 10) * 100;
+                          const bgColor = value >= 8 ? 'bg-red-500' : value >= 6 ? 'bg-yellow-500' : 'bg-green-500';
+                          const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                          
+                          return (
+                            <div key={key} className="bg-slate-900/50 rounded-lg p-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-slate-300">{label}</span>
+                                <span className="text-sm font-bold text-white">{value}/10</span>
+                              </div>
+                              <div className="w-full bg-slate-700 rounded-full h-2">
+                                <div 
+                                  className={`${bgColor} h-2 rounded-full transition-all duration-500`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Risk Analysis Section */}
                   <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700">
                     <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Analysis</h3>
