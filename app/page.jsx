@@ -8,6 +8,7 @@ import Breadcrumb from '../components/Breadcrumb';
 import SelectedItemCard from '../components/SelectedItemCard';
 import { supplyChainData } from '../data/supplyChainData';
 import { levelInfo } from '../data/levelInfo';
+import { X } from 'lucide-react'; // Import the X icon
 
 // NEW: Function to calculate perfectly centered grid positions
 function calculateNonOverlappingPositions(items) {
@@ -198,6 +199,15 @@ export default function GPUSupplyChain() {
 
             {selectedItem && (
               <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm z-50 p-8 overflow-y-auto animate-fade-in">
+                {/* Close Button added here */}
+                <button 
+                  onClick={() => setSelectedItem(null)}
+                  className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/80 rounded-full transition-colors z-[60]"
+                  aria-label="Close details"
+                >
+                  <X size={24} />
+                </button>
+
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-6 mb-6">
                     <FloatingItem
