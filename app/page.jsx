@@ -228,7 +228,7 @@ export default function GPUSupplyChain() {
                         </div>
                         {selectedItem.locations && (
                           <div className="px-3 py-1 rounded-full text-sm font-bold bg-slate-700 text-white">
-                            {selectedItem.locations.length} Location{selectedItem.locations.length > 1 ? 's' : ''}
+                            {selectedItem.locations.map(loc => loc.name).join(", ")}
                           </div>
                         )}
                       </div>
