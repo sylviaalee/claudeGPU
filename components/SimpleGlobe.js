@@ -12,6 +12,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const globeRef = useRef(null);
+  const starsRef = useRef(null);
   const markersRef = useRef([]);
   const connectionLinesRef = useRef([]);
   
@@ -43,9 +44,43 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    renderer.setClearColor(0x0a1929, 1);
+    renderer.setClearColor(0x000000, 1);
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // --- Create Star Field ---
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 3000;
+    const starPositions = new Float32Array(starCount * 3);
+    const starSizes = new Float32Array(starCount);
+    
+    for (let i = 0; i < starCount; i++) {
+      // Random position in a sphere around the scene
+      const radius = 50 + Math.random() * 50;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      
+      starPositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      starPositions[i * 3 + 2] = radius * Math.cos(phi);
+      
+      starSizes[i] = Math.random() * 2 + 0.5;
+    }
+    
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+    
+    const starMaterial = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.1,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+    starsRef.current = stars;
 
     // --- Create Globe ---
     const globeGeometry = new THREE.SphereGeometry(2, 64, 64);
@@ -226,6 +261,12 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
           rotationVelocityRef.current.x *= 0.95;
           rotationVelocityRef.current.y *= 0.95;
         }
+      }
+
+      // Animate stars - slow rotation for parallax effect
+      if (starsRef.current) {
+        starsRef.current.rotation.y += 0.0001;
+        starsRef.current.rotation.x += 0.00005;
       }
 
       // Handle Object Animations (Particles & Lines)

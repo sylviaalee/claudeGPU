@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
+
 export default function FloatingItem({ item, index, onClick, onHover = () => {}, position, isSelected = false, showHoverEffects = true, inPopup = false }) {
   const [showRiskPopup, setShowRiskPopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
@@ -146,6 +147,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
         </div>,
         document.body
       )} */}
+      
     </>
   );
 }
