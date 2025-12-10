@@ -123,7 +123,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
       </div>
 
       {/* Risk Analysis Popup - Rendered via Portal to top layer - Only show if not in popup and hover effects enabled */}
-      {showRiskPopup && !inPopup && showHoverEffects && item.riskAnalysis && typeof document !== 'undefined' && createPortal(
+      {/* {showRiskPopup && !inPopup && showHoverEffects && item.riskAnalysis && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed z-[99999] pointer-events-none animate-fade-in"
           style={{
@@ -145,7 +145,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
           </div>
         </div>,
         document.body
-      )}
+      )} */}
     </>
   );
 }
