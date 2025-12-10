@@ -52,7 +52,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     
     const textureLoader = new THREE.TextureLoader();
     const earthTexture = textureLoader.load(
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/960px-Blue_Marble_2002.png"
+      "https://unpkg.com/three-globe@2.24.9/example/img/earth-blue-marble.jpg"
     );
 
     const globeMaterial = new THREE.MeshPhongMaterial({
