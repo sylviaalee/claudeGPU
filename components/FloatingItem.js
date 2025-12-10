@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-export default function FloatingItem({ item, index, onClick, onHover = () => {} }) {
+export default function FloatingItem({ item, index, onClick, onHover = () => {}, position }) {
   const [showRiskPopup, setShowRiskPopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const itemRef = useRef(null);
-  const randomX = 10 + (index * 15) % 80;
-  const randomY = 10 + (index * 23) % 80;
   const randomDelay = index * 0.1;
 
   useEffect(() => {
@@ -56,6 +54,9 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
   
   const colors = getRiskColors(item.risk || 5);
   
+  // Use provided position or default
+  const itemPosition = position || { x: 50, y: 50 };
+  
   return (
     <>
       <div
@@ -65,8 +66,8 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
         onMouseLeave={() => { onHover(null); setShowRiskPopup(false); }}
         className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
         style={{
-          left: `${randomX}%`,
-          top: `${randomY}%`,
+          left: `${itemPosition.x}%`,
+          top: `${itemPosition.y}%`,
           animationDelay: `${randomDelay}s`,
         }}
       >
@@ -120,7 +121,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
             top: `${popupPosition.y}px`,
           }}
         >
-          <div className="bg-slate-900 rounded-lg border-2 border-slate-700 shadow-2xl p-4 w-80">
+          <div className="bg-slate-900/98 backdrop-blur-md rounded-lg border-2 border-slate-700 shadow-2xl p-4 w-80">
             <div className="flex items-center gap-2 mb-2">
               <div className={`px-2 py-1 rounded-full text-xs font-bold ${
                 item.risk >= 8 ? 'bg-red-500' : item.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'
