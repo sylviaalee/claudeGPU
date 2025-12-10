@@ -198,9 +198,9 @@ export default function GPUSupplyChain() {
               ))}
             </div>
 
-            <div className="transition-all duration-300 ease-out">
+            {/* <div className="transition-all duration-300 ease-out">
               <SelectedItemCard item={selectedItem} />
-            </div>
+            </div> */}
           </div>
         </div>
 
