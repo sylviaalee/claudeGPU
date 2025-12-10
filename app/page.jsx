@@ -24,7 +24,7 @@ function calculateNonOverlappingPositions(items) {
   // 2. Define the "Spread" of the grid
   // This determines how far apart items are. 
   // We use about 60-70% of the container to keep them clustered in the middle.
-  const maxGridWidth = 65; 
+  const maxGridWidth = 55; 
   const maxGridHeight = 50;
 
   // Calculate the step size (distance between item centers)
@@ -37,8 +37,8 @@ function calculateNonOverlappingPositions(items) {
   const gridTotalWidth = (cols - 1) * xStep;
   const gridTotalHeight = (rows - 1) * yStep;
   
-  const startX = 50 - (gridTotalWidth / 2);
-  const startY = 50 - (gridTotalHeight / 2);
+  const startX = 45 - (gridTotalWidth / 2);
+  const startY = 40 - (gridTotalHeight / 2);
 
   for (let i = 0; i < count; i++) {
     const row = Math.floor(i / cols);
