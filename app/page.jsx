@@ -9,55 +9,70 @@ import SelectedItemCard from '../components/SelectedItemCard';
 import { supplyChainData } from '../data/supplyChainData';
 import { levelInfo } from '../data/levelInfo';
 
-// Function to calculate non-overlapping positions
-function calculateNonOverlappingPositions(items, containerWidth = 100, containerHeight = 100) {
+// NEW: Function to calculate perfectly centered grid positions
+function calculateNonOverlappingPositions(items) {
   const positions = [];
-  const itemSize = 12; // Approximate size of each item as percentage
-  const minDistance = itemSize + 8; // Minimum distance between centers
-  const maxAttempts = 300;
-  const padding = 10; // Padding from edges
+  const count = items.length;
+  
+  if (count === 0) return [];
 
-  for (let i = 0; i < items.length; i++) {
-    let position;
-    let attempts = 0;
-    let validPosition = false;
+  // 1. Grid Configuration
+  // We prefer a wider layout (more columns) to fit the screen better
+  const cols = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / cols);
 
-    while (!validPosition && attempts < maxAttempts) {
-      // Generate random position in 2D space
-      position = {
-        x: padding + Math.random() * (containerWidth - 2 * padding - itemSize),
-        y: padding + Math.random() * (containerHeight - 2 * padding - itemSize),
-      };
+  // 2. Define the "Spread" of the grid
+  // This determines how far apart items are. 
+  // We use about 60-70% of the container to keep them clustered in the middle.
+  const maxGridWidth = 65; 
+  const maxGridHeight = 50;
 
-      // Check if position overlaps with existing positions using 2D distance
-      validPosition = true;
-      for (const existingPos of positions) {
-        const distance = Math.sqrt(
-          Math.pow(position.x - existingPos.x, 2) + 
-          Math.pow(position.y - existingPos.y, 2)
-        );
-        
-        if (distance < minDistance) {
-          validPosition = false;
-          break;
-        }
-      }
-      
-      attempts++;
+  // Calculate the step size (distance between item centers)
+  // If there is only 1 col/row, step is 0 (item stays in center)
+  const xStep = cols > 1 ? maxGridWidth / (cols - 1) : 0;
+  const yStep = rows > 1 ? maxGridHeight / (rows - 1) : 0;
+
+  // 3. Calculate the Top-Left starting point for the *entire grid*
+  // This ensures the bounding box of the grid is centered at 50,50
+  const gridTotalWidth = (cols - 1) * xStep;
+  const gridTotalHeight = (rows - 1) * yStep;
+  
+  const startX = 50 - (gridTotalWidth / 2);
+  const startY = 50 - (gridTotalHeight / 2);
+
+  for (let i = 0; i < count; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+
+    // Determine if this is the last row and if it is incomplete
+    const isLastRow = row === rows - 1;
+    const itemsInLastRow = count % cols === 0 ? cols : count % cols;
+    
+    let x;
+
+    if (isLastRow && itemsInLastRow < cols) {
+      // SPECIAL LOGIC: Center the last row independently
+      // Calculate width of just this row
+      const lastRowWidth = (itemsInLastRow - 1) * xStep;
+      // Calculate start point for just this row
+      const lastRowStartX = 50 - (lastRowWidth / 2);
+      x = lastRowStartX + (col * xStep);
+    } else {
+      // Standard grid positioning
+      x = startX + (col * xStep);
     }
 
-    // If we couldn't find a valid position after max attempts, use a grid fallback
-    if (!validPosition) {
-      const cols = Math.ceil(Math.sqrt(items.length));
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      position = {
-        x: padding + (col * (containerWidth - 2 * padding - itemSize) / cols),
-        y: padding + (row * (containerHeight - 2 * padding - itemSize) / cols),
-      };
-    }
+    const y = startY + (row * yStep);
 
-    positions.push(position);
+    // 4. Add Organic Jitter
+    // Small random offset so it doesn't look like a robot placed them
+    const jitterX = (Math.random() - 0.5) * 4; 
+    const jitterY = (Math.random() - 0.5) * 4;
+
+    positions.push({
+      x: x + jitterX,
+      y: y + jitterY
+    });
   }
 
   return positions;
