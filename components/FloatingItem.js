@@ -114,11 +114,11 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
         )} */}
         
         {/* Next indicator with animated arrow */}
-        {item.next && item.next.length > 0 && (
+        {/* {item.next && item.next.length > 0 && (
           <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs rounded-full px-2 py-1 shadow-lg transform transition-all duration-300 group-hover:translate-x-1 group-hover:shadow-emerald-500/50">
             <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
           </div>
-        )}
+        )} */}
       </div>
       </div>
 
