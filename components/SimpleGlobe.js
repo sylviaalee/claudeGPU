@@ -6,6 +6,8 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
   const containerRef = useRef(null);
   const [hoveredLocation, setHoveredLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
@@ -17,11 +19,12 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
   const isDraggingRef = useRef(false);
   const previousMouseRef = useRef({ x: 0, y: 0 });
   const rotationVelocityRef = useRef({ x: 0, y: 0.005 });
-  const targetRotationRef = useRef(null);
-  const isAutoRotatingRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    let animationId;
+    let mounted = true;
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -42,51 +45,88 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Create globe
+    // Create globe with fallback material
     const globeGeometry = new THREE.SphereGeometry(2, 64, 64);
     
-    // Load realistic Earth texture
-    const textureLoader = new THREE.TextureLoader();
-    const earthTexture = textureLoader.load(
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/960px-Blue_Marble_2002.png"
-    );
-
-    const globeMaterial = new THREE.MeshPhongMaterial({
-      map: earthTexture,
-      bumpMap: earthTexture,
-      bumpScale: 0.04,
-      specular: new THREE.Color(0x222222),
-      shininess: 5
+    // Start with a basic material
+    const basicMaterial = new THREE.MeshPhongMaterial({
+      color: 0x2563eb,
+      emissive: 0x112244,
+      specular: 0x222222,
+      shininess: 5,
+      wireframe: false
     });
 
-    const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+    const globe = new THREE.Mesh(globeGeometry, basicMaterial);
     scene.add(globe);
     globeRef.current = globe;
+
+    // Try to load realistic Earth texture
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.crossOrigin = 'anonymous';
+    
+    textureLoader.load(
+      'https://unpkg.com/three-globe@2.24.9/example/img/earth-blue-marble.jpg',
+      (texture) => {
+        if (mounted && globeRef.current) {
+          const earthMaterial = new THREE.MeshPhongMaterial({
+            map: texture,
+            bumpMap: texture,
+            bumpScale: 0.02,
+            specular: new THREE.Color(0x333333),
+            shininess: 5
+          });
+          globeRef.current.material = earthMaterial;
+          setIsLoading(false);
+        }
+      },
+      undefined,
+      (err) => {
+        console.warn('Failed to load Earth texture, using basic material:', err);
+        setIsLoading(false);
+        // Keep using the basic material
+      }
+    );
 
     // Add grid lines
     const gridMaterial = new THREE.LineBasicMaterial({ 
       color: 0x3b82f6, 
       transparent: true, 
-      opacity: 0.3 
+      opacity: 0.2 
     });
 
+    // Latitude lines
     for (let lat = -80; lat <= 80; lat += 20) {
-      const curve = new THREE.EllipseCurve(0, 0, 2, 2, 0, 2 * Math.PI, false, 0);
-      const points = curve.getPoints(50);
+      const points = [];
+      for (let i = 0; i <= 50; i++) {
+        const angle = (i / 50) * Math.PI * 2;
+        const radius = Math.cos(lat * Math.PI / 180) * 2;
+        points.push(new THREE.Vector3(
+          radius * Math.cos(angle),
+          2 * Math.sin(lat * Math.PI / 180),
+          radius * Math.sin(angle)
+        ));
+      }
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
       const line = new THREE.Line(geometry, gridMaterial);
-      line.rotation.x = Math.PI / 2;
-      line.position.y = 2 * Math.sin(lat * Math.PI / 180);
-      line.scale.set(Math.cos(lat * Math.PI / 180), Math.cos(lat * Math.PI / 180), 1);
       globe.add(line);
     }
 
+    // Longitude lines
     for (let lng = 0; lng < 360; lng += 20) {
-      const curve = new THREE.EllipseCurve(0, 0, 2, 2, 0, 2 * Math.PI, false, 0);
-      const points = curve.getPoints(50);
+      const points = [];
+      for (let i = 0; i <= 50; i++) {
+        const lat = -90 + (i / 50) * 180;
+        const phi = (90 - lat) * Math.PI / 180;
+        const theta = (lng + 180) * Math.PI / 180;
+        points.push(new THREE.Vector3(
+          -2 * Math.sin(phi) * Math.cos(theta),
+          2 * Math.cos(phi),
+          2 * Math.sin(phi) * Math.sin(theta)
+        ));
+      }
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
       const line = new THREE.Line(geometry, gridMaterial);
-      line.rotation.y = lng * Math.PI / 180;
       globe.add(line);
     }
 
@@ -101,8 +141,6 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     // Mouse event handlers
     const onMouseDown = (e) => {
       isDraggingRef.current = true;
-      isAutoRotatingRef.current = false; // Stop auto-rotation when user interacts
-      targetRotationRef.current = null;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
       renderer.domElement.style.cursor = 'grabbing';
     };
@@ -116,22 +154,17 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
         const deltaX = e.clientX - previousMouseRef.current.x;
         const deltaY = e.clientY - previousMouseRef.current.y;
 
-        // Apply rotation directly to the globe
         if (globeRef.current) {
           globeRef.current.rotation.y += deltaX * 0.005;
           globeRef.current.rotation.x += deltaY * 0.005;
-
-          // Clamp X rotation to prevent flipping
           globeRef.current.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, globeRef.current.rotation.x));
         }
 
-        // Update velocity for momentum
         rotationVelocityRef.current.x = deltaY * 0.001;
         rotationVelocityRef.current.y = deltaX * 0.001;
 
         previousMouseRef.current = { x: e.clientX, y: e.clientY };
       } else {
-        // Raycast for hover effects
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
         const intersects = raycasterRef.current.intersectObjects(markersRef.current);
 
@@ -139,8 +172,6 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
           const hoveredMarker = intersects[0].object;
           setHoveredLocation(hoveredMarker.userData.location);
           renderer.domElement.style.cursor = 'pointer';
-
-          // Scale up hovered marker
           markersRef.current.forEach(m => m.scale.set(1, 1, 1));
           hoveredMarker.scale.set(1.5, 1.5, 1.5);
         } else {
@@ -156,13 +187,11 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
         isDraggingRef.current = false;
         renderer.domElement.style.cursor = 'grab';
 
-        // Check if this was a click (minimal movement) vs a drag
         const dragDistance = Math.sqrt(
           Math.pow(e.clientX - previousMouseRef.current.x, 2) + 
           Math.pow(e.clientY - previousMouseRef.current.y, 2)
         );
 
-        // Only handle click if there was minimal movement
         if (dragDistance < 5) {
           raycasterRef.current.setFromCamera(mouseRef.current, camera);
           const intersects = raycasterRef.current.intersectObjects(markersRef.current);
@@ -181,80 +210,39 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     };
 
     const onWheel = (e) => {
+      e.preventDefault();
       if (!cameraRef.current) return;
 
-      // Zoom speed
       const zoomIntensity = 0.3;
-
-      // Move camera forward/backwards on scroll
       cameraRef.current.position.z += e.deltaY * zoomIntensity * 0.01;
-
-      // Clamp zoom distance so you can't go inside or too far away
       cameraRef.current.position.z = Math.max(3, Math.min(10, cameraRef.current.position.z));
     };
 
     renderer.domElement.style.cursor = 'grab';
-    renderer.domElement.addEventListener('wheel', onWheel);
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
     renderer.domElement.addEventListener('mousedown', onMouseDown);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('mouseup', onMouseUp);
 
     // Animation loop
-    let animationId;
     const animate = () => {
+      if (!mounted) return;
       animationId = requestAnimationFrame(animate);
 
-      if (globeRef.current) {
-        // Handle auto-rotation to target
-        if (isAutoRotatingRef.current && targetRotationRef.current) {
-          const current = {
-            x: globeRef.current.rotation.x,
-            y: globeRef.current.rotation.y
-          };
-          const target = targetRotationRef.current;
-          
-          // Calculate shortest path for Y rotation (longitude)
-          let deltaY = target.y - current.y;
-          // Normalize to -PI to PI range
-          while (deltaY > Math.PI) deltaY -= 2 * Math.PI;
-          while (deltaY < -Math.PI) deltaY += 2 * Math.PI;
-          
-          const deltaX = target.x - current.x;
-          
-          // Smooth interpolation
-          const rotationSpeed = 0.05;
-          globeRef.current.rotation.y += deltaY * rotationSpeed;
-          globeRef.current.rotation.x += deltaX * rotationSpeed;
-          
-          // Check if we're close enough to stop
-          if (Math.abs(deltaX) < 0.01 && Math.abs(deltaY) < 0.01) {
-            isAutoRotatingRef.current = false;
-            targetRotationRef.current = null;
-            // Resume gentle auto-rotation
-            rotationVelocityRef.current.y = 0.002;
-          }
-        } else if (!isDraggingRef.current) {
-          // Apply momentum rotation
-          globeRef.current.rotation.y += rotationVelocityRef.current.y;
-          globeRef.current.rotation.x += rotationVelocityRef.current.x;
-
-          // Apply friction
-          rotationVelocityRef.current.x *= 0.95;
-          rotationVelocityRef.current.y *= 0.95;
-        }
+      if (!isDraggingRef.current && globeRef.current) {
+        globeRef.current.rotation.y += rotationVelocityRef.current.y;
+        globeRef.current.rotation.x += rotationVelocityRef.current.x;
+        rotationVelocityRef.current.x *= 0.95;
+        rotationVelocityRef.current.y *= 0.95;
       }
 
-      // Animate particles along connection lines
       connectionLinesRef.current.forEach(obj => {
         if (obj.userData.curve) {
-          // Animate particle along curve
           obj.userData.progress += obj.userData.speed;
           if (obj.userData.progress > 1) obj.userData.progress = 0;
-
           const point = obj.userData.curve.getPoint(obj.userData.progress);
           obj.position.copy(point);
         } else if (obj.userData.pulseSpeed) {
-          // Animate pulsing ring
           obj.userData.time += obj.userData.pulseSpeed;
           const scale = obj.userData.baseScale + Math.sin(obj.userData.time) * 0.2;
           obj.scale.set(scale, scale, 1);
@@ -268,7 +256,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
 
     // Handle resize
     const handleResize = () => {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !mounted) return;
       camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
@@ -278,8 +266,10 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
 
     // Cleanup
     return () => {
+      mounted = false;
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
+      renderer.domElement.removeEventListener('wheel', onWheel);
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
       renderer.domElement.removeEventListener('mouseup', onMouseUp);
@@ -290,48 +280,23 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     };
   }, [onLocationClick]);
 
-  // Auto-rotate to highlighted location
-  // Auto-rotate to highlighted location
-  useEffect(() => {
-    if (!highlight || !globeRef.current) return;
-
-    // Convert lat/lng to rotation angles
-    
-    // 1. Latitude (X-axis Rotation)
-    // We remove the 0.5 scaling so it rotates fully to the location.
-    // We make it positive to tilt the location towards the camera.
-    const targetX = (highlight.lat * Math.PI / 180);
-
-    // 2. Longitude (Y-axis Rotation)
-    // We offset by -PI/2 (90 degrees) because your vector math places 
-    // (0,0) on the right side (X-axis), but the camera looks down the Z-axis.
-    const targetY = -(highlight.lng * Math.PI / 180) - (Math.PI / 2);
-
-    // Set target rotation and enable auto-rotation
-    targetRotationRef.current = { x: targetX, y: targetY };
-    isAutoRotatingRef.current = true;
-    
-    // Stop any existing momentum
-    rotationVelocityRef.current = { x: 0, y: 0 };
-  }, [highlight]);
-
-  // Update markers when locations or hoverLocations change
+  // Update markers when locations change
   useEffect(() => {
     if (!globeRef.current || !sceneRef.current) return;
 
     // Clear existing markers
     markersRef.current.forEach(marker => {
       globeRef.current.remove(marker);
-      marker.geometry.dispose();
-      marker.material.dispose();
+      if (marker.geometry) marker.geometry.dispose();
+      if (marker.material) marker.material.dispose();
     });
     markersRef.current = [];
 
     // Clear existing connection lines
     connectionLinesRef.current.forEach(line => {
       globeRef.current.remove(line);
-      line.geometry.dispose();
-      line.material.dispose();
+      if (line.geometry) line.geometry.dispose();
+      if (line.material) line.material.dispose();
     });
     connectionLinesRef.current = [];
 
@@ -356,29 +321,25 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
         const start = latLngToVector3(fromLoc.lat, fromLoc.lng);
         const end = latLngToVector3(toLoc.lat, toLoc.lng);
 
-        // Create a curved path between the two points (reversed direction)
         const distance = start.distanceTo(end);
         const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-        midPoint.normalize().multiplyScalar(2.1 + distance * 0.3); // Curve height based on distance
+        midPoint.normalize().multiplyScalar(2.1 + distance * 0.3);
 
-        // Create a quadratic bezier curve (reversed: end to start)
         const curve = new THREE.QuadraticBezierCurve3(end, midPoint, start);
         const points = curve.getPoints(50);
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
 
-        // Create animated gradient material
         const lineMaterial = new THREE.LineBasicMaterial({ 
           color: 0x3b82f6,
           transparent: true,
-          opacity: 0.8,
-          linewidth: 2
+          opacity: 0.8
         });
 
         const line = new THREE.Line(geometry, lineMaterial);
         connectionLinesRef.current.push(line);
         globeRef.current.add(line);
 
-        // Add animated particles along the line
+        // Add animated particles
         const particleCount = 3;
         for (let p = 0; p < particleCount; p++) {
           const particleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
@@ -389,7 +350,6 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
           });
           const particle = new THREE.Mesh(particleGeometry, particleMaterial);
 
-          // Store animation data
           particle.userData = {
             curve: curve,
             progress: p / particleCount,
@@ -406,18 +366,15 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     
     locations.forEach((loc) => {
-      // Check if this location should be highlighted (yellow from hover)
       const isHovered = hoverLocations.some(hLoc => 
         hLoc.lat === loc.lat && hLoc.lng === loc.lng
       );
 
-      // Check if this location is the selected highlight (from click)
       const isHighlight = highlight && loc.lat === highlight.lat && loc.lng === highlight.lng;
 
-      // Priority: hovered (yellow) > highlighted (amber) > default (blue)
-      let color = 0x60a5fa; // blue
-      if (isHighlight) color = 0xfbbf24; // amber
-      if (isHovered) color = 0xeab308; // yellow
+      let color = 0x60a5fa;
+      if (isHighlight) color = 0xfbbf24;
+      if (isHovered) color = 0xeab308;
 
       const markerMaterial = new THREE.MeshBasicMaterial({ color });
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
@@ -434,14 +391,13 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       globeRef.current.add(marker);
     });
 
-    // Add markers for chain locations (breadcrumb trail)
+    // Add markers for chain locations
     locationChain.forEach((chainItem, idx) => {
       const loc = chainItem.location;
       const isLastInChain = idx === locationChain.length - 1;
 
-      // Use different colors for chain markers
       const chainMarkerMaterial = new THREE.MeshBasicMaterial({ 
-        color: isLastInChain ? 0xfbbf24 : 0x10b981, // Gold for current, green for previous
+        color: isLastInChain ? 0xfbbf24 : 0x10b981,
         transparent: true,
         opacity: isLastInChain ? 1 : 0.7
       });
@@ -454,7 +410,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       const pos = latLngToVector3(loc.lat, loc.lng);
       chainMarker.position.copy(pos);
 
-      // Add a pulsing ring around chain markers
+      // Add pulsing ring
       const ringGeometry = new THREE.RingGeometry(0.08, 0.1, 32);
       const ringMaterial = new THREE.MeshBasicMaterial({ 
         color: isLastInChain ? 0xfbbf24 : 0x10b981,
@@ -466,7 +422,6 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       ring.lookAt(pos.clone().multiplyScalar(2));
       ring.position.copy(pos);
 
-      // Store animation data for pulsing
       ring.userData = { 
         baseScale: 1, 
         pulseSpeed: 0.02,
@@ -482,21 +437,21 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
   }, [locations, highlight, hoverLocations, locationChain]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full bg-slate-950 rounded-lg overflow-hidden">
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* Location info tooltip */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80">
+          <div className="text-blue-400">Loading globe...</div>
+        </div>
+      )}
+
       {(hoveredLocation || selectedLocation) && (
         <div className="absolute top-4 left-4 bg-black/90 text-white px-4 py-3 rounded-lg shadow-xl max-w-xs z-10">
           <h3 className="font-bold text-lg mb-1">{(selectedLocation || hoveredLocation).name}</h3>
           <div className="text-sm text-gray-300 space-y-1">
             <div>Lat: {(selectedLocation || hoveredLocation).lat.toFixed(4)}°</div>
             <div>Lng: {(selectedLocation || hoveredLocation).lng.toFixed(4)}°</div>
-            {(selectedLocation || hoveredLocation).description && (
-              <div className="mt-2 pt-2 border-t border-gray-700">
-                {(selectedLocation || hoveredLocation).description}
-              </div>
-            )}
           </div>
           {selectedLocation && (
             <div className="mt-2 text-xs text-blue-400">Click anywhere to deselect</div>
@@ -504,15 +459,13 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
         </div>
       )}
 
-      {/* Location counter */}
       <div className="absolute bottom-4 left-4 text-xs text-blue-300 bg-black/50 px-2 py-1 rounded z-10">
         <MapPin className="inline w-3 h-3 mr-1" />
         {locations.length} location{locations.length !== 1 ? 's' : ''}
       </div>
 
-      {/* Controls hint */}
       <div className="absolute bottom-4 right-4 text-xs text-gray-400 bg-black/50 px-2 py-1 rounded z-10">
-        Drag to rotate • Click markers for info
+        Drag to rotate • Scroll to zoom
       </div>
     </div>
   );
