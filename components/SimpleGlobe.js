@@ -105,7 +105,11 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     // --- Event Handlers ---
     const onMouseDown = (e) => {
       isDraggingRef.current = true;
+<<<<<<< HEAD
       isAutoRotatingRef.current = false;
+=======
+      isAutoRotatingRef.current = false; // Stop auto-rotation when user interacts
+>>>>>>> 3cd5a05abfa2f37b0948f913cd226b78a14e501b
       targetRotationRef.current = null;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
       renderer.domElement.style.cursor = 'grabbing';
@@ -194,7 +198,11 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
       animationId = requestAnimationFrame(animate);
 
       if (globeRef.current) {
+<<<<<<< HEAD
         // Handle Auto-Rotation
+=======
+        // Handle auto-rotation to target
+>>>>>>> 3cd5a05abfa2f37b0948f913cd226b78a14e501b
         if (isAutoRotatingRef.current && targetRotationRef.current) {
           const current = {
             x: globeRef.current.rotation.x,
@@ -202,17 +210,28 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
           };
           const target = targetRotationRef.current;
           
+<<<<<<< HEAD
           let deltaY = target.y - current.y;
           // Normalize angle
+=======
+          // Calculate shortest path for Y rotation (longitude)
+          let deltaY = target.y - current.y;
+          // Normalize to -PI to PI range
+>>>>>>> 3cd5a05abfa2f37b0948f913cd226b78a14e501b
           while (deltaY > Math.PI) deltaY -= 2 * Math.PI;
           while (deltaY < -Math.PI) deltaY += 2 * Math.PI;
           
           const deltaX = target.x - current.x;
           
+<<<<<<< HEAD
+=======
+          // Smooth interpolation
+>>>>>>> 3cd5a05abfa2f37b0948f913cd226b78a14e501b
           const rotationSpeed = 0.05;
           globeRef.current.rotation.y += deltaY * rotationSpeed;
           globeRef.current.rotation.x += deltaX * rotationSpeed;
           
+<<<<<<< HEAD
           if (Math.abs(deltaX) < 0.01 && Math.abs(deltaY) < 0.01) {
             isAutoRotatingRef.current = false;
             targetRotationRef.current = null;
@@ -223,6 +242,19 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
           globeRef.current.rotation.y += rotationVelocityRef.current.y;
           globeRef.current.rotation.x += rotationVelocityRef.current.x;
 
+=======
+          // Check if we're close enough to stop
+          if (Math.abs(deltaX) < 0.01 && Math.abs(deltaY) < 0.01) {
+            isAutoRotatingRef.current = false;
+            targetRotationRef.current = null;
+            // Resume gentle auto-rotation
+            rotationVelocityRef.current.y = 0.002;
+          }
+        } else if (!isDraggingRef.current) {
+          // Apply momentum rotation
+          globeRef.current.rotation.y += rotationVelocityRef.current.y;
+          globeRef.current.rotation.x += rotationVelocityRef.current.x;
+>>>>>>> 3cd5a05abfa2f37b0948f913cd226b78a14e501b
           rotationVelocityRef.current.x *= 0.95;
           rotationVelocityRef.current.y *= 0.95;
         }
@@ -279,6 +311,7 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
     };
   }, [onLocationClick]); // End of main useEffect
 
+<<<<<<< HEAD
   // --- Effect: Handle Highlight Rotation ---
   useEffect(() => {
     if (!highlight || !globeRef.current) return;
@@ -293,6 +326,28 @@ export default function SimpleGlobe({ locations = [], highlight, onLocationClick
   }, [highlight]);
 
   // --- Effect: Update Markers & Lines ---
+=======
+  // Auto-rotate to highlighted location
+  useEffect(() => {
+    if (!highlight || !globeRef.current) return;
+
+    // Convert lat/lng to rotation angles
+    // Latitude (X-axis Rotation) - positive to tilt location towards camera
+    const targetX = (highlight.lat * Math.PI / 180);
+
+    // Longitude (Y-axis Rotation) - offset by -PI/2 (90 degrees)
+    const targetY = -(highlight.lng * Math.PI / 180) - (Math.PI / 2);
+
+    // Set target rotation and enable auto-rotation
+    targetRotationRef.current = { x: targetX, y: targetY };
+    isAutoRotatingRef.current = true;
+    
+    // Stop any existing momentum
+    rotationVelocityRef.current = { x: 0, y: 0 };
+  }, [highlight]);
+
+  // Update markers when locations change
+>>>>>>> 3cd5a05abfa2f37b0948f913cd226b78a14e501b
   useEffect(() => {
     if (!globeRef.current || !sceneRef.current) return;
 
