@@ -1,13 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-export default function FloatingItem({ item, index, onClick, onHover = () => {} }) {
+export default function FloatingItem({ item, index, onClick, onHover = () => {}, allPositions = [], onPositionCalculated }) {
   const [showRiskPopup, setShowRiskPopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState(null);
   const itemRef = useRef(null);
-  const randomX = 10 + (index * 15) % 80;
-  const randomY = 10 + (index * 23) % 80;
   const randomDelay = index * 0.1;
+
+  // Calculate non-overlapping position
+  useEffect(() => {
+    // Item dimensions in percentage of container
+    const itemWidthPercent = 12; // ~140px on most screens
+    const itemHeightPercent = 15; // ~120px on most screens
+    const paddingPercent = 10; // Extra spacing
+    
+    const checkOverlap = (x, y) => {
+      return allPositions.some(pos => {
+        // Calculate if rectangles overlap
+        const xOverlap = Math.abs(pos.x - x) < (itemWidthPercent + paddingPercent);
+        const yOverlap = Math.abs(pos.y - y) < (itemHeightPercent + paddingPercent);
+        return xOverlap && yOverlap;
+      });
+    };
+    
+    let attempts = 0;
+    let newX, newY;
+    const maxX = 85 - itemWidthPercent; // Leave room for item width
+    const maxY = 80 - itemHeightPercent; // Leave room for item height
+    
+    // Try to find a non-overlapping position
+    do {
+      newX = 5 + Math.random() * maxX;
+      newY = 5 + Math.random() * maxY;
+      attempts++;
+    } while (checkOverlap(newX, newY) && attempts < 100);
+    
+    setPosition({ x: newX, y: newY });
+    if (onPositionCalculated) {
+      onPositionCalculated({ x: newX, y: newY });
+    }
+  }, []);
 
   useEffect(() => {
     if (showRiskPopup && itemRef.current) {
@@ -56,6 +89,9 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
   
   const colors = getRiskColors(item.risk || 5);
   
+  // Don't render until position is calculated
+  if (!position) return null;
+  
   return (
     <>
       <div
@@ -65,8 +101,8 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
         onMouseLeave={() => { onHover(null); setShowRiskPopup(false); }}
         className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
         style={{
-          left: `${randomX}%`,
-          top: `${randomY}%`,
+          left: `${position.x}%`,
+          top: `${position.y}%`,
           animationDelay: `${randomDelay}s`,
         }}
       >
