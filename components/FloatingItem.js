@@ -156,7 +156,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
             top: `${popupPosition.y}px`,
           }}
         >
-          <div className="bg-slate-900/98 backdrop-blur-md rounded-lg border-2 border-slate-700 shadow-2xl p-4 w-80">
+          <div className="bg-slate-900 rounded-lg border-2 border-slate-700 shadow-2xl p-4 w-80">
             <div className="flex items-center gap-2 mb-2">
               <div className={`px-2 py-1 rounded-full text-xs font-bold ${
                 item.risk >= 8 ? 'bg-red-500' : item.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'
