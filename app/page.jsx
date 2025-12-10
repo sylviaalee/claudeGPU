@@ -234,8 +234,9 @@ export default function GPUSupplyChain() {
                       </div>
                     </div>
                   </div>
-                  {/* Risk Analysis Section */}
-                  <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+
+                  {/* Risk Analysis Section - Added mb-6 here */}
+                  <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
                     <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Analysis</h3>
                     <div className="text-slate-300 leading-relaxed whitespace-pre-line">
                       {selectedItem.riskAnalysis || 'No detailed risk analysis available for this item.'}
@@ -281,9 +282,10 @@ export default function GPUSupplyChain() {
                     </div>
                   )}
 
-                  {/* Close instruction */}
-                  <div className="mt-4 text-center text-slate-400 text-sm">
-                    Click the item card again to close
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-slate-400 text-sm">
+                      Click the item card again to close
+                    </div>
                   </div>
                 </div>
               </div>
