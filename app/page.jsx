@@ -14,8 +14,8 @@ function calculateNonOverlappingPositions(items, containerWidth = 100, container
   const positions = [];
   const itemSize = 12; // Approximate size of each item as percentage
   const minDistance = itemSize + 8; // Minimum distance between centers
-  const maxAttempts = 100;
-  const padding = 12; // Padding from edges
+  const maxAttempts = 300;
+  const padding = 10; // Padding from edges
 
   for (let i = 0; i < items.length; i++) {
     let position;
