@@ -35,20 +35,25 @@ export const supplyChainData = {
       image: '🎮',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
       next: ['tsmc', 'samsung'],
+      shipping: {
+        time: '2-4 Days',
+        cost: '$150/unit',
+        method: 'Secure Air Freight'
+      },
       riskScores: {
-        financial: 2, // NVIDIA strong financials, $1T+ market cap
-        reliability: 9, // Single packaging source bottleneck (TSMC CoWoS)
-        esg: 3, // Strong ESG reporting, supply chain transparency
-        cyber: 4, // IP theft risk, export control compliance
-        geopolitical: 7, // Taiwan dependency, US-China tensions
-        trade: 8, // Export restrictions to China, CHIPS Act benefits
-        weather: 4, // California earthquake, Taiwan typhoon exposure
-        criticality: 10, // Highest demand AI accelerator globally
-        substitutability: 9, // No equivalent alternatives exist
-        obsolescence: 2, // Cutting-edge, not facing obsolescence
-        logistics: 6, // Complex global distribution, air freight priority
-        concentration: 9, // TSMC CoWoS monopoly for packaging
-        bom: 8 // High downstream dependency
+        financial: 2,
+        reliability: 9,
+        esg: 3,
+        cyber: 4,
+        geopolitical: 7,
+        trade: 8,
+        weather: 4,
+        criticality: 10,
+        substitutability: 9,
+        obsolescence: 2,
+        logistics: 6,
+        concentration: 9,
+        bom: 8
       },
       risk: 7.4,
       riskAnalysis: 'Critical dependency on TSMC 4N process node with CoWoS-S advanced packaging. Supply constrained by packaging capacity bottlenecks rather than wafer production. Cross-strait tensions create material geopolitical exposure. Samsung serves as secondary source but lacks equivalent packaging maturity. Lead times exceed 6-9 months with allocation-based supply management.'
@@ -59,19 +64,24 @@ export const supplyChainData = {
       image: '🎮',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
       next: ['tsmc'],
+      shipping: {
+        time: '2-3 Days',
+        cost: '$220/unit',
+        method: 'Priority Secure Air'
+      },
       riskScores: {
         financial: 2,
-        reliability: 10, // Absolute single source (TSMC CoWoS-L)
+        reliability: 10,
         esg: 3,
         cyber: 4,
-        geopolitical: 8, // Taiwan single source
+        geopolitical: 8,
         trade: 8,
         weather: 4,
-        criticality: 10, // Most advanced AI chip
-        substitutability: 10, // Zero alternatives
-        obsolescence: 1, // Newest technology
-        logistics: 7, // Extremely constrained allocation
-        concentration: 10, // Single source packaging
+        criticality: 10,
+        substitutability: 10,
+        obsolescence: 1,
+        logistics: 7,
+        concentration: 10,
         bom: 9
       },
       risk: 8.2,
@@ -83,19 +93,24 @@ export const supplyChainData = {
       image: '💻',
       locations: [{ lat: 37.3894, lng: -121.9700, name: 'AMD HQ, Santa Clara, CA' }],
       next: ['tsmc', 'globalfoundries'],
+      shipping: {
+        time: '3-5 Days',
+        cost: '$130/unit',
+        method: 'Standard Air Freight'
+      },
       riskScores: {
-        financial: 3, // Strong but less than NVIDIA
-        reliability: 7, // Dual source but TSMC primary
+        financial: 3,
+        reliability: 7,
         esg: 4,
         cyber: 4,
-        geopolitical: 6, // Taiwan primary, US backup
+        geopolitical: 6,
         trade: 7,
         weather: 4,
-        criticality: 8, // Strong H100 competitor
-        substitutability: 7, // Limited alternatives
+        criticality: 8,
+        substitutability: 7,
         obsolescence: 2,
         logistics: 5,
-        concentration: 7, // TSMC dominant
+        concentration: 7,
         bom: 7
       },
       risk: 6.4,
@@ -107,19 +122,24 @@ export const supplyChainData = {
       image: '💻',
       locations: [{ lat: 37.3894, lng: -121.9700, name: 'AMD HQ, Santa Clara, CA' }],
       next: ['tsmc', 'samsung'],
+      shipping: {
+        time: '3-5 Days',
+        cost: '$110/unit',
+        method: 'Standard Air Freight'
+      },
       riskScores: {
         financial: 3,
-        reliability: 5, // True dual source capability
+        reliability: 5,
         esg: 4,
         cyber: 4,
-        geopolitical: 5, // Diversified Taiwan/Korea
+        geopolitical: 5,
         trade: 6,
         weather: 4,
-        criticality: 6, // Mature generation
-        substitutability: 6, // Some alternatives exist
-        obsolescence: 4, // Aging architecture
+        criticality: 6,
+        substitutability: 6,
+        obsolescence: 4,
         logistics: 4,
-        concentration: 5, // Good diversification
+        concentration: 5,
         bom: 6
       },
       risk: 5.3,
@@ -131,19 +151,24 @@ export const supplyChainData = {
       image: '🖥️',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
       next: ['tsmc'],
+      shipping: {
+        time: '4-6 Days',
+        cost: '$90/unit',
+        method: 'Consolidated Air'
+      },
       riskScores: {
         financial: 2,
-        reliability: 6, // Single source but proven
+        reliability: 6,
         esg: 3,
         cyber: 4,
-        geopolitical: 7, // Taiwan only
+        geopolitical: 7,
         trade: 7,
         weather: 4,
-        criticality: 7, // Still widely deployed
-        substitutability: 7, // Some alternatives
-        obsolescence: 5, // Being replaced by H100
+        criticality: 7,
+        substitutability: 7,
+        obsolescence: 5,
         logistics: 4,
-        concentration: 8, // TSMC only
+        concentration: 8,
         bom: 7
       },
       risk: 6.3,
@@ -155,6 +180,11 @@ export const supplyChainData = {
       image: '🖥️',
       locations: [{ lat: 37.3861, lng: -122.0839, name: 'NVIDIA HQ, Santa Clara, CA' }],
       next: ['tsmc', 'samsung'],
+      shipping: {
+        time: '3-5 Days',
+        cost: '$80/unit',
+        method: 'Standard Air Freight'
+      },
       riskScores: {
         financial: 2,
         reliability: 5,
@@ -163,7 +193,7 @@ export const supplyChainData = {
         geopolitical: 5,
         trade: 6,
         weather: 4,
-        criticality: 6, // Inference focused
+        criticality: 6,
         substitutability: 6,
         obsolescence: 3,
         logistics: 4,
@@ -179,18 +209,23 @@ export const supplyChainData = {
       image: '🔷',
       locations: [{ lat: 32.0853, lng: 34.7818, name: 'Intel Haifa, Israel' }],
       next: ['intel-fab', 'tsmc'],
+      shipping: {
+        time: '5-7 Days',
+        cost: '$140/unit',
+        method: 'International Air'
+      },
       riskScores: {
-        financial: 4, // Intel financial pressures
-        reliability: 6, // Internal fab + TSMC backup
+        financial: 4,
+        reliability: 6,
         esg: 5,
-        cyber: 5, // Israel cyber capabilities but target
-        geopolitical: 9, // Active conflict zone
+        cyber: 5,
+        geopolitical: 9,
         trade: 5,
         weather: 3,
-        criticality: 5, // Smaller market share
-        substitutability: 5, // Many alternatives
+        criticality: 5,
+        substitutability: 5,
         obsolescence: 4,
-        logistics: 7, // Conflict disruption risk
+        logistics: 7,
         concentration: 6,
         bom: 6
       },
@@ -203,19 +238,24 @@ export const supplyChainData = {
       image: '☁️',
       locations: [{ lat: 37.4220, lng: -122.0841, name: 'AWS, Palo Alto, CA' }],
       next: ['tsmc'],
+      shipping: {
+        time: 'N/A (Internal)',
+        cost: 'Internal Transfer',
+        method: 'Direct to Data Center'
+      },
       riskScores: {
-        financial: 1, // Amazon backing
-        reliability: 8, // Custom ASIC, single source
+        financial: 1,
+        reliability: 8,
         esg: 3,
-        cyber: 3, // AWS security expertise
-        geopolitical: 7, // Taiwan only
+        cyber: 3,
+        geopolitical: 7,
         trade: 7,
         weather: 4,
-        criticality: 7, // AWS internal critical
-        substitutability: 9, // Proprietary design
+        criticality: 7,
+        substitutability: 9,
         obsolescence: 2,
         logistics: 5,
-        concentration: 9, // TSMC only
+        concentration: 9,
         bom: 8
       },
       risk: 6.8,
@@ -227,16 +267,21 @@ export const supplyChainData = {
       image: '🌐',
       locations: [{ lat: 37.4220, lng: -122.0841, name: 'Google, Mountain View, CA' }],
       next: ['tsmc', 'samsung'],
+      shipping: {
+        time: 'N/A (Internal)',
+        cost: 'Internal Transfer',
+        method: 'Direct to Data Center'
+      },
       riskScores: {
-        financial: 1, // Google/Alphabet backing
-        reliability: 6, // Dual source
+        financial: 1,
+        reliability: 6,
         esg: 3,
         cyber: 3,
-        geopolitical: 6, // Taiwan/Korea split
+        geopolitical: 6,
         trade: 7,
         weather: 4,
-        criticality: 7, // Google internal critical
-        substitutability: 9, // Custom architecture
+        criticality: 7,
+        substitutability: 9,
         obsolescence: 2,
         logistics: 5,
         concentration: 6,
@@ -253,19 +298,24 @@ export const supplyChainData = {
       image: '📦',
       locations: [{ lat: 24.1477, lng: 120.6736, name: 'TSMC, Taichung, Taiwan' }],
       next: ['kyocera-eds', 'ibiden-eds', 'at&s-eds'],
+      shipping: {
+        time: '2-3 Days',
+        cost: '$25/wafer',
+        method: 'Shock-Proof Air'
+      },
       riskScores: {
-        financial: 2, // Extremely strong financials
-        reliability: 9, // Single point of failure
+        financial: 2,
+        reliability: 9,
         esg: 4,
-        cyber: 5, // High value target
-        geopolitical: 10, // Taiwan Strait crisis risk
-        trade: 8, // Export controls, CHIPS competition
-        weather: 7, // Typhoons, earthquakes
-        criticality: 10, // Enables all leading AI chips
-        substitutability: 10, // No alternatives at scale
+        cyber: 5,
+        geopolitical: 10,
+        trade: 8,
+        weather: 7,
+        criticality: 10,
+        substitutability: 10,
         obsolescence: 1,
-        logistics: 7, // Island logistics, air freight
-        concentration: 10, // 70%+ market share
+        logistics: 7,
+        concentration: 10,
         bom: 9
       },
       risk: 8.7,
@@ -277,19 +327,24 @@ export const supplyChainData = {
       image: '📦',
       locations: [{ lat: 37.5665, lng: 126.9780, name: 'Samsung, Seoul, South Korea' }],
       next: ['kyocera-eds', 'unimicron-eds'],
+      shipping: {
+        time: '3-4 Days',
+        cost: '$20/wafer',
+        method: 'Temperature-Controlled Air'
+      },
       riskScores: {
         financial: 2,
-        reliability: 6, // Secondary but capable
+        reliability: 6,
         esg: 5,
         cyber: 5,
-        geopolitical: 6, // North Korea proximity
+        geopolitical: 6,
         trade: 6,
-        weather: 5, // Monsoons, typhoons
-        criticality: 8, // Important alternative
-        substitutability: 7, // Limited scale vs TSMC
+        weather: 5,
+        criticality: 8,
+        substitutability: 7,
         obsolescence: 2,
         logistics: 5,
-        concentration: 7, // Smaller market share
+        concentration: 7,
         bom: 7
       },
       risk: 5.9,
@@ -301,15 +356,20 @@ export const supplyChainData = {
       image: '📦',
       locations: [{ lat: 33.4484, lng: -112.0740, name: 'Intel, Chandler, AZ' }],
       next: ['at&s-eds', 'ibiden-eds'],
+      shipping: {
+        time: '1-2 Days (Domestic)',
+        cost: '$10/wafer',
+        method: 'Secure Trucking'
+      },
       riskScores: {
-        financial: 4, // Intel financial challenges
-        reliability: 6, // Internal priority conflicts
+        financial: 4,
+        reliability: 6,
         esg: 4,
         cyber: 4,
-        geopolitical: 2, // US domestic
-        trade: 3, // Benefits from CHIPS Act
-        weather: 4, // Arizona heat, water issues
-        criticality: 6, // Intel products only
+        geopolitical: 2,
+        trade: 3,
+        weather: 4,
+        criticality: 6,
         substitutability: 6,
         obsolescence: 3,
         logistics: 3,
@@ -325,17 +385,22 @@ export const supplyChainData = {
       image: '📦',
       locations: [{ lat: 43.1030, lng: -73.7067, name: 'GlobalFoundries, Malta, NY' }],
       next: ['ibiden-eds', 'unimicron-eds'],
+      shipping: {
+        time: '1-3 Days',
+        cost: '$12/wafer',
+        method: 'Secure Logistics'
+      },
       riskScores: {
-        financial: 5, // Standalone foundry challenges
+        financial: 5,
         reliability: 5,
         esg: 4,
         cyber: 4,
-        geopolitical: 2, // US/Europe operations
+        geopolitical: 2,
         trade: 3,
-        weather: 4, // Winter storms
-        criticality: 5, // Mature nodes only
+        weather: 4,
+        criticality: 5,
         substitutability: 5,
-        obsolescence: 6, // No leading edge
+        obsolescence: 6,
         logistics: 3,
         concentration: 4,
         bom: 5
@@ -349,12 +414,17 @@ export const supplyChainData = {
       image: '📦',
       locations: [{ lat: 24.7814, lng: 120.9978, name: 'UMC, Hsinchu, Taiwan' }],
       next: ['unimicron-eds', 'nan-ya-eds'],
+      shipping: {
+        time: '2-3 Days',
+        cost: '$18/wafer',
+        method: 'Regional Air Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
         esg: 5,
         cyber: 5,
-        geopolitical: 10, // Same Taiwan risk as TSMC
+        geopolitical: 10,
         trade: 7,
         weather: 7,
         criticality: 6,
@@ -375,15 +445,20 @@ export const supplyChainData = {
       image: '⚡',
       locations: [{ lat: 35.0116, lng: 135.7681, name: 'Kyocera, Kyoto, Japan' }],
       next: ['tanaka-wire', 'heraeus-wire', 'johnson-matthey-wire'],
+      shipping: {
+        time: '5-10 Days',
+        cost: '$500/crate',
+        method: 'Air Cargo'
+      },
       riskScores: {
         financial: 3,
         reliability: 6,
         esg: 4,
         cyber: 4,
-        geopolitical: 5, // Japan stable but China tensions
+        geopolitical: 5,
         trade: 5,
-        weather: 7, // Earthquakes, tsunamis
-        criticality: 8, // Critical substrate supplier
+        weather: 7,
+        criticality: 8,
         substitutability: 7,
         obsolescence: 3,
         logistics: 5,
@@ -399,15 +474,20 @@ export const supplyChainData = {
       image: '⚡',
       locations: [{ lat: 35.1815, lng: 136.9066, name: 'Ibiden, Ogaki, Japan' }],
       next: ['tanaka-wire', 'hitachi-wire'],
+      shipping: {
+        time: '5-8 Days',
+        cost: '$550/crate',
+        method: 'Priority Air'
+      },
       riskScores: {
         financial: 4,
-        reliability: 7, // Single facility concentration
+        reliability: 7,
         esg: 4,
         cyber: 4,
         geopolitical: 5,
         trade: 5,
-        weather: 8, // High earthquake risk
-        criticality: 9, // Market leader
+        weather: 8,
+        criticality: 9,
         substitutability: 8,
         obsolescence: 3,
         logistics: 5,
@@ -423,15 +503,20 @@ export const supplyChainData = {
       image: '⚡',
       locations: [{ lat: 25.0330, lng: 121.5654, name: 'Unimicron, Taipei, Taiwan' }],
       next: ['tanaka-wire', 'heraeus-wire'],
+      shipping: {
+        time: '2-4 Days',
+        cost: '$400/crate',
+        method: 'Regional Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 7,
         esg: 5,
         cyber: 5,
-        geopolitical: 9, // Taiwan concentration
+        geopolitical: 9,
         trade: 7,
         weather: 7,
-        criticality: 9, // Largest PCB manufacturer
+        criticality: 9,
         substitutability: 7,
         obsolescence: 3,
         logistics: 6,
@@ -447,18 +532,23 @@ export const supplyChainData = {
       image: '⚡',
       locations: [{ lat: 13.0827, lng: 80.2707, name: 'AT&S, Chennai, India' }],
       next: ['heraeus-wire', 'johnson-matthey-wire'],
+      shipping: {
+        time: '10-15 Days',
+        cost: '$600/crate',
+        method: 'Sea/Air Hybrid'
+      },
       riskScores: {
         financial: 5,
-        reliability: 6, // Developing capabilities
-        esg: 6, // India ESG challenges
+        reliability: 6,
+        esg: 6,
         cyber: 6,
-        geopolitical: 4, // India stability, China alternative
+        geopolitical: 4,
         trade: 4,
-        weather: 6, // Monsoons, cyclones
+        weather: 6,
         criticality: 6,
         substitutability: 5,
         obsolescence: 4,
-        logistics: 7, // Infrastructure challenges
+        logistics: 7,
         concentration: 5,
         bom: 6
       },
@@ -471,6 +561,11 @@ export const supplyChainData = {
       image: '⚡',
       locations: [{ lat: 25.0330, lng: 121.5654, name: 'Nan Ya, Taipei, Taiwan' }],
       next: ['tanaka-wire'],
+      shipping: {
+        time: '2-4 Days',
+        cost: '$400/crate',
+        method: 'Regional Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 7,
@@ -497,18 +592,23 @@ export const supplyChainData = {
       image: '🔌',
       locations: [{ lat: 34.6937, lng: 135.5023, name: 'Tanaka, Osaka, Japan' }],
       next: ['applied-deposition', 'lam-deposition', 'tokyo-deposition'],
+      shipping: {
+        time: '5-7 Days',
+        cost: '$2000/kg (Insured)',
+        method: 'Armored Air Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 7,
         esg: 4,
         cyber: 4,
         geopolitical: 5,
-        trade: 6, // Gold supply chain dependencies
-        weather: 8, // Nankai Trough earthquake risk
+        trade: 6,
+        weather: 8,
         criticality: 8,
         substitutability: 7,
         obsolescence: 3,
-        logistics: 6, // Precious metals security
+        logistics: 6,
         concentration: 7,
         bom: 7
       },
@@ -521,12 +621,17 @@ export const supplyChainData = {
       image: '🔌',
       locations: [{ lat: 50.1109, lng: 8.6821, name: 'Heraeus, Hanau, Germany' }],
       next: ['applied-deposition', 'amat-deposition'],
+      shipping: {
+        time: '4-6 Days',
+        cost: '$1800/kg (Insured)',
+        method: 'Secure Air Cargo'
+      },
       riskScores: {
         financial: 3,
         reliability: 5,
         esg: 3,
         cyber: 4,
-        geopolitical: 3, // Germany/EU stability
+        geopolitical: 3,
         trade: 4,
         weather: 3,
         criticality: 7,
@@ -545,13 +650,18 @@ export const supplyChainData = {
       image: '🔌',
       locations: [{ lat: 51.5074, lng: -0.1278, name: 'Johnson Matthey, London, UK' }],
       next: ['applied-deposition', 'lam-deposition'],
+      shipping: {
+        time: '5-7 Days',
+        cost: '$1900/kg (Insured)',
+        method: 'Secure Air Cargo'
+      },
       riskScores: {
         financial: 4,
         reliability: 5,
         esg: 3,
         cyber: 4,
-        geopolitical: 3, // UK stability
-        trade: 5, // Post-Brexit considerations
+        geopolitical: 3,
+        trade: 5,
         weather: 3,
         criticality: 6,
         substitutability: 6,
@@ -569,6 +679,11 @@ export const supplyChainData = {
       image: '🔌',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Hitachi, Tokyo, Japan' }],
       next: ['tokyo-deposition', 'screen-deposition'],
+      shipping: {
+        time: '6-8 Days',
+        cost: '$1500/kg (Insured)',
+        method: 'Standard Air Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
@@ -576,7 +691,7 @@ export const supplyChainData = {
         cyber: 4,
         geopolitical: 5,
         trade: 5,
-        weather: 7, // Tokyo earthquake risk
+        weather: 7,
         criticality: 7,
         substitutability: 6,
         obsolescence: 3,
@@ -595,6 +710,11 @@ export const supplyChainData = {
       image: '💎',
       locations: [{ lat: 30.2672, lng: -97.7431, name: 'Applied Materials, Austin, TX' }],
       next: ['lam-etch', 'tokyo-etch', 'applied-etch'],
+      shipping: {
+        time: '30-45 Days',
+        cost: '$25,000/tool',
+        method: 'Specialized Ocean/Air'
+      },
       riskScores: {
         financial: 2,
         reliability: 5,
@@ -602,7 +722,7 @@ export const supplyChainData = {
         cyber: 4,
         geopolitical: 2,
         trade: 4,
-        weather: 5, // Winter Storm Uri precedent
+        weather: 5,
         criticality: 8,
         substitutability: 6,
         obsolescence: 3,
@@ -619,16 +739,21 @@ export const supplyChainData = {
       image: '💎',
       locations: [{ lat: 45.5425, lng: -122.9505, name: 'Lam Research, Tualatin, OR' }],
       next: ['lam-etch', 'applied-etch'],
+      shipping: {
+        time: '30-40 Days',
+        cost: '$22,000/tool',
+        method: 'Heavy Cargo Freight'
+      },
       riskScores: {
         financial: 3,
-        reliability: 6, // Specialized ALD technology
+        reliability: 6,
         esg: 3,
         cyber: 4,
         geopolitical: 2,
         trade: 4,
-        weather: 4, // Pacific Northwest storms
-        criticality: 9, // Critical for advanced nodes
-        substitutability: 8, // Few ALD alternatives
+        weather: 4,
+        criticality: 9,
+        substitutability: 8,
         obsolescence: 2,
         logistics: 4,
         concentration: 8,
@@ -643,6 +768,11 @@ export const supplyChainData = {
       image: '💎',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Tokyo Electron, Tokyo, Japan' }],
       next: ['tokyo-etch', 'hitachi-etch'],
+      shipping: {
+        time: '35-50 Days',
+        cost: '$28,000/tool',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 3,
         reliability: 6,
@@ -650,7 +780,7 @@ export const supplyChainData = {
         cyber: 4,
         geopolitical: 5,
         trade: 5,
-        weather: 8, // Tokyo earthquake/tsunami
+        weather: 8,
         criticality: 8,
         substitutability: 7,
         obsolescence: 3,
@@ -667,6 +797,11 @@ export const supplyChainData = {
       image: '💎',
       locations: [{ lat: 37.3894, lng: -122.0819, name: 'Applied Materials, Santa Clara, CA' }],
       next: ['applied-etch', 'lam-etch'],
+      shipping: {
+        time: '25-35 Days',
+        cost: '$20,000/tool',
+        method: 'Domestic Heavy Freight'
+      },
       riskScores: {
         financial: 2,
         reliability: 5,
@@ -674,7 +809,7 @@ export const supplyChainData = {
         cyber: 4,
         geopolitical: 2,
         trade: 4,
-        weather: 5, // California earthquake
+        weather: 5,
         criticality: 8,
         substitutability: 6,
         obsolescence: 3,
@@ -691,16 +826,21 @@ export const supplyChainData = {
       image: '💎',
       locations: [{ lat: 35.0116, lng: 135.7681, name: 'SCREEN, Kyoto, Japan' }],
       next: ['tokyo-etch', 'hitachi-etch'],
+      shipping: {
+        time: '35-45 Days',
+        cost: '$24,000/tool',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 5,
-        reliability: 7, // Niche specialization
+        reliability: 7,
         esg: 4,
         cyber: 4,
         geopolitical: 5,
         trade: 5,
-        weather: 7, // Kyoto earthquake risk
+        weather: 7,
         criticality: 7,
-        substitutability: 8, // Few alternatives for specialized processes
+        substitutability: 8,
         obsolescence: 4,
         logistics: 6,
         concentration: 8,
@@ -717,15 +857,20 @@ export const supplyChainData = {
       image: '🔬',
       locations: [{ lat: 37.3541, lng: 127.9458, name: 'Lam Research, Seoul, South Korea' }],
       next: ['asml-litho', 'nikon-litho', 'canon-litho'],
+      shipping: {
+        time: '30-45 Days',
+        cost: '$26,000/tool',
+        method: 'Ocean/Air Charter'
+      },
       riskScores: {
         financial: 3,
         reliability: 5,
         esg: 4,
         cyber: 5,
-        geopolitical: 6, // North Korea proximity
+        geopolitical: 6,
         trade: 5,
         weather: 5,
-        criticality: 9, // Market leader in etch
+        criticality: 9,
         substitutability: 7,
         obsolescence: 2,
         logistics: 5,
@@ -744,14 +889,19 @@ export const supplyChainData = {
         { lat: 35.4437, lng: 139.6380, name: 'Tokyo Electron, Yamanashi, Japan' }
       ],
       next: ['asml-litho', 'canon-litho'],
+      shipping: {
+        time: '35-50 Days',
+        cost: '$25,000/tool',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 3,
-        reliability: 5, // Multiple facilities
+        reliability: 5,
         esg: 4,
         cyber: 4,
         geopolitical: 5,
         trade: 5,
-        weather: 7, // Japan earthquake exposure
+        weather: 7,
         criticality: 8,
         substitutability: 7,
         obsolescence: 3,
@@ -768,6 +918,11 @@ export const supplyChainData = {
       image: '🔬',
       locations: [{ lat: 37.3894, lng: -122.0819, name: 'Applied Materials, Santa Clara, CA' }],
       next: ['asml-litho', 'nikon-litho'],
+      shipping: {
+        time: '25-35 Days',
+        cost: '$20,000/tool',
+        method: 'Domestic Heavy Freight'
+      },
       riskScores: {
         financial: 2,
         reliability: 5,
@@ -792,6 +947,11 @@ export const supplyChainData = {
       image: '🔬',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Hitachi, Tokyo, Japan' }],
       next: ['canon-litho', 'nikon-litho'],
+      shipping: {
+        time: '35-45 Days',
+        cost: '$22,000/tool',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
@@ -818,19 +978,24 @@ export const supplyChainData = {
       image: '💡',
       locations: [{ lat: 51.4416, lng: 5.4697, name: 'ASML, Veldhoven, Netherlands' }],
       next: ['applied-oxidation', 'kokusai-oxidation'],
+      shipping: {
+        time: '7-14 Days',
+        cost: '$300,000+ (Charter)',
+        method: 'Specialized 747 Charter'
+      },
       riskScores: {
         financial: 2,
-        reliability: 10, // Absolute monopoly
+        reliability: 10,
         esg: 3,
-        cyber: 6, // High-value IP target
-        geopolitical: 6, // Export controls to China
-        trade: 9, // CHIPS Act competition, export restrictions
+        cyber: 6,
+        geopolitical: 6,
+        trade: 9,
         weather: 3,
-        criticality: 10, // Enables all leading-edge nodes
-        substitutability: 10, // Zero alternatives for EUV
+        criticality: 10,
+        substitutability: 10,
         obsolescence: 1,
-        logistics: 8, // Complex global supply chain
-        concentration: 10, // 100% monopoly
+        logistics: 8,
+        concentration: 10,
         bom: 10
       },
       risk: 8.9,
@@ -842,17 +1007,22 @@ export const supplyChainData = {
       image: '💡',
       locations: [{ lat: 35.1815, lng: 136.9066, name: 'Nikon, Kumagaya, Japan' }],
       next: ['applied-oxidation', 'tokyo-oxidation'],
+      shipping: {
+        time: '40-50 Days',
+        cost: '$40,000/tool',
+        method: 'Ocean Freight (Shock-proof)'
+      },
       riskScores: {
-        financial: 5, // Declining market position
+        financial: 5,
         reliability: 6,
         esg: 4,
         cyber: 4,
         geopolitical: 5,
         trade: 5,
-        weather: 8, // Japan earthquake exposure
-        criticality: 6, // Mature nodes only
+        weather: 8,
+        criticality: 6,
         substitutability: 6,
-        obsolescence: 6, // Losing relevance
+        obsolescence: 6,
         logistics: 5,
         concentration: 5,
         bom: 6
@@ -866,15 +1036,20 @@ export const supplyChainData = {
       image: '💡',
       locations: [{ lat: 35.4437, lng: 139.6380, name: 'Canon, Utsunomiya, Japan' }],
       next: ['applied-oxidation', 'tokyo-oxidation'],
+      shipping: {
+        time: '40-50 Days',
+        cost: '$35,000/tool',
+        method: 'Ocean Freight (Shock-proof)'
+      },
       riskScores: {
-        financial: 4, // Diversified company
+        financial: 4,
         reliability: 6,
         esg: 4,
         cyber: 4,
         geopolitical: 5,
         trade: 5,
         weather: 8,
-        criticality: 5, // Niche player
+        criticality: 5,
         substitutability: 5,
         obsolescence: 6,
         logistics: 5,
@@ -892,6 +1067,11 @@ export const supplyChainData = {
       image: '🌡️',
       locations: [{ lat: 37.3894, lng: -122.0819, name: 'Applied Materials, Santa Clara, CA' }],
       next: ['shin-etsu-wafer', 'sumco-wafer', 'globalwafers'],
+      shipping: {
+        time: '20-30 Days',
+        cost: '$15,000/tool',
+        method: 'Standard Freight'
+      },
       riskScores: {
         financial: 2,
         reliability: 4,
@@ -916,6 +1096,11 @@ export const supplyChainData = {
       image: '🌡️',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Kokusai, Tokyo, Japan' }],
       next: ['shin-etsu-wafer', 'sumco-wafer'],
+      shipping: {
+        time: '35-45 Days',
+        cost: '$18,000/tool',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
@@ -940,6 +1125,11 @@ export const supplyChainData = {
       image: '🌡️',
       locations: [{ lat: 35.6762, lng: 139.6503, name: 'Tokyo Electron, Tokyo, Japan' }],
       next: ['sumco-wafer', 'siltronic-wafer'],
+      shipping: {
+        time: '35-45 Days',
+        cost: '$19,000/tool',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 3,
         reliability: 5,
@@ -966,19 +1156,24 @@ export const supplyChainData = {
       image: '⚪',
       locations: [{ lat: 47.6062, lng: -122.3321, name: 'Shin-Etsu, Vancouver, WA' }],
       next: ['cadence-design', 'synopsys-design', 'mentor-design'],
+      shipping: {
+        time: '3-5 Days',
+        cost: '$500/foup',
+        method: 'Vibration-Damped Air'
+      },
       riskScores: {
         financial: 3,
-        reliability: 7, // Market leader in oligopoly
+        reliability: 7,
         esg: 4,
         cyber: 4,
-        geopolitical: 4, // US facility, Japanese parent
+        geopolitical: 4,
         trade: 5,
         weather: 4,
-        criticality: 9, // Silicon wafer essential
-        substitutability: 8, // Oligopoly structure
+        criticality: 9,
+        substitutability: 8,
         obsolescence: 3,
-        logistics: 6, // Long lead times
-        concentration: 8, // 30%+ market share
+        logistics: 6,
+        concentration: 8,
         bom: 8
       },
       risk: 6.7,
@@ -990,19 +1185,24 @@ export const supplyChainData = {
       image: '⚪',
       locations: [{ lat: 34.3853, lng: 132.4553, name: 'SUMCO, Imari, Japan' }],
       next: ['cadence-design', 'synopsys-design'],
+      shipping: {
+        time: '4-6 Days',
+        cost: '$550/foup',
+        method: 'Vibration-Damped Air'
+      },
       riskScores: {
         financial: 4,
         reliability: 7,
         esg: 4,
         cyber: 4,
-        geopolitical: 6, // Japan concentration
+        geopolitical: 6,
         trade: 5,
-        weather: 8, // Kyushu earthquake/typhoon
+        weather: 8,
         criticality: 9,
         substitutability: 8,
         obsolescence: 3,
         logistics: 6,
-        concentration: 8, // 25%+ market share
+        concentration: 8,
         bom: 8
       },
       risk: 6.9,
@@ -1014,19 +1214,24 @@ export const supplyChainData = {
       image: '⚪',
       locations: [{ lat: 30.2672, lng: -97.7431, name: 'GlobalWafers, Sherman, TX' }],
       next: ['cadence-design', 'mentor-design'],
+      shipping: {
+        time: '2-3 Days',
+        cost: '$300/foup',
+        method: 'Secure Trucking/Air'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
         esg: 5,
         cyber: 4,
-        geopolitical: 5, // Taiwan parent, US operations
-        trade: 6, // CHIPS Act benefits
-        weather: 5, // Texas winter storms
+        geopolitical: 5,
+        trade: 6,
+        weather: 5,
         criticality: 8,
         substitutability: 7,
         obsolescence: 3,
         logistics: 6,
-        concentration: 7, // 15% market share
+        concentration: 7,
         bom: 7
       },
       risk: 6.1,
@@ -1038,19 +1243,24 @@ export const supplyChainData = {
       image: '⚪',
       locations: [{ lat: 48.1351, lng: 11.5820, name: 'Siltronic, Munich, Germany' }],
       next: ['synopsys-design', 'cadence-design'],
+      shipping: {
+        time: '5-7 Days',
+        cost: '$600/foup',
+        method: 'International Air'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
         esg: 3,
         cyber: 4,
-        geopolitical: 3, // European stability
+        geopolitical: 3,
         trade: 4,
         weather: 3,
         criticality: 7,
         substitutability: 6,
         obsolescence: 3,
         logistics: 5,
-        concentration: 6, // 10-12% market share
+        concentration: 6,
         bom: 7
       },
       risk: 5.2,
@@ -1062,12 +1272,17 @@ export const supplyChainData = {
       image: '⚪',
       locations: [{ lat: 37.2636, lng: 127.0286, name: 'SK Siltron, Gumi, South Korea' }],
       next: ['cadence-design', 'synopsys-design'],
+      shipping: {
+        time: '4-6 Days',
+        cost: '$520/foup',
+        method: 'Vibration-Damped Air'
+      },
       riskScores: {
         financial: 4,
         reliability: 6,
         esg: 5,
         cyber: 5,
-        geopolitical: 6, // North Korea proximity
+        geopolitical: 6,
         trade: 5,
         weather: 5,
         criticality: 7,
@@ -1088,18 +1303,23 @@ export const supplyChainData = {
       image: '🎨',
       locations: [{ lat: 37.3688, lng: -121.9785, name: 'Cadence, San Jose, CA' }],
       next: ['silicon-raw', 'polysilicon-raw', 'ultra-pure-silica'],
+      shipping: {
+        time: 'Instant',
+        cost: '$0',
+        method: 'Digital Transfer'
+      },
       riskScores: {
         financial: 2,
         reliability: 4,
         esg: 3,
-        cyber: 5, // Software IP target
+        cyber: 5,
         geopolitical: 2,
-        trade: 4, // Export controls to China
+        trade: 4,
         weather: 5,
-        criticality: 8, // Essential EDA tools
-        substitutability: 7, // Limited EDA alternatives
+        criticality: 8,
+        substitutability: 7,
         obsolescence: 2,
-        logistics: 2, // Software distribution
+        logistics: 2,
         concentration: 7,
         bom: 7
       },
@@ -1112,6 +1332,11 @@ export const supplyChainData = {
       image: '🎨',
       locations: [{ lat: 37.4047, lng: -121.9467, name: 'Synopsys, Mountain View, CA' }],
       next: ['silicon-raw', 'polysilicon-raw'],
+      shipping: {
+        time: 'Instant',
+        cost: '$0',
+        method: 'Digital Transfer'
+      },
       riskScores: {
         financial: 2,
         reliability: 4,
@@ -1120,8 +1345,8 @@ export const supplyChainData = {
         geopolitical: 2,
         trade: 4,
         weather: 5,
-        criticality: 9, // Market leader
-        substitutability: 8, // Few alternatives
+        criticality: 9,
+        substitutability: 8,
         obsolescence: 2,
         logistics: 2,
         concentration: 8,
@@ -1136,12 +1361,17 @@ export const supplyChainData = {
       image: '🎨',
       locations: [{ lat: 45.5152, lng: -122.6784, name: 'Siemens EDA, Wilsonville, OR' }],
       next: ['silicon-raw', 'ultra-pure-silica'],
+      shipping: {
+        time: 'Instant',
+        cost: '$0',
+        method: 'Digital Transfer'
+      },
       riskScores: {
-        financial: 2, // Siemens backing
+        financial: 2,
         reliability: 4,
         esg: 3,
         cyber: 5,
-        geopolitical: 3, // US operations, German parent
+        geopolitical: 3,
         trade: 4,
         weather: 4,
         criticality: 7,
@@ -1160,6 +1390,11 @@ export const supplyChainData = {
       image: '🎨',
       locations: [{ lat: 40.4406, lng: -79.9959, name: 'Ansys, Canonsburg, PA' }],
       next: ['polysilicon-raw', 'silicon-raw'],
+      shipping: {
+        time: 'Instant',
+        cost: '$0',
+        method: 'Digital Transfer'
+      },
       riskScores: {
         financial: 3,
         reliability: 4,
@@ -1168,7 +1403,7 @@ export const supplyChainData = {
         geopolitical: 2,
         trade: 4,
         weather: 4,
-        criticality: 6, // Specialized tools
+        criticality: 6,
         substitutability: 6,
         obsolescence: 3,
         logistics: 2,
@@ -1186,19 +1421,24 @@ export const supplyChainData = {
       image: '💠',
       locations: [{ lat: 35.8617, lng: -78.5569, name: 'Quartz Mines, Spruce Pine, NC' }],
       next: [],
+      shipping: {
+        time: '15-20 Days',
+        cost: '$2,500/container',
+        method: 'Rail/Truck Freight'
+      },
       riskScores: {
-        financial: 5, // Small mining operations
-        reliability: 10, // SINGLE SOURCE globally
+        financial: 5,
+        reliability: 10,
         esg: 6,
         cyber: 3,
-        geopolitical: 3, // US domestic
+        geopolitical: 3,
         trade: 4,
-        weather: 9, // Hurricane/flood exposure
-        criticality: 10, // Irreplaceable for semiconductors
-        substitutability: 10, // No alternatives exist
+        weather: 9,
+        criticality: 10,
+        substitutability: 10,
         obsolescence: 1,
         logistics: 7,
-        concentration: 10, // 70-80% global supply
+        concentration: 10,
         bom: 10
       },
       risk: 8.9,
@@ -1210,19 +1450,24 @@ export const supplyChainData = {
       image: '💠',
       locations: [{ lat: 39.9042, lng: 116.4074, name: 'Daqo New Energy, Xinjiang, China' }],
       next: [],
+      shipping: {
+        time: '45-60 Days',
+        cost: '$3,000/container',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 4,
         reliability: 7,
-        esg: 9, // Forced labor concerns
+        esg: 9,
         cyber: 5,
-        geopolitical: 9, // Xinjiang, US-China tensions
-        trade: 10, // US import bans, sanctions
+        geopolitical: 9,
+        trade: 10,
         weather: 4,
         criticality: 9,
-        substitutability: 8, // Limited non-China sources
+        substitutability: 8,
         obsolescence: 2,
         logistics: 7,
-        concentration: 9, // China 80% of global production
+        concentration: 9,
         bom: 9
       },
       risk: 8.5,
@@ -1236,19 +1481,24 @@ export const supplyChainData = {
         { lat: 35.8617, lng: -78.5569, name: 'Sibelco, Spruce Pine, NC' },
       ],
       next: [],
+      shipping: {
+        time: '15-20 Days',
+        cost: '$2,800/container',
+        method: 'Rail/Truck Freight'
+      },
       riskScores: {
-        financial: 5, // Small specialized operations
-        reliability: 10, // Single source dependency
-        esg: 6, // Mining environmental impact
+        financial: 5,
+        reliability: 10,
+        esg: 6,
         cyber: 3,
-        geopolitical: 3, // US domestic
+        geopolitical: 3,
         trade: 4,
-        weather: 9, // Hurricane/flood exposure
-        criticality: 10, // Essential for crucibles/optics
-        substitutability: 10, // No alternatives
+        weather: 9,
+        criticality: 10,
+        substitutability: 10,
         obsolescence: 1,
         logistics: 7,
-        concentration: 10, // Spruce Pine dominance
+        concentration: 10,
         bom: 10
       },
       risk: 8.9,
@@ -1262,19 +1512,24 @@ export const supplyChainData = {
         { lat: -34.6037, lng: 149.2642, name: 'Nolans Project, Northern Territory, Australia' },
       ],
       next: [],
+      shipping: {
+        time: '25-35 Days',
+        cost: '$3,500/container',
+        method: 'Ocean Freight'
+      },
       riskScores: {
         financial: 5,
-        reliability: 8, // China concentration
-        esg: 7, // Mining and refining environmental impact
+        reliability: 8,
+        esg: 7,
         cyber: 4,
-        geopolitical: 8, // China dominance, strategic resource
-        trade: 9, // Export restrictions, strategic competition
-        weather: 5, // Australian outback conditions
-        criticality: 8, // Important for magnets, catalysts
-        substitutability: 9, // Limited alternatives
+        geopolitical: 8,
+        trade: 9,
+        weather: 5,
+        criticality: 8,
+        substitutability: 9,
         obsolescence: 2,
-        logistics: 7, // Complex refining supply chain
-        concentration: 9, // China 60% production
+        logistics: 7,
+        concentration: 9,
         bom: 8
       },
       risk: 7.8,
@@ -1288,19 +1543,24 @@ export const supplyChainData = {
         { lat: -22.9068, lng: -43.1729, name: 'Escondida, Chile' },
       ],
       next: [],
+      shipping: {
+        time: '30-40 Days',
+        cost: '$3,200/container',
+        method: 'Bulk Ocean Freight'
+      },
       riskScores: {
-        financial: 4, // Established commodity market
-        reliability: 5, // Multiple global sources
-        esg: 7, // Water usage, environmental impact
+        financial: 4,
+        reliability: 5,
+        esg: 7,
         cyber: 3,
-        geopolitical: 6, // Chile political stability concerns
-        trade: 5, // Commodity market trade
-        weather: 6, // Water scarcity, regional climate
-        criticality: 7, // Essential conductor material
-        substitutability: 6, // Some alternatives (aluminum)
+        geopolitical: 6,
+        trade: 5,
+        weather: 6,
+        criticality: 7,
+        substitutability: 6,
         obsolescence: 2,
-        logistics: 5, // Global commodity logistics
-        concentration: 6, // Chile 30% but diversified
+        logistics: 5,
+        concentration: 6,
         bom: 7
       },
       risk: 5.9,
@@ -1314,22 +1574,28 @@ export const supplyChainData = {
         { lat: -26.2041, lng: 28.0473, name: 'Witwatersrand, South Africa' },
       ],
       next: [],
+      shipping: {
+        time: '5-10 Days',
+        cost: '$5,000/batch (Insured)',
+        method: 'Secure Air Transport'
+      },
       riskScores: {
-        financial: 5, // Deep mining cost pressures
-        reliability: 5, // Diversified global production
-        esg: 7, // Mining impact, labor issues
+        financial: 5,
+        reliability: 5,
+        esg: 7,
         cyber: 3,
-        geopolitical: 7, // South Africa political/infrastructure
-        trade: 4, // Global commodity market
+        geopolitical: 7,
+        trade: 4,
         weather: 4,
-        criticality: 6, // Used in bonding but alternatives exist
-        substitutability: 6, // Copper alternatives for some uses
+        criticality: 6,
+        substitutability: 6,
         obsolescence: 3,
         logistics: 4,
-        concentration: 6, // Diversified production
+        concentration: 6,
         bom: 6
       },
       risk: 5.7,
       riskAnalysis: 'South Africa political stability and infrastructure concerns; deep mining operational challenges and costs; gold used in bonding wires and connectors; diversified global gold production; commodity market availability reduces supply risk'
     }
-  ]}
+  ]
+}

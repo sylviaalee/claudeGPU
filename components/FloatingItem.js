@@ -29,7 +29,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
         hoverBorder: 'hover:border-red-500/50',
         textGradient: 'group-hover:from-red-400 group-hover:to-orange-400'
       };
-    } else if (risk >= 6) {
+    } else if (risk >= 5) {
       return {
         glow: 'bg-yellow-500/20',
         ripple: 'border-yellow-400/30',
@@ -101,7 +101,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
         
         {/* Risk indicator badge */}
         {item.risk && (
-          <div className={`absolute -top-2 -left-2 ${item.risk >= 8 ? 'bg-red-500' : item.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125`}>
+          <div className={`absolute -top-2 -left-2 ${item.risk >= 8 ? 'bg-red-500' : item.risk >= 5 ? 'bg-yellow-500' : 'bg-green-500'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125`}>
             {item.risk}
           </div>
         )}

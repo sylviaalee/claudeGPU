@@ -235,7 +235,7 @@ export default function GPUSupplyChain() {
                     </div>
                   </div>
 
-                  {/* Risk Analysis Section - Added mb-6 here */}
+                  {/* Risk Analysis Section */}
                   <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
                     <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Analysis</h3>
                     <div className="text-slate-300 leading-relaxed whitespace-pre-line">
@@ -252,6 +252,33 @@ export default function GPUSupplyChain() {
                       </button>
                     )}
                   </div>
+
+                  {/* Logistics Profile (NEW SECTION) */}
+                  {selectedItem.shipping && (
+                    <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
+                      <h3 className="text-xl font-semibold mb-4 text-slate-200">Logistics Profile</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 flex flex-col">
+                          <span className="text-slate-400 text-xs uppercase tracking-wider mb-1">Estimated Time</span>
+                          <span className="text-xl font-bold text-white flex items-center gap-2">
+                            <span className="text-blue-400 text-lg">⏱</span> {selectedItem.shipping.time}
+                          </span>
+                        </div>
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 flex flex-col">
+                          <span className="text-slate-400 text-xs uppercase tracking-wider mb-1">Shipping Cost</span>
+                          <span className="text-xl font-bold text-white flex items-center gap-2">
+                            <span className="text-green-400 text-lg">💰</span> {selectedItem.shipping.cost}
+                          </span>
+                        </div>
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 flex flex-col">
+                          <span className="text-slate-400 text-xs uppercase tracking-wider mb-1">Transport Method</span>
+                          <span className="text-xl font-bold text-white flex items-center gap-2">
+                            <span className="text-purple-400 text-lg">✈️</span> {selectedItem.shipping.method}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Risk Breakdown Section */}
                   {selectedItem.riskScores && (
@@ -282,10 +309,8 @@ export default function GPUSupplyChain() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center text-slate-400 text-sm">
-                      Click the item card again to close
-                    </div>
+                  <div className="mt-8 mb-6 text-center text-slate-400 text-sm">
+                    Click the item card again to close
                   </div>
                 </div>
               </div>
