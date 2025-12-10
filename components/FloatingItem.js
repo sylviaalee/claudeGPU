@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-export default function FloatingItem({ item, index, onClick, onHover = () => {}, position }) {
+export default function FloatingItem({ item, index, onClick, onHover = () => {}, position, isSelected = false, showHoverEffects = true, inPopup = false }) {
   const [showRiskPopup, setShowRiskPopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const itemRef = useRef(null);
@@ -62,23 +62,33 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
       <div
         ref={itemRef}
         onClick={() => onClick(item)}
-        onMouseEnter={() => { onHover(item); setShowRiskPopup(true); }}
-        onMouseLeave={() => { onHover(null); setShowRiskPopup(false); }}
-        className="absolute cursor-pointer group transition-all duration-500 ease-out animate-fade-in"
-        style={{
+        onMouseEnter={() => { 
+          if (showHoverEffects) {
+            onHover(item); 
+            setShowRiskPopup(true);
+          }
+        }}
+        onMouseLeave={() => { 
+          if (showHoverEffects) {
+            onHover(null); 
+            setShowRiskPopup(false);
+          }
+        }}
+        className={`cursor-pointer group transition-all duration-500 ease-out ${inPopup ? 'relative' : 'absolute animate-fade-in'}`}
+        style={inPopup ? {} : {
           left: `${itemPosition.x}%`,
           top: `${itemPosition.y}%`,
           animationDelay: `${randomDelay}s`,
         }}
       >
       {/* Pulsing glow effect */}
-      <div className={`absolute inset-0 ${colors.glow} rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500`} />
+      <div className={`absolute inset-0 ${colors.glow} rounded-full blur-xl scale-150 opacity-0 ${showHoverEffects ? 'group-hover:opacity-100 group-hover:animate-pulse' : ''} transition-opacity duration-500`} />
       
       {/* Ripple effect on hover */}
-      <div className={`absolute inset-0 rounded-xl border-2 ${colors.ripple} opacity-0 group-hover:opacity-100 group-hover:animate-ping`} />
+      <div className={`absolute inset-0 rounded-xl border-2 ${colors.ripple} opacity-0 ${showHoverEffects ? 'group-hover:opacity-100 group-hover:animate-ping' : ''}`} />
       
       {/* Main item container */}
-      <div className={`relative bg-gradient-to-br ${colors.gradient} backdrop-blur-sm rounded-2xl p-4 border ${colors.border} shadow-xl transform transition-all duration-300 hover:scale-110 hover:shadow-2xl ${colors.hoverShadow} ${colors.hoverBorder} hover:-translate-y-2`}>
+      <div className={`relative bg-gradient-to-br ${colors.gradient} backdrop-blur-sm rounded-2xl p-4 border ${colors.border} shadow-xl transform transition-all duration-300 ${showHoverEffects ? 'hover:scale-110 hover:shadow-2xl hover:-translate-y-2' : ''} ${colors.hoverShadow} ${colors.hoverBorder} ${isSelected && inPopup ? 'scale-110 shadow-2xl' : ''}`}>
         {/* Item emoji with bounce animation */}
         <div className="text-4xl mb-2 transition-transform duration-300 group-hover:scale-125 group-hover:rotate-12">
           {item.image}
@@ -97,11 +107,11 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
         )}
         
         {/* Location count badge */}
-        {item.locations && item.locations.length > 1 && (
+        {/* {item.locations && item.locations.length > 1 && (
           <div className={`absolute -top-2 -right-2 ${item.risk >= 8 ? 'bg-red-600' : item.risk >= 6 ? 'bg-yellow-600' : 'bg-green-600'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125 group-hover:rotate-12`}>
             {item.locations.length}
           </div>
-        )}
+        )} */}
         
         {/* Next indicator with animated arrow */}
         {item.next && item.next.length > 0 && (
@@ -112,8 +122,8 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {},
       </div>
       </div>
 
-      {/* Risk Analysis Popup - Rendered via Portal to top layer */}
-      {showRiskPopup && item.riskAnalysis && typeof document !== 'undefined' && createPortal(
+      {/* Risk Analysis Popup - Rendered via Portal to top layer - Only show if not in popup and hover effects enabled */}
+      {showRiskPopup && !inPopup && showHoverEffects && item.riskAnalysis && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed z-[99999] pointer-events-none animate-fade-in"
           style={{
