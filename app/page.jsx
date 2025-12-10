@@ -234,6 +234,24 @@ export default function GPUSupplyChain() {
                       </div>
                     </div>
                   </div>
+                  {/* Risk Analysis Section */}
+                  <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+                    <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Analysis</h3>
+                    <div className="text-slate-300 leading-relaxed whitespace-pre-line">
+                      {selectedItem.riskAnalysis || 'No detailed risk analysis available for this item.'}
+                    </div>
+
+                    {/* Drill down button if available */}
+                    {selectedItem.next && selectedItem.next.length > 0 && (
+                      <button
+                        onClick={() => handleDrillDown(selectedItem)}
+                        className="mt-6 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all duration-300 shadow-lg hover:shadow-emerald-500/50"
+                      >
+                        Explore Supply Chain →
+                      </button>
+                    )}
+                  </div>
+                  
                   {/* Risk Breakdown Section */}
                   {selectedItem.riskScores && (
                     <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-4">
@@ -262,24 +280,6 @@ export default function GPUSupplyChain() {
                       </div>
                     </div>
                   )}
-                  
-                  {/* Risk Analysis Section */}
-                  <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700">
-                    <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Analysis</h3>
-                    <div className="text-slate-300 leading-relaxed whitespace-pre-line">
-                      {selectedItem.riskAnalysis || 'No detailed risk analysis available for this item.'}
-                    </div>
-
-                    {/* Drill down button if available */}
-                    {selectedItem.next && selectedItem.next.length > 0 && (
-                      <button
-                        onClick={() => handleDrillDown(selectedItem)}
-                        className="mt-6 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all duration-300 shadow-lg hover:shadow-emerald-500/50"
-                      >
-                        Explore Supply Chain →
-                      </button>
-                    )}
-                  </div>
 
                   {/* Close instruction */}
                   <div className="mt-4 text-center text-slate-400 text-sm">
