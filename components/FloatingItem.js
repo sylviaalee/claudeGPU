@@ -74,7 +74,7 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
       <div className={`absolute inset-0 ${colors.glow} rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500`} />
       
       {/* Ripple effect on hover */}
-      <div className={`absolute inset-0 rounded-full border-2 ${colors.ripple} opacity-0 group-hover:opacity-100 group-hover:animate-ping`} />
+      <div className={`absolute inset-0 rounded-xl border-2 ${colors.ripple} opacity-0 group-hover:opacity-100 group-hover:animate-ping`} />
       
       {/* Main item container */}
       <div className={`relative bg-gradient-to-br ${colors.gradient} backdrop-blur-sm rounded-2xl p-4 border ${colors.border} shadow-xl transform transition-all duration-300 hover:scale-110 hover:shadow-2xl ${colors.hoverShadow} ${colors.hoverBorder} hover:-translate-y-2`}>
@@ -109,10 +109,6 @@ export default function FloatingItem({ item, index, onClick, onHover = () => {} 
           </div>
         )}
       </div>
-      
-      {/* Sparkle effects */}
-      <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 group-hover:animate-ping" />
-      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-pink-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 group-hover:animate-ping" style={{ animationDelay: '0.1s' }} />
       </div>
 
       {/* Risk Analysis Popup - Rendered via Portal to top layer */}
