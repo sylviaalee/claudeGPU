@@ -80,10 +80,19 @@ export default function GPUSupplyChain() {
   }, [currentState.items]);
 
   function handleItemClick(item) {
-    setSelectedItem(item);
+    // If clicking the same item that's already selected, toggle the popup off
+    if (selectedItem && selectedItem.id === item.id) {
+      setSelectedItem(null);
+      return;
+    }
     
+    setSelectedItem(item);
+  }
+
+  function handleDrillDown(item) {
     if (item.next && item.next.length > 0 && currentState.level < levelInfo.length - 1) {
       setIsTransitioning(true);
+      setSelectedItem(null); // Close popup when drilling down
       
       setTimeout(() => {
         const nextLevelIndex = currentState.level + 1;
@@ -107,13 +116,6 @@ export default function GPUSupplyChain() {
         setHistory(newHistory);
         setIsTransitioning(false);
       }, 400);
-    } else {
-      const newHistory = history.map(h => ({ ...h }));
-      newHistory[newHistory.length - 1] = {
-        ...newHistory[newHistory.length - 1],
-        selectedItem: item,
-      };
-      setHistory(newHistory);
     }
   }
 
@@ -121,11 +123,11 @@ export default function GPUSupplyChain() {
     if (!canGoBack) return;
 
     setIsTransitioning(true);
+    setSelectedItem(null); // Close popup when going back
     
     setTimeout(() => {
       const newHistory = history.slice(0, -1);
       setHistory(newHistory);
-      setSelectedItem(newHistory[newHistory.length - 1]?.selectedItem ?? null);
       setIsTransitioning(false);
     }, 300);
   }
@@ -180,11 +182,11 @@ export default function GPUSupplyChain() {
             <Breadcrumb history={history} levelInfo={levelInfo} />
           </div>
 
-          <div className="flex-1 relative bg-slate-900/30 rounded-2xl border border-slate-800 mt-6 transition-all duration-300" style={{ overflow: 'visible' }}>
+          <div className="flex-1 relative bg-slate-900/30 rounded-2xl border border-slate-800 mt-6 transition-all duration-300 overflow-hidden">
             <div 
               className={`absolute inset-0 transition-all duration-500 ${
                 isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-              }`}
+              } ${selectedItem ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}
             >
               {currentState.items.map((item, idx) => (
                 <FloatingItem
@@ -194,13 +196,70 @@ export default function GPUSupplyChain() {
                   position={itemPositions[idx] || { x: 50, y: 50 }}
                   onClick={handleItemClick}
                   onHover={setHoveredItem}
+                  isSelected={selectedItem && selectedItem.id === item.id}
+                  showHoverEffects={!selectedItem}
                 />
               ))}
             </div>
 
-            {/* <div className="transition-all duration-300 ease-out">
-              <SelectedItemCard item={selectedItem} />
-            </div> */}
+            {/* Fullscreen popup for selected item */}
+            {selectedItem && (
+              <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm z-50 p-8 overflow-y-auto animate-fade-in">
+                <div className="flex flex-col h-full">
+                  {/* Top section with item card */}
+                  <div className="flex items-start gap-6 mb-6">
+                    <FloatingItem
+                      item={selectedItem}
+                      index={0}
+                      position={{ x: 0, y: 0 }}
+                      onClick={handleItemClick}
+                      onHover={() => {}}
+                      isSelected={true}
+                      showHoverEffects={false}
+                      inPopup={true}
+                    />
+                    <div className="flex-1">
+                      <h2 className="text-3xl font-bold mb-2">{selectedItem.name}</h2>
+                      <div className="flex gap-3 mb-4">
+                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                          selectedItem.risk >= 8 ? 'bg-red-500' : selectedItem.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'
+                        } text-white`}>
+                          Risk Level: {selectedItem.risk}/10
+                        </div>
+                        {selectedItem.locations && (
+                          <div className="px-3 py-1 rounded-full text-sm font-bold bg-slate-700 text-white">
+                            {selectedItem.locations.length} Location{selectedItem.locations.length > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Risk Analysis Section */}
+                  <div className="flex-1 bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+                    <h3 className="text-xl font-semibold mb-4 text-slate-200">Risk Analysis</h3>
+                    <div className="text-slate-300 leading-relaxed whitespace-pre-line">
+                      {selectedItem.riskAnalysis || 'No detailed risk analysis available for this item.'}
+                    </div>
+
+                    {/* Drill down button if available */}
+                    {selectedItem.next && selectedItem.next.length > 0 && (
+                      <button
+                        onClick={() => handleDrillDown(selectedItem)}
+                        className="mt-6 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all duration-300 shadow-lg hover:shadow-emerald-500/50"
+                      >
+                        Explore Supply Chain →
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Close instruction */}
+                  <div className="mt-4 text-center text-slate-400 text-sm">
+                    Click the item card again to close
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
