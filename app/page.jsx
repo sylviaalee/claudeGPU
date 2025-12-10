@@ -237,7 +237,7 @@ export default function GPUSupplyChain() {
                       <h2 className="text-3xl font-bold mb-2">{selectedItem.name}</h2>
                       <div className="flex gap-3 mb-4">
                         <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          selectedItem.risk >= 8 ? 'bg-red-500' : selectedItem.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'
+                          selectedItem.risk >= 8 ? 'bg-red-500' : selectedItem.risk >= 5 ? 'bg-yellow-500' : 'bg-green-500'
                         } text-white`}>
                           Risk Level: {selectedItem.risk}/10
                         </div>
@@ -302,7 +302,7 @@ export default function GPUSupplyChain() {
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {Object.entries(selectedItem.riskScores).map(([key, value]) => {
                           const percentage = (value / 10) * 100;
-                          const bgColor = value >= 8 ? 'bg-red-500' : value >= 6 ? 'bg-yellow-500' : 'bg-green-500';
+                          const bgColor = value >= 8 ? 'bg-red-500' : value >= 5 ? 'bg-yellow-500' : 'bg-green-500';
                           const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
                           
                           return (
