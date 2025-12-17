@@ -167,13 +167,13 @@ const GPUGlobe = () => {
         const lineEl = lineElementsRef.current[index];
         if (!labelEl || !lineEl) return;
 
-        // Visibility Check (Occlusion)
+        // Visibility Check
         const markerWorldPos = new THREE.Vector3();
         markerData.marker.getWorldPosition(markerWorldPos);
         const meshNormal = markerWorldPos.clone().normalize();
         const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
         const facingCamera = meshNormal.dot(vecToCamera);
-        const isVisible = facingCamera > 0.2; // Threshold for occlusion
+        const isVisible = facingCamera > 0.2; 
 
         if (isVisible) {
           const markerScreenPos = markerWorldPos.clone().project(camera);
@@ -202,7 +202,7 @@ const GPUGlobe = () => {
         }
       });
 
-      // 2. SORT by Y position (Top to Bottom)
+      // 2. SORT by Y position
       visibleLabels.sort((a, b) => a.y - b.y);
 
       // 3. STACK Algorithm
@@ -310,8 +310,8 @@ const GPUGlobe = () => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* HUD Box */}
-      <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-40">
+      {/* HUD Box - Z-INDEX SET TO 2000 */}
+      <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Current Level</h3>
@@ -407,9 +407,9 @@ const GPUGlobe = () => {
         );
       })}
 
-      {/* Info Panel */}
+      {/* Info Panel - Z-INDEX SET TO 3000 (Highest) */}
       {selectedItem && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[9999]">
+        <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[3000]">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
@@ -497,8 +497,8 @@ const GPUGlobe = () => {
         </div>
       )}
 
-       {/* Instructions */}
-       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-40">
+       {/* Instructions - Z-INDEX SET TO 2000 */}
+       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
       </div>
