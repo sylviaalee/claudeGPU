@@ -453,7 +453,10 @@ const GPUGlobe = () => {
              {selectedItem.riskScores && (
             <div className="space-y-2 mb-4">
               <h3 className="text-lg font-semibold text-orange-400 mb-2">Detailed Risk Breakdown</h3>
-              {Object.entries(selectedItem.riskScores).map(([key, value]) => (
+              {/* SORTED FROM MOST RISKY (Highest value) TO LEAST RISKY */}
+              {Object.entries(selectedItem.riskScores)
+                .sort((a, b) => b[1] - a[1]) // <--- Added Sort Logic Here
+                .map(([key, value]) => (
                 <div key={key} className="bg-slate-700 rounded-lg p-3">
                   <div className="flex justify-between items-center">
                     <span className="text-white font-medium capitalize text-sm">
