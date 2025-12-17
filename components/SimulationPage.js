@@ -13,18 +13,45 @@ const latLonToVector3 = (lat, lon, radius) => {
     return new THREE.Vector3(x, y, z);
 };
 
-// --- UTILITY: Arc Generator ---
-const createArcLine = (startVector, endVector, color, height = 0.5) => {
-    const midVector = startVector.clone().add(endVector).divideScalar(2);
+// --- UTILITY: Thick & Safe Arc Generator ---
+const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated = false) => {
     const distance = startVector.distanceTo(endVector);
-    const arcHeight = Math.sqrt(distance) * height; 
-    const midPoint = midVector.normalize().multiplyScalar(1.3 + arcHeight); 
+    
+    // 1. Calculate a robust midpoint (Apex)
+    let midVector = startVector.clone().add(endVector);
+    if (midVector.lengthSq() < 0.01) {
+        const axis = new THREE.Vector3(0, 1, 0); 
+        if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
+            axis.set(0, 0, 1);
+        }
+        midVector.crossVectors(startVector, axis);
+    }
+    
+    const arcHeight = 1.3 + (distance * 0.5); 
+    const midPoint = midVector.normalize().multiplyScalar(arcHeight);
 
-    const curve = new THREE.QuadraticBezierCurve3(startVector, midPoint, endVector);
-    const points = curve.getPoints(50);
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2, transparent: true, opacity: 0.8 });
-    return new THREE.Line(geometry, material);
+    // 2. Create the Curve
+    const curve = new THREE.QuadraticBezierCurve3(
+        startVector,
+        midPoint,
+        endVector
+    );
+
+    // 3. TubeGeometry
+    const geometry = new THREE.TubeGeometry(curve, 64, 0.015, 8, false);
+    
+    // SETUP ANIMATION: If animated, start with 0 faces drawn
+    if (isAnimated) {
+        geometry.setDrawRange(0, 0);
+    }
+
+    const material = new THREE.MeshBasicMaterial({ 
+        color: color, 
+        transparent: true, 
+        opacity: opacity 
+    });
+
+    return new THREE.Mesh(geometry, material);
 };
 
 // --- HELPERS ---
@@ -67,6 +94,7 @@ const MOCK_PATH = [
 
 const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const mountRef = useRef(null);
+    const [sceneReady, setSceneReady] = useState(false);
     
     // --- STATE ---
     const [isSimulating, setIsSimulating] = useState(false);
@@ -87,6 +115,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const globeRef = useRef(null);
     const markersGroupRef = useRef(null);
     const arcGroupRef = useRef(null);
+    
+    // NEW: Track drawn lines to prevent duplicates
+    const drawnLinesRef = useRef(new Set()); 
+    const animatingObjectsRef = useRef([]); 
+    
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
     const frameIdRef = useRef(null);
@@ -98,7 +131,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         if (index >= selectedPath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
-            // No step number for final completion message
             setSimulationLog(prev => [...prev, { text: "✅ Supply Chain Successfully Completed!", type: "success", id: Date.now() + Math.random() }]);
             return;
         }
@@ -186,40 +218,20 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     }
                     return newStatuses;
                 });
-                setSimulationLog(prev => [...prev, { 
-                    step: index, // <--- Added Step
-                    text: `⛔ CRITICAL STOPPAGE at ${item.name}.`, 
-                    type: "danger", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `⛔ CRITICAL STOPPAGE at ${item.name}.`, type: "danger", id: Date.now() }]);
                 setIsSimulating(false);
                 setSimulationStatus('failed');
             } else if (disruptionType === 'LOSS') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { 
-                    step: index, // <--- Added Step
-                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, 
-                    type: "warning", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, type: "warning", id: Date.now() }]);
                 setTimeout(() => runSimulationStep(index + 1), 2500);
             } else if (disruptionType === 'DELAY') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { 
-                    step: index, // <--- Added Step
-                    text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, 
-                    type: "warning", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, type: "warning", id: Date.now() }]);
                 setTimeout(() => runSimulationStep(index + 1), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
-                setSimulationLog(prev => [...prev, { 
-                    step: index, // <--- Added Step
-                    text: `✅ ${item.name}: Operations stable.`, 
-                    type: "success", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `✅ ${item.name}: Operations stable.`, type: "success", id: Date.now() }]);
                 setTimeout(() => runSimulationStep(index + 1), 1500);
             }
         }, 1000);
@@ -236,11 +248,15 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 };
         setMetrics(metricsRef.current);
         setMetricsHistory([]);
+        
+        // Reset drawn lines tracking
+        drawnLinesRef.current.clear();
+        
         setIsMetricsExpanded(false);
         setTimeout(() => { runSimulationStep(0); }, 1000);
     }, [isSimulating, simulationStatus, runSimulationStep]);
 
-    // --- THREE.JS SETUP (Standard) ---
+    // --- THREE.JS SETUP ---
     useEffect(() => {
         if (!mountRef.current) return;
         while (mountRef.current.firstChild) mountRef.current.removeChild(mountRef.current.firstChild);
@@ -269,6 +285,14 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         const globe = new THREE.Mesh(globeGeometry, globeMaterial);
         scene.add(globe);
         globeRef.current = globe;
+
+        const markersGroup = new THREE.Group();
+        globe.add(markersGroup);
+        markersGroupRef.current = markersGroup;
+
+        const arcGroup = new THREE.Group();
+        globe.add(arcGroup);
+        arcGroupRef.current = arcGroup;
 
         const starGeometry = new THREE.BufferGeometry();
         const starVertices = [];
@@ -317,6 +341,22 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             frameIdRef.current = requestAnimationFrame(animate);
             if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
             if (stars) stars.rotation.y += 0.0002;
+            
+            // ANIMATE LINES HERE
+            if (animatingObjectsRef.current.length > 0) {
+                animatingObjectsRef.current.forEach((mesh, idx) => {
+                    const totalCounts = mesh.geometry.index.count; 
+                    const speed = 40; 
+                    
+                    if (mesh.geometry.drawRange.count < totalCounts) {
+                        mesh.geometry.setDrawRange(0, mesh.geometry.drawRange.count + speed);
+                    } else {
+                        mesh.geometry.setDrawRange(0, Infinity); 
+                        animatingObjectsRef.current.splice(idx, 1); 
+                    }
+                });
+            }
+
             if (rendererRef.current && sceneRef.current && cameraRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         animate();
@@ -329,6 +369,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         };
         window.addEventListener('resize', handleResize);
 
+        setSceneReady(true);
+
         return () => {
             if (rendererRef.current?.domElement && mountRef.current?.contains(rendererRef.current.domElement)) {
                 mountRef.current.removeChild(rendererRef.current.domElement);
@@ -337,16 +379,19 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         };
     }, []);
 
-    // --- VISUALS ---
+    // --- VISUALS UPDATER ---
     useEffect(() => {
-        if (!globeRef.current) return;
-        if (!markersGroupRef.current) { const g = new THREE.Group(); globeRef.current.add(g); markersGroupRef.current = g; }
-        if (!arcGroupRef.current) { const g = new THREE.Group(); globeRef.current.add(g); arcGroupRef.current = g; }
+        if (!sceneReady || !globeRef.current || !markersGroupRef.current || !arcGroupRef.current) return;
 
         const markersGroup = markersGroupRef.current;
         const arcGroup = arcGroupRef.current;
-        while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
-        while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
+        
+        // Only clear if resetting (Step -1)
+        if (currentStepIndex === -1) {
+            while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
+            while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
+            drawnLinesRef.current.clear();
+        }
 
         const getStatusColor = (status, baseRisk) => {
             if (status === 'active') return 0xffffff;
@@ -354,22 +399,49 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             if (status === 'warning') return 0xf59e0b;
             if (status === 'error') return 0xef4444;
             if (status === 'blocked') return 0x334155;
-            if (baseRisk >= 8) return 0x7f1d1d;
-            if (baseRisk >= 5) return 0x7c2d12;
-            return 0x14532d;
+            return 0x334155; 
         };
 
         selectedPath.forEach((item, index) => {
-            const status = nodeStatuses[item.id] || 'pending';
-            const isActive = status === 'active';
-            if (item.locations && item.locations[0]) {
-                const pos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
+            const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
+            if (!isVisible) return; 
+
+            // Create/Update Markers (Markers are static enough to just re-create or check existence, but clearing is safer)
+            // Ideally we'd track markers too, but for now we just clear and redraw markers to keep state sync simple
+            // Only Lines need strict duplication check because they animate
+            
+            // Re-drawing markers every frame is okay, but let's just clear markers group and redraw valid ones
+            // Actually, clearing every frame kills the line if we don't redraw it. 
+            // So we need to redraw EVERYTHING visible, but only animate NEW lines.
+            
+            // To fix flickering, we stop clearing every update.
+            // Instead, we unique-key the objects.
+            
+            // SIMPLIFIED APPROACH: Clear and redraw is fine for markers. 
+            // For lines, we check drawnLinesRef.
+        });
+        
+        // RE-WRITE VISUALS LOGIC TO BE ADDITIVE
+        // 1. Clear Markers (Cheap)
+        while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
+        
+        // 2. Redraw Markers
+        selectedPath.forEach((item, index) => {
+             const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
+             if (!isVisible) return;
+             
+             if (item.locations && item.locations[0]) {
+                const pos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
+                const status = nodeStatuses[item.id] || 'pending';
+                const isActive = status === 'active';
                 const color = getStatusColor(status, item.risk);
                 
                 const markerGeo = new THREE.SphereGeometry(isActive ? 0.06 : 0.04, 16, 16);
-                const markerMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: status === 'blocked' ? 0.3 : 1 });
+                const markerMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: isActive ? 1 : 0.7 });
                 const marker = new THREE.Mesh(markerGeo, markerMat);
                 marker.position.copy(pos);
+                markersGroup.add(marker);
+                
                 if (isActive) {
                     const glowGeo = new THREE.SphereGeometry(0.08, 16, 16);
                     const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
@@ -377,24 +449,63 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     glow.position.copy(pos);
                     markersGroup.add(glow);
                 }
-                markersGroup.add(marker);
+             }
+        });
 
-                if (index > 0) {
+        // 3. Handle Lines (Additive + Check)
+        selectedPath.forEach((item, index) => {
+            if (index > 0 && index <= currentStepIndex + 1) {
+                // Generate a unique ID for this leg
+                const legId = `line-${index}`;
+                
+                // If we haven't drawn this line yet, draw it!
+                if (!drawnLinesRef.current.has(legId)) {
                     const prevItem = selectedPath[index - 1];
-                    const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
-                    let lineColor = 0x334155;
+                    const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.32);
+                    const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
+                    
+                    let lineColor = 0x334155; 
                     let lineOpacity = 0.2;
-                    if (status === 'active' || status === 'success' || status === 'warning' || status === 'error') {
-                        lineColor = 0x3b82f6;
+                    let animateThisLine = false;
+
+                    if (index === currentStepIndex + 1) {
+                        lineColor = 0x64748b; 
+                        lineOpacity = 0.5;
+                    } else if (index === currentStepIndex) {
+                        lineColor = 0x3b82f6; 
                         lineOpacity = 1.0;
+                        animateThisLine = true; 
+                    } else {
+                        lineColor = 0x22c55e; 
+                        lineOpacity = 0.6;
                     }
-                    const arc = createArcLine(prevPos, pos, new THREE.Color(lineColor), 0.3);
-                    arc.material.opacity = lineOpacity;
+
+                    const arc = createArcLine(prevPos, currPos, new THREE.Color(lineColor), lineOpacity, animateThisLine);
+                    // Tag it so we can find it later if needed (optional)
+                    arc.userData = { id: legId };
+                    
                     arcGroup.add(arc);
+                    drawnLinesRef.current.add(legId);
+                    
+                    if (animateThisLine) {
+                        animatingObjectsRef.current.push(arc);
+                    }
+                } else {
+                    // OPTIONAL: If it already exists, update color (e.g. Blue -> Green)
+                    // We need to find the existing mesh in the group
+                    const existingArc = arcGroup.children.find(child => child.userData.id === legId);
+                    if (existingArc) {
+                        let targetColor = 0x334155;
+                        if (index < currentStepIndex) targetColor = 0x22c55e; // Completed
+                        else if (index === currentStepIndex) targetColor = 0x3b82f6; // Active
+                        
+                        existingArc.material.color.setHex(targetColor);
+                    }
                 }
             }
         });
-    }, [selectedPath, nodeStatuses, currentStepIndex]);
+
+    }, [selectedPath, nodeStatuses, currentStepIndex, sceneReady]);
 
     return (
         <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
@@ -418,12 +529,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-[100px]">
                         {simulationLog.length === 0 ? <div className="text-gray-500 text-sm italic">No events yet...</div> : simulationLog.map((log) => (
                             <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' : log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' : log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' : 'bg-slate-800 border-slate-500 text-gray-300'}`}>
-                                {/* Step number badge */}
-                                {log.step !== undefined && (
-                                    <span className="font-mono font-bold text-xs opacity-50 mr-2 text-white bg-slate-700 px-1.5 py-0.5 rounded">
-                                        Step {log.step}
-                                    </span>
-                                )}
+                                {log.step !== undefined && <span className="font-mono font-bold text-xs opacity-50 mr-2 text-white bg-slate-700 px-1.5 py-0.5 rounded">Step {log.step}</span>}
                                 {log.text}
                             </div>
                         ))}
