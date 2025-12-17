@@ -131,14 +131,37 @@ const GPUGlobe = ({ onSimulate }) => {
     setSelectedItem(null);
   };
 
-  // Auto-select path: picks first item at each level until reaching end
-  const handleAutoSelect = () => {
+  // Auto-select path with different strategies
+  const handleAutoSelect = (strategy = 'first') => {
     const path = [];
     let currentLevel = data.gpus || [];
     
-    // Start with first GPU
+    // Start with first GPU (or optimized selection)
     if (currentLevel.length === 0) return;
-    let currentItem = currentLevel[0];
+    
+    let currentItem;
+    if (strategy === 'first') {
+      currentItem = currentLevel[0];
+    } else if (strategy === 'cost') {
+      currentItem = currentLevel.reduce((min, item) => {
+        const minCost = parseFloat(min.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
+        const itemCost = parseFloat(item.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
+        return itemCost < minCost ? item : min;
+      });
+    } else if (strategy === 'time') {
+      currentItem = currentLevel.reduce((min, item) => {
+        const minTime = parseFloat(min.shipping?.time?.match(/\d+/)?.[0] || Infinity);
+        const itemTime = parseFloat(item.shipping?.time?.match(/\d+/)?.[0] || Infinity);
+        return itemTime < minTime ? item : min;
+      });
+    } else if (strategy === 'risk') {
+      currentItem = currentLevel.reduce((min, item) => 
+        (item.risk < min.risk) ? item : min
+      );
+    } else if (strategy === 'random') {
+      currentItem = currentLevel[Math.floor(Math.random() * currentLevel.length)];
+    }
+    
     path.push({ ...currentItem, emoji: currentItem.image });
     
     // Keep drilling down until no more next items
@@ -146,20 +169,42 @@ const GPUGlobe = ({ onSimulate }) => {
       const nextIds = currentItem.next;
       const categories = Object.keys(data).filter(k => k !== 'gpus');
       
-      // Find the first matching item in any category
-      let found = false;
+      // Find all matching items in any category
+      let candidates = [];
       for (const category of categories) {
         const categoryItems = data[category] || [];
-        const matchingItem = categoryItems.find(item => nextIds.includes(item.id));
-        if (matchingItem) {
-          currentItem = matchingItem;
-          path.push({ ...currentItem, emoji: currentItem.image });
-          found = true;
-          break;
-        }
+        const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
+        candidates = candidates.concat(matchingItems);
       }
       
-      if (!found) break;
+      if (candidates.length === 0) break;
+      
+      // Select based on strategy
+      let selectedItem;
+      if (strategy === 'first') {
+        selectedItem = candidates[0];
+      } else if (strategy === 'cost') {
+        selectedItem = candidates.reduce((min, item) => {
+          const minCost = parseFloat(min.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
+          const itemCost = parseFloat(item.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
+          return itemCost < minCost ? item : min;
+        });
+      } else if (strategy === 'time') {
+        selectedItem = candidates.reduce((min, item) => {
+          const minTime = parseFloat(min.shipping?.time?.match(/\d+/)?.[0] || Infinity);
+          const itemTime = parseFloat(item.shipping?.time?.match(/\d+/)?.[0] || Infinity);
+          return itemTime < minTime ? item : min;
+        });
+      } else if (strategy === 'risk') {
+        selectedItem = candidates.reduce((min, item) => 
+          (item.risk < min.risk) ? item : min
+        );
+      } else if (strategy === 'random') {
+        selectedItem = candidates[Math.floor(Math.random() * candidates.length)];
+      }
+      
+      currentItem = selectedItem;
+      path.push({ ...currentItem, emoji: currentItem.image });
     }
     
     // Simulate with the complete path
@@ -473,15 +518,48 @@ const GPUGlobe = ({ onSimulate }) => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* Auto-Select Button */}
+      {/* Auto-Select Buttons */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-[2000]">
-        <button
-          onClick={handleAutoSelect}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-2xl border border-purple-400 hover:border-purple-300 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-        >
-          <span className="text-xl">⚡</span>
-          Auto-Select Path & Simulate
-        </button>
+        <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-3 rounded-xl shadow-2xl">
+          <div className="text-white text-xs font-semibold mb-2 text-center">AUTO-GENERATE SUPPLY CHAIN</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleAutoSelect('cost')}
+              className="bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-green-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+              title="Minimize total shipping cost"
+            >
+              <span className="text-lg">💰</span>
+              <span className="text-sm">Lowest Cost</span>
+            </button>
+            
+            <button
+              onClick={() => handleAutoSelect('time')}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-blue-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+              title="Minimize total shipping time"
+            >
+              <span className="text-lg">⚡</span>
+              <span className="text-sm">Fastest Time</span>
+            </button>
+            
+            <button
+              onClick={() => handleAutoSelect('risk')}
+              className="bg-yellow-600 hover:bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-yellow-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+              title="Minimize supply chain risk"
+            >
+              <span className="text-lg">🛡️</span>
+              <span className="text-sm">Lowest Risk</span>
+            </button>
+            
+            <button
+              onClick={() => handleAutoSelect('random')}
+              className="bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-purple-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+              title="Randomly select supply chain"
+            >
+              <span className="text-lg">🎲</span>
+              <span className="text-sm">Random</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* HUD Box */}
