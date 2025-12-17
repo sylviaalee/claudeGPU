@@ -8,8 +8,6 @@ const GPUGlobe = () => {
   const mountRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]); 
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingSelection, setPendingSelection] = useState(null);
   
   const data = supplyChainData;
 
@@ -77,12 +75,11 @@ const GPUGlobe = () => {
     return 'Low';
   };
 
-  const handleConfirmSelection = () => {
-    if (pendingSelection && pendingSelection.next && pendingSelection.next.length > 0) {
-      setBreadcrumb([...breadcrumb, pendingSelection]);
-      setShowConfirmDialog(false);
+  // --- NAVIGATION ACTIONS ---
+  const handleDrillDown = (item) => {
+    if (item && item.next && item.next.length > 0) {
+      setBreadcrumb([...breadcrumb, item]);
       setSelectedItem(null);
-      setPendingSelection(null);
     }
   };
 
@@ -96,8 +93,6 @@ const GPUGlobe = () => {
   const handleReset = () => {
     setBreadcrumb([]);
     setSelectedItem(null);
-    setShowConfirmDialog(false);
-    setPendingSelection(null);
   };
 
   useEffect(() => {
@@ -172,28 +167,13 @@ const GPUGlobe = () => {
         const lineEl = lineElementsRef.current[index];
         if (!labelEl || !lineEl) return;
 
-        // --- VISIBILITY CHECK START ---
-        // Get the real world position of the marker on the sphere
+        // Visibility Check (Occlusion)
         const markerWorldPos = new THREE.Vector3();
         markerData.marker.getWorldPosition(markerWorldPos);
-        
-        // 1. Get the normal vector of the surface at this point
-        // Since sphere center is (0,0,0), the normal is just the position vector normalized
         const meshNormal = markerWorldPos.clone().normalize();
-        
-        // 2. Get the vector pointing from the marker to the camera
         const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
-        
-        // 3. Calculate Dot Product
-        // 1.0 = Facing directly at camera
-        // 0.0 = Exactly on the horizon
-        // < 0.0 = Facing away (behind earth)
         const facingCamera = meshNormal.dot(vecToCamera);
-
-        // 4. Strict Visibility Threshold
-        // > 0.2 ensures it disappears slightly BEFORE hitting the exact edge
-        const isVisible = facingCamera > 0.2;
-        // --- VISIBILITY CHECK END ---
+        const isVisible = facingCamera > 0.2; // Threshold for occlusion
 
         if (isVisible) {
           const markerScreenPos = markerWorldPos.clone().project(camera);
@@ -222,10 +202,10 @@ const GPUGlobe = () => {
         }
       });
 
-      // 2. SORT by Y position (Top to Bottom) for standard stacking
+      // 2. SORT by Y position (Top to Bottom)
       visibleLabels.sort((a, b) => a.y - b.y);
 
-      // 3. STACK Algorithm to prevent overlapping
+      // 3. STACK Algorithm
       const BOX_WIDTH = 210; 
       const BOX_HEIGHT = 85;
 
@@ -428,7 +408,7 @@ const GPUGlobe = () => {
       })}
 
       {/* Info Panel */}
-      {selectedItem && !showConfirmDialog && (
+      {selectedItem && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[9999]">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
@@ -504,30 +484,15 @@ const GPUGlobe = () => {
             </div>
             )}
             
+            {/* DIRECT NAVIGATION BUTTON */}
             {selectedItem.next && selectedItem.next.length > 0 && (
               <button
-                onClick={() => { setPendingSelection(selectedItem); setShowConfirmDialog(true); }}
+                onClick={() => handleDrillDown(selectedItem)}
                 className="w-full bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3 rounded-lg transition-colors"
               >
                 Explore Supply Chain → ({selectedItem.next.length} suppliers)
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Dialog */}
-      {showConfirmDialog && pendingSelection && (
-        <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 pointer-events-auto z-50">
-          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-white mb-4">Explore Supply Chain?</h3>
-            <p className="text-gray-300 mb-6">
-              This will show the {pendingSelection.next.length} supplier(s) for <span className="text-orange-400 font-semibold">{pendingSelection.emoji} {pendingSelection.name}</span>.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => { setShowConfirmDialog(false); setPendingSelection(null); }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg">Cancel</button>
-              <button onClick={handleConfirmSelection} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3 rounded-lg">Confirm</button>
-            </div>
           </div>
         </div>
       )}
