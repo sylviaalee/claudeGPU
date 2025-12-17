@@ -44,6 +44,12 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [currentStepIndex, setCurrentStepIndex] = useState(-1); // -1 = Ready, 0...N = Active Steps
     const [simulationLog, setSimulationLog] = useState([]); // Stores the text logs
     const [simulatedRisks, setSimulatedRisks] = useState({}); // Stores random risk results per ID
+    const [metrics, setMetrics] = useState({
+        totalCost: 0,
+        totalTime: 0,
+        totalDistance: 0,
+        totalCarbon: 0
+    });
 
     // --- REFS ---
     const sceneRef = useRef(null);
@@ -74,7 +80,27 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         
         setSimulatedRisks(prev => ({ ...prev, [item.id]: newRisk }));
 
-        // 2. Generate Log Message
+        // 2. Calculate metrics for this leg
+        if (index > 0) {
+            const prevItem = selectedPath[index - 1];
+            const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
+            const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
+            const distance = prevPos.distanceTo(currPos) * 5000; // Approximate km conversion
+            
+            // Calculate leg metrics (with some randomness)
+            const legCost = distance * (0.5 + Math.random() * 0.5); // $0.5-1 per km
+            const legTime = distance / (500 + Math.random() * 300); // 500-800 km/day
+            const legCarbon = distance * (0.2 + Math.random() * 0.3); // 0.2-0.5 kg CO2/km
+            
+            setMetrics(prev => ({
+                totalCost: prev.totalCost + legCost,
+                totalTime: prev.totalTime + legTime,
+                totalDistance: prev.totalDistance + distance,
+                totalCarbon: prev.totalCarbon + legCarbon
+            }));
+        }
+
+        // 3. Generate Log Message
         let message = `Arrived at ${item.name}. Operations normal.`;
         let type = "neutral";
         
@@ -90,11 +116,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
 
         addToLog(message, type);
 
-        // 3. Move Camera to look at this point (Optional visual flair)
+        // 4. Move Camera to look at this point (Optional visual flair)
         // Note: Implementing smooth camera lerp requires TWEEN or complex logic, 
         // for now we stick to rotating the globe in the animate loop.
 
-        // 4. Schedule next step
+        // 5. Schedule next step
         setTimeout(() => {
             runSimulationStep(index + 1);
         }, 2500); // 2.5 seconds per step
@@ -106,6 +132,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setSimulationLog([]);
         setSimulatedRisks({});
         setCurrentStepIndex(-1);
+        setMetrics({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
         addToLog("🚀 Initializing Simulation Sequence...", "neutral");
         
         setTimeout(() => {
@@ -403,6 +430,51 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     })}
                 </div>
             </div>
+
+            {/* --- BOTTOM RIGHT: METRICS STATUS --- */}
+            {(isSimulating || Object.keys(simulatedRisks).length > 0) && (
+                <div className="absolute bottom-8 right-6 z-[2000] pointer-events-auto">
+                    <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-72">
+                        <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                            <span>📊</span> Supply Chain Metrics
+                        </h3>
+                        <div className="space-y-2.5">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm flex items-center gap-2">
+                                    <span>💰</span> Total Cost
+                                </span>
+                                <span className="text-emerald-400 font-bold text-sm">
+                                    ${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm flex items-center gap-2">
+                                    <span>⏱️</span> Total Time
+                                </span>
+                                <span className="text-blue-400 font-bold text-sm">
+                                    {metrics.totalTime.toFixed(1)} days
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm flex items-center gap-2">
+                                    <span>🌍</span> Distance
+                                </span>
+                                <span className="text-purple-400 font-bold text-sm">
+                                    {metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm flex items-center gap-2">
+                                    <span>🌱</span> Carbon
+                                </span>
+                                <span className="text-orange-400 font-bold text-sm">
+                                    {metrics.totalCarbon.toFixed(1)} kg CO₂
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
