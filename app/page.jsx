@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-// 1. IMPORTING FROM YOUR DATA FILE
 import { supplyChainData } from '../data/supplyChainData';
 
 const GPUGlobe = () => {
@@ -12,10 +11,11 @@ const GPUGlobe = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingSelection, setPendingSelection] = useState(null);
   
-  // Use the imported data directly
   const data = supplyChainData;
 
+  // Refs
   const labelElementsRef = useRef([]);
+  const lineElementsRef = useRef([]); // NEW: Refs for the 2D SVG lines
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
@@ -26,47 +26,38 @@ const GPUGlobe = () => {
   const previousMouseRef = useRef({ x: 0, y: 0 });
   const frameIdRef = useRef(null);
 
-  // --- 2. DATA PROCESSING ---
+  // --- DATA PROCESSING ---
   const getCurrentItems = () => {
-    // Helper to check if data exists to prevent crashes
     const isValid = (item) => item && item.locations && item.locations[0] && typeof item.locations[0].lat === 'number';
-
     if (!data) return [];
 
+    let items = [];
     if (breadcrumb.length === 0) {
-      // Top Level: Show all GPUs from your data file
-      return (data.gpus || []).filter(isValid).map(item => ({
-        ...item,
-        lat: item.locations[0].lat,
-        lon: item.locations[0].lng,
-        location: item.locations[0].name,
-        emoji: item.image,
-        category: 'gpus'
-      }));
+      items = (data.gpus || []).filter(isValid).map(item => ({ ...item, category: 'gpus' }));
     } else {
-      // Drill Down Level
       const lastSelection = breadcrumb[breadcrumb.length - 1];
       const nextIds = lastSelection.next || [];
-      
-      let items = [];
-      // Scan all keys in the data file (except 'gpus') to find the next items
       const categories = Object.keys(data).filter(k => k !== 'gpus'); 
-      
       for (const category of categories) {
         const categoryItems = data[category] || [];
         const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
-        
-        items = items.concat(matchingItems.filter(isValid).map(item => ({
-          ...item,
-          lat: item.locations[0].lat,
-          lon: item.locations[0].lng,
-          location: item.locations[0].name,
-          emoji: item.image,
-          category: category
-        })));
+        items = items.concat(matchingItems.filter(isValid).map(item => ({ ...item, category: category })));
       }
-      return items;
     }
+
+    // Add explicit lat/lon extraction with tiny random jitter 
+    return items.map((item, index) => {
+        const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
+        const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
+        
+        return {
+            ...item,
+            lat: item.locations[0].lat + jitterY,
+            lon: item.locations[0].lng + jitterX,
+            location: item.locations[0].name,
+            emoji: item.image,
+        }
+    });
   };
 
   const currentItems = getCurrentItems();
@@ -110,7 +101,6 @@ const GPUGlobe = () => {
     setPendingSelection(null);
   };
 
-  // --- THREE.JS SETUP ---
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -167,38 +157,112 @@ const GPUGlobe = () => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // Update labels loop
+    // --- COLLISION AVOIDANCE & LINE UPDATE LOOP ---
     const updateLabels = () => {
       scene.updateMatrixWorld();
+      
+      const visibleLabels = [];
+      const width = renderer.domElement.width;
+      const height = renderer.domElement.height;
+      const widthHalf = width / 2;
+      const heightHalf = height / 2;
+
+      // 1. Calculate ideal positions (anchor points)
       markersDataRef.current.forEach((markerData, index) => {
         const labelEl = labelElementsRef.current[index];
-        if (!labelEl) return;
+        const lineEl = lineElementsRef.current[index];
+        if (!labelEl || !lineEl) return;
 
+        // Get the position of the marker on the globe (the dot)
+        const markerWorldPos = new THREE.Vector3();
+        markerData.marker.getWorldPosition(markerWorldPos);
+        const markerScreenPos = markerWorldPos.clone().project(camera);
+
+        // Get the ideal position for the label
         const labelWorldPos = markerData.labelPosition.clone();
         labelWorldPos.applyMatrix4(markersGroup.matrixWorld);
-        const vector = labelWorldPos.clone();
-        vector.project(camera);
+        const labelScreenPos = labelWorldPos.clone().project(camera);
         
-        const widthHalf = renderer.domElement.width / 2;
-        const heightHalf = renderer.domElement.height / 2;
-        const x = (vector.x * widthHalf) + widthHalf;
-        const y = -(vector.y * heightHalf) + heightHalf;
-        
+        // Check visibility
         const cameraDirection = new THREE.Vector3();
         camera.getWorldDirection(cameraDirection);
         const toLabel = labelWorldPos.clone().sub(camera.position).normalize();
         const dotProduct = toLabel.dot(cameraDirection);
-        
-        // VISIBILITY CHECK
-        const isVisible = dotProduct > 0 && vector.z < 1;
+        const isVisible = dotProduct > 0 && labelScreenPos.z < 1;
 
         if (isVisible) {
-          labelEl.style.display = 'block';
-          labelEl.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-          labelEl.style.zIndex = Math.floor((1 - vector.z) * 1000);
+          // Convert to pixels
+          const anchorX = (markerScreenPos.x * widthHalf) + widthHalf;
+          const anchorY = -(markerScreenPos.y * heightHalf) + heightHalf;
+          
+          const idealX = (labelScreenPos.x * widthHalf) + widthHalf;
+          const idealY = -(labelScreenPos.y * heightHalf) + heightHalf;
+
+          visibleLabels.push({
+            index,
+            element: labelEl,
+            lineElement: lineEl,
+            anchorX, // Where the line starts (dot on globe)
+            anchorY,
+            x: idealX, // Where the box wants to be
+            y: idealY,
+            z: labelScreenPos.z,
+            w: 180, 
+            h: 60  
+          });
         } else {
           labelEl.style.display = 'none';
+          lineEl.style.display = 'none';
         }
+      });
+
+      // 2. Resolve Collisions (Box vs Box)
+      const iterations = 5; 
+      for(let k=0; k<iterations; k++) {
+        for(let i=0; i<visibleLabels.length; i++) {
+          for(let j=i+1; j<visibleLabels.length; j++) {
+            const l1 = visibleLabels[i];
+            const l2 = visibleLabels[j];
+
+            const dx = l1.x - l2.x;
+            const dy = l1.y - l2.y;
+            
+            const minDistX = (l1.w + l2.w) / 2 * 0.85; 
+            const minDistY = (l1.h + l2.h) / 2 * 1.1;
+
+            if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
+               const force = 0.5;
+               const overlapY = minDistY - Math.abs(dy);
+               
+               if (l1.y < l2.y) {
+                 l1.y -= overlapY * force;
+                 l2.y += overlapY * force;
+               } else {
+                 l1.y += overlapY * force;
+                 l2.y -= overlapY * force;
+               }
+            }
+          }
+        }
+      }
+
+      // 3. Apply final positions & Update Lines
+      visibleLabels.forEach(l => {
+        // Update Box Position
+        l.element.style.display = 'block';
+        l.element.style.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
+        l.element.style.zIndex = Math.floor((1 - l.z) * 1000);
+
+        // Update SVG Line (From Globe Dot -> To Box Center)
+        // We use a CSS transform on the line element to rotate/stretch it
+        const dx = l.x - l.anchorX;
+        const dy = l.y - l.anchorY;
+        const length = Math.sqrt(dx*dx + dy*dy);
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+        l.lineElement.style.display = 'block';
+        l.lineElement.style.width = `${length}px`;
+        l.lineElement.style.transform = `translate(${l.anchorX}px, ${l.anchorY}px) rotate(${angle}deg)`;
       });
     };
 
@@ -237,12 +301,10 @@ const GPUGlobe = () => {
     };
   }, []);
 
-  // Update Markers when currentItems changes
+  // Update Markers
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
-    
-    // Cleanup old markers
     while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
     markersDataRef.current = [];
 
@@ -254,11 +316,7 @@ const GPUGlobe = () => {
     };
 
     currentItems.forEach((item) => {
-      // Validate data before creating 3D objects
-      if(typeof item.lat !== 'number' || typeof item.lon !== 'number') {
-          console.warn('Skipping item due to missing coordinates:', item);
-          return;
-      }
+      if(typeof item.lat !== 'number' || typeof item.lon !== 'number') return;
 
       const position = latLonToVector3(item.lat, item.lon, 1.5);
       const color = getRiskColor(item.risk);
@@ -268,15 +326,13 @@ const GPUGlobe = () => {
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       marker.position.copy(position);
       
+      // We no longer need the 3D THREE.Line here because we are drawing 2D lines in the DOM
+      // However, we still calculate the "ideal" label position in 3D space
       const lineEnd = position.clone().normalize().multiplyScalar(2.2);
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([position, lineEnd]);
-      const lineMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 });
-      const line = new THREE.Line(lineGeometry, lineMaterial);
       
       markersGroup.add(marker);
-      markersGroup.add(line);
       
-      markersDataRef.current.push({ item, marker, line, position: position.clone(), labelPosition: lineEnd });
+      markersDataRef.current.push({ item, marker, position: position.clone(), labelPosition: lineEnd });
     });
   }, [currentItems]);
 
@@ -284,7 +340,7 @@ const GPUGlobe = () => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* --- HUD Box --- */}
+      {/* HUD Box */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-40">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -295,7 +351,6 @@ const GPUGlobe = () => {
                 : <span className="text-orange-400">{breadcrumb[breadcrumb.length - 1].name}</span>
               }
             </div>
-            {/* COUNTER: Check this number to verify import */}
             <div className="text-xs text-green-400 mt-1 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
               {currentItems.length} Locations Active
@@ -333,30 +388,50 @@ const GPUGlobe = () => {
         </div>
       </div>
 
-      {/* Labels */}
+      {/* --- RENDER LINES AND LABELS --- */}
       {currentItems.map((item, index) => {
         const riskColor = item.risk >= 8 ? 'border-red-500' : 
                          item.risk >= 6 ? 'border-orange-500' : 
                          item.risk >= 4 ? 'border-yellow-500' : 'border-green-500';
         
+        const lineColor = item.risk >= 8 ? '#ef4444' : 
+                         item.risk >= 6 ? '#f97316' : 
+                         item.risk >= 4 ? '#eab308' : '#22c55e';
+
         return (
-          <div
-            key={item.id || index}
-            ref={(el) => (labelElementsRef.current[index] = el)}
-            className="absolute pointer-events-auto cursor-pointer will-change-transform"
-            style={{ display: 'none', top: 0, left: 0 }}
-            onClick={() => setSelectedItem(item)}
-          >
-            <div className={`bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{item.emoji}</span>
-                <div>
-                  <div className="text-xs font-bold text-white whitespace-nowrap">{item.name}</div>
-                  <div className="text-xs text-gray-400 whitespace-nowrap">Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}</div>
+          <React.Fragment key={item.id || index}>
+            {/* The Dynamic Line (DOM-based) */}
+            <div
+                ref={(el) => (lineElementsRef.current[index] = el)}
+                className="absolute origin-left pointer-events-none"
+                style={{
+                    display: 'none',
+                    top: 0,
+                    left: 0,
+                    height: '1px',
+                    backgroundColor: lineColor,
+                    opacity: 0.6,
+                }}
+            />
+
+            {/* The Label Box */}
+            <div
+                ref={(el) => (labelElementsRef.current[index] = el)}
+                className="absolute pointer-events-auto cursor-pointer will-change-transform"
+                style={{ display: 'none', top: 0, left: 0 }}
+                onClick={() => setSelectedItem(item)}
+            >
+                <div className={`bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">{item.emoji}</span>
+                    <div>
+                    <div className="text-xs font-bold text-white whitespace-nowrap">{item.name}</div>
+                    <div className="text-xs text-gray-400 whitespace-nowrap">Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}</div>
+                    </div>
                 </div>
-              </div>
+                </div>
             </div>
-          </div>
+          </React.Fragment>
         );
       })}
 
@@ -471,9 +546,6 @@ const GPUGlobe = () => {
        <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-40">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
-        {breadcrumb.length === 0 && (
-          <p className="text-orange-400 text-xs">Click any GPU to explore its supply chain</p>
-        )}
       </div>
     </div>
   );
