@@ -139,7 +139,7 @@ const GPUGlobe = () => {
     pointLight.position.set(5, 3, 5);
     scene.add(pointLight);
 
-    const globeGeometry = new THREE.SphereGeometry(1.5, 64, 64);
+    const globeGeometry = new THREE.SphereGeometry(1.3, 64, 64);
     // Note: The texture must be accessible at this URL or locally
     const globeTexture = new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'); 
     const globeMaterial = new THREE.MeshPhongMaterial({ map: globeTexture, shininess: 20 });
@@ -332,7 +332,7 @@ const GPUGlobe = () => {
     currentItems.forEach((item) => {
       if(typeof item.lat !== 'number' || typeof item.lon !== 'number') return;
 
-      const position = latLonToVector3(item.lat, item.lon, 1.5);
+      const position = latLonToVector3(item.lat, item.lon, 1.3);
       const color = getRiskColor(item.risk);
       
       const markerGeometry = new THREE.SphereGeometry(0.04, 16, 16);
