@@ -65,6 +65,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const previousMouseRef = useRef({ x: 0, y: 0 });
     const frameIdRef = useRef(null);
     const textureRef = useRef(null);
+    const isMountedRef = useRef(true);
 
     // --- LOGIC: SIMULATION ENGINE ---
     const runSimulationStep = useCallback((index) => {
@@ -219,32 +220,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         scene.add(globe);
         globeRef.current = globe;
 
-        // Load texture asynchronously
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.load(
-            'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-            (texture) => {
-                // Apply texture when loaded
-                if (globeRef.current && globeRef.current.material) {
-                    globeRef.current.material.map = texture;
-                    globeRef.current.material.needsUpdate = true;
-                    textureRef.current = texture;
-                }
-            },
-            undefined,
-            (error) => {
-                console.log('Texture loading failed, using fallback color');
-            }
-        );
-
-        const markersGroup = new THREE.Group();
-        globe.add(markersGroup);
-        markersGroupRef.current = markersGroup;
-
-        const arcGroup = new THREE.Group();
-        globe.add(arcGroup);
-        arcGroupRef.current = arcGroup;
-
         // Stars
         const starGeometry = new THREE.BufferGeometry();
         const starVertices = [];
@@ -261,6 +236,77 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true })
         );
         scene.add(stars);
+
+        // Load texture asynchronously with multiple fallback sources
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.crossOrigin = 'anonymous'; // Enable CORS
+        
+        const textureSources = [
+            'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_atmos_2048.jpg',
+            'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/planets/earth_atmos_2048.jpg',
+            'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+            'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+        ];
+        
+        let currentSource = 0;
+        const tryLoadTexture = () => {
+            if (currentSource >= textureSources.length) {
+                console.error('All texture sources failed, using fallback color');
+                return;
+            }
+            
+            console.log('Attempting to load texture from source:', currentSource, textureSources[currentSource]);
+            
+            textureLoader.load(
+                textureSources[currentSource],
+                (texture) => {
+                    // Apply texture when loaded
+                    console.log('✅ Texture loaded successfully from source:', currentSource);
+                    console.log('isMounted?', isMountedRef.current);
+                    console.log('Globe exists?', !!globeRef.current);
+                    console.log('Material exists?', !!globeRef.current?.material);
+                    
+                    if (!isMountedRef.current) {
+                        console.error('Component unmounted before texture loaded');
+                        texture.dispose();
+                        return;
+                    }
+                    
+                    if (globeRef.current && globeRef.current.material) {
+                        // Store the texture reference first
+                        textureRef.current = texture;
+                        
+                        // Update material - remove the blue color tint
+                        globeRef.current.material.color.setHex(0xffffff); // Reset to white
+                        globeRef.current.material.map = texture;
+                        globeRef.current.material.needsUpdate = true;
+                        
+                        console.log('Material.map set?', !!globeRef.current.material.map);
+                        
+                        // Force the renderer to update
+                        if (rendererRef.current && sceneRef.current && cameraRef.current) {
+                            rendererRef.current.render(sceneRef.current, cameraRef.current);
+                        }
+                        
+                        console.log('Material updated with texture');
+                    } else {
+                        console.error('Globe or material not available');
+                    }
+                },
+                (progress) => {
+                    if (progress.total > 0) {
+                        console.log('Loading texture...', Math.round((progress.loaded / progress.total) * 100) + '%');
+                    }
+                },
+                (error) => {
+                    console.error('❌ Texture source', currentSource, 'failed:', error);
+                    currentSource++;
+                    tryLoadTexture();
+                }
+            );
+        };
+        
+        tryLoadTexture();
 
         // Mouse controls
         const handleMouseDown = (e) => {
@@ -312,65 +358,18 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
 
         // Cleanup
         return () => {
+            console.log('Cleanup called - detaching canvas but keeping scene alive');
+            // Don't set isMounted to false yet, texture might still be loading
+            
+            // Just detach the canvas, don't destroy anything
+            if (rendererRef.current?.domElement && mountRef.current?.contains(rendererRef.current.domElement)) {
+                mountRef.current.removeChild(rendererRef.current.domElement);
+            }
+            
             if (frameIdRef.current) {
                 cancelAnimationFrame(frameIdRef.current);
+                frameIdRef.current = null;
             }
-            
-            window.removeEventListener('resize', handleResize);
-            
-            if (canvas) {
-                canvas.removeEventListener('mousedown', handleMouseDown);
-                canvas.removeEventListener('mousemove', handleMouseMove);
-                canvas.removeEventListener('mouseup', handleMouseUp);
-            }
-            
-            // Remove canvas from DOM
-            if (mountRef.current) {
-                while (mountRef.current.firstChild) {
-                    mountRef.current.removeChild(mountRef.current.firstChild);
-                }
-            }
-            
-            // Dispose Three.js resources
-            if (markersGroupRef.current) {
-                while (markersGroupRef.current.children.length > 0) {
-                    const child = markersGroupRef.current.children[0];
-                    if (child.geometry) child.geometry.dispose();
-                    if (child.material) child.material.dispose();
-                    markersGroupRef.current.remove(child);
-                }
-            }
-            
-            if (arcGroupRef.current) {
-                while (arcGroupRef.current.children.length > 0) {
-                    const child = arcGroupRef.current.children[0];
-                    if (child.geometry) child.geometry.dispose();
-                    if (child.material) child.material.dispose();
-                    arcGroupRef.current.remove(child);
-                }
-            }
-            
-            if (globeRef.current) {
-                if (globeRef.current.geometry) globeRef.current.geometry.dispose();
-                if (globeRef.current.material) {
-                    if (globeRef.current.material.map) globeRef.current.material.map.dispose();
-                    globeRef.current.material.dispose();
-                }
-            }
-            
-            if (textureRef.current) {
-                textureRef.current.dispose();
-            }
-            
-            if (rendererRef.current) {
-                rendererRef.current.dispose();
-            }
-            
-            // Don't reset hasInitialized here - let it stay true
-            sceneRef.current = null;
-            cameraRef.current = null;
-            rendererRef.current = null;
-            globeRef.current = null;
         };
     }, []);
 
