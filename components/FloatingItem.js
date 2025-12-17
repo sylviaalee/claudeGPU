@@ -1,153 +1,98 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-
 
 export default function FloatingItem({ item, index, onClick, onHover = () => {}, position, isSelected = false, showHoverEffects = true, inPopup = false }) {
   const [showRiskPopup, setShowRiskPopup] = useState(false);
-  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const itemRef = useRef(null);
   const randomDelay = index * 0.1;
 
-  useEffect(() => {
-    if (showRiskPopup && itemRef.current) {
-      const rect = itemRef.current.getBoundingClientRect();
-      setPopupPosition({
-        x: rect.right + 16,
-        y: rect.top
-      });
-    }
-  }, [showRiskPopup]);
-  
   // Determine risk colors
   const getRiskColors = (risk) => {
     if (risk >= 8) {
       return {
         glow: 'bg-red-500/20',
-        ripple: 'border-red-400/30',
-        gradient: 'from-red-900/90 to-red-950/90',
-        border: 'border-red-700',
-        hoverShadow: 'hover:shadow-red-500/20',
-        hoverBorder: 'hover:border-red-500/50',
-        textGradient: 'group-hover:from-red-400 group-hover:to-orange-400'
+        gradient: 'from-red-900/80 to-red-950/90',
+        border: 'border-red-500/50',
+        text: 'text-red-200'
       };
     } else if (risk >= 5) {
       return {
         glow: 'bg-yellow-500/20',
-        ripple: 'border-yellow-400/30',
-        gradient: 'from-yellow-900/90 to-amber-950/90',
-        border: 'border-yellow-700',
-        hoverShadow: 'hover:shadow-yellow-500/20',
-        hoverBorder: 'hover:border-yellow-500/50',
-        textGradient: 'group-hover:from-yellow-400 group-hover:to-amber-400'
+        gradient: 'from-yellow-900/80 to-amber-950/90',
+        border: 'border-yellow-500/50',
+        text: 'text-yellow-200'
       };
     } else {
       return {
-        glow: 'bg-green-500/20',
-        ripple: 'border-green-400/30',
-        gradient: 'from-green-900/90 to-emerald-950/90',
-        border: 'border-green-700',
-        hoverShadow: 'hover:shadow-green-500/20',
-        hoverBorder: 'hover:border-green-500/50',
-        textGradient: 'group-hover:from-green-400 group-hover:to-emerald-400'
+        glow: 'bg-blue-500/20',
+        gradient: 'from-slate-900/80 to-slate-950/90',
+        border: 'border-blue-500/50',
+        text: 'text-blue-200'
       };
     }
   };
   
   const colors = getRiskColors(item.risk || 5);
-  
-  // Use provided position or default
   const itemPosition = position || { x: 50, y: 50 };
   
   return (
-    <>
-      <div
-        ref={itemRef}
-        onClick={() => onClick(item)}
-        onMouseEnter={() => { 
-          if (showHoverEffects) {
-            onHover(item); 
-            setShowRiskPopup(true);
-          }
-        }}
-        onMouseLeave={() => { 
-          if (showHoverEffects) {
-            onHover(null); 
-            setShowRiskPopup(false);
-          }
-        }}
-        className={`cursor-pointer group transition-all duration-500 ease-out ${inPopup ? 'relative' : 'absolute animate-fade-in'}`}
-        style={inPopup ? {} : {
-          left: `${itemPosition.x}%`,
-          top: `${itemPosition.y}%`,
-          animationDelay: `${randomDelay}s`,
-        }}
-      >
-      {/* Pulsing glow effect */}
-      <div className={`absolute inset-0 ${colors.glow} rounded-full blur-xl scale-150 opacity-0 ${showHoverEffects ? 'group-hover:opacity-100 group-hover:animate-pulse' : ''} transition-opacity duration-500`} />
-      
-      {/* Ripple effect on hover */}
-      <div className={`absolute inset-0 rounded-xl border-2 ${colors.ripple} opacity-0 ${showHoverEffects ? 'group-hover:opacity-100 group-hover:animate-ping' : ''}`} />
-      
-      {/* Main item container */}
-      <div className={`relative bg-gradient-to-br ${colors.gradient} backdrop-blur-sm rounded-2xl p-4 border ${colors.border} shadow-xl transform transition-all duration-300 ${showHoverEffects ? 'hover:scale-110 hover:shadow-2xl hover:-translate-y-2' : ''} ${colors.hoverShadow} ${colors.hoverBorder} ${isSelected && inPopup ? 'scale-110 shadow-2xl' : ''}`}>
-        {/* Item emoji with bounce animation */}
-        <div className="text-4xl mb-2 transition-transform duration-300 group-hover:scale-125 group-hover:rotate-12">
-          {item.image}
-        </div>
-        
-        {/* Item name with gradient on hover */}
-        <div className={`text-sm font-semibold text-center min-w-[100px] transition-all duration-300 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r ${colors.textGradient}`}>
-          {item.name}
-        </div>
-        
-        {/* Risk indicator badge */}
-        {item.risk && (
-          <div className={`absolute -top-2 -left-2 ${item.risk >= 8 ? 'bg-red-500' : item.risk >= 5 ? 'bg-yellow-500' : 'bg-green-500'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125`}>
-            {item.risk}
-          </div>
-        )}
-        
-        {/* Location count badge */}
-        {/* {item.locations && item.locations.length > 1 && (
-          <div className={`absolute -top-2 -right-2 ${item.risk >= 8 ? 'bg-red-600' : item.risk >= 6 ? 'bg-yellow-600' : 'bg-green-600'} text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:scale-125 group-hover:rotate-12`}>
-            {item.locations.length}
-          </div>
-        )} */}
-        
-        {/* Next indicator with animated arrow */}
-        {/* {item.next && item.next.length > 0 && (
-          <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs rounded-full px-2 py-1 shadow-lg transform transition-all duration-300 group-hover:translate-x-1 group-hover:shadow-emerald-500/50">
-            <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
-          </div>
-        )} */}
-      </div>
-      </div>
+    <div
+      ref={itemRef}
+      onClick={() => onClick(item)}
+      onMouseEnter={() => { 
+        if (showHoverEffects) {
+          onHover(item); 
+          setShowRiskPopup(true);
+        }
+      }}
+      onMouseLeave={() => { 
+        if (showHoverEffects) {
+          onHover(null); 
+          setShowRiskPopup(false);
+        }
+      }}
+      className={`pointer-events-auto cursor-pointer group transition-all duration-500 ease-out ${inPopup ? 'relative' : 'absolute animate-fade-in'}`}
+      style={inPopup ? {} : {
+        left: `${itemPosition.x}%`,
+        top: `${itemPosition.y}%`,
+        // Center the item on its coordinates
+        transform: 'translate(-50%, -50%)',
+        animationDelay: `${randomDelay}s`,
+      }}
+    >
+      {/* Sci-fi Connection Point (where the line attaches) */}
+      {!inPopup && <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 z-0 opacity-50" />}
 
-      {/* Risk Analysis Popup - Rendered via Portal to top layer - Only show if not in popup and hover effects enabled */}
-      {/* {showRiskPopup && !inPopup && showHoverEffects && item.riskAnalysis && typeof document !== 'undefined' && createPortal(
-        <div 
-          className="fixed z-[99999] pointer-events-none animate-fade-in"
-          style={{
-            left: `${popupPosition.x}px`,
-            top: `${popupPosition.y}px`,
-          }}
-        >
-          <div className="bg-slate-900 rounded-lg border-2 border-slate-700 shadow-2xl p-4 w-80">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`px-2 py-1 rounded-full text-xs font-bold ${
-                item.risk >= 8 ? 'bg-red-500' : item.risk >= 6 ? 'bg-yellow-500' : 'bg-green-500'
-              } text-white`}>
-                Risk Level: {item.risk}/10
-              </div>
-            </div>
-            <div className="text-sm text-slate-300 leading-relaxed">
-              {item.riskAnalysis}
-            </div>
+      {/* Main Container */}
+      <div className={`
+        relative backdrop-blur-md rounded-xl p-3 border ${colors.border} 
+        bg-gradient-to-br ${colors.gradient}
+        shadow-[0_0_15px_rgba(0,0,0,0.5)]
+        transform transition-all duration-300
+        ${showHoverEffects ? 'hover:scale-110 hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]' : ''}
+        ${isSelected && inPopup ? 'scale-100 shadow-none border-none bg-transparent' : ''}
+      `}>
+        
+        {/* Content Layout */}
+        <div className="flex flex-col items-center gap-1 min-w-[80px]">
+          <div className="text-3xl filter drop-shadow-lg transition-transform duration-300 group-hover:-translate-y-1">
+            {item.image}
           </div>
-        </div>,
-        document.body
-      )} */}
-      
-    </>
+          
+          <div className={`text-xs font-bold tracking-wide uppercase ${colors.text} text-center`}>
+            {item.name}
+          </div>
+
+          {/* Mini Risk Indicator Bar */}
+          {!inPopup && (
+             <div className="w-full h-1 bg-black/50 rounded-full mt-1 overflow-hidden">
+                <div 
+                  className={`h-full ${item.risk >= 8 ? 'bg-red-500' : item.risk >= 5 ? 'bg-yellow-500' : 'bg-blue-400'}`} 
+                  style={{width: `${(item.risk/10)*100}%`}}
+                />
+             </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
