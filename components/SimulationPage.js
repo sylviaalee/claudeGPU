@@ -3,6 +3,17 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
+// --- CONSTANTS & DATA ---
+const CRITICAL_REASONS = [
+    "Factory Fire Detected",
+    "Severe Geopolitical Sanctions",
+    "Massive Cyber Attack",
+    "7.0 Magnitude Earthquake",
+    "Indefinite Labor Strike",
+    "Raw Material Exhaustion",
+    "Compliance Violation Seizure"
+];
+
 // --- UTILITY: Geolocation Math ---
 const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -37,12 +48,15 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
         endVector
     );
 
-    // 3. TubeGeometry
-    const geometry = new THREE.TubeGeometry(curve, 64, 0.015, 8, false);
+    // 3. TubeGeometry (Higher segment count for smoother animation)
+    const tubularSegments = 128; 
+    const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, 8, false);
     
-    // SETUP ANIMATION: If animated, start with 0 faces drawn
+    // SETUP ANIMATION: Start invisible if animated
     if (isAnimated) {
-        geometry.setDrawRange(0, 0);
+        // We multiply by 6 indices per quad (2 triangles * 3 vertices) * radialSegments
+        // But drawRange works on vertices/indices count.
+        geometry.setDrawRange(0, 0); 
     }
 
     const material = new THREE.MeshBasicMaterial({ 
@@ -51,7 +65,11 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
         opacity: opacity 
     });
 
-    return new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, material);
+    // Store total count for animation reference
+    mesh.userData = { totalCounts: tubularSegments * 8 * 6 }; 
+    
+    return mesh;
 };
 
 // --- HELPERS ---
@@ -116,8 +134,10 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const markersGroupRef = useRef(null);
     const arcGroupRef = useRef(null);
     
-    // NEW: Track drawn lines to prevent duplicates
+    // Tracking for additive drawing
     const drawnLinesRef = useRef(new Set()); 
+    const drawnMarkersRef = useRef(new Set());
+    // Using a ref to hold active animations ensures the render loop sees them without re-renders
     const animatingObjectsRef = useRef([]); 
     
     const isDraggingRef = useRef(false);
@@ -218,20 +238,43 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     }
                     return newStatuses;
                 });
-                setSimulationLog(prev => [...prev, { step: index, text: `⛔ CRITICAL STOPPAGE at ${item.name}.`, type: "danger", id: Date.now() }]);
+                
+                const reason = CRITICAL_REASONS[Math.floor(Math.random() * CRITICAL_REASONS.length)];
+                
+                setSimulationLog(prev => [...prev, { 
+                    step: index, 
+                    text: `⛔ CRITICAL STOPPAGE at ${item.name}: ${reason}`, 
+                    type: "danger", 
+                    id: Date.now() 
+                }]);
                 setIsSimulating(false);
                 setSimulationStatus('failed');
             } else if (disruptionType === 'LOSS') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { step: index, text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, type: "warning", id: Date.now() }]);
+                setSimulationLog(prev => [...prev, { 
+                    step: index, 
+                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, 
+                    type: "warning", 
+                    id: Date.now() 
+                }]);
                 setTimeout(() => runSimulationStep(index + 1), 2500);
             } else if (disruptionType === 'DELAY') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { step: index, text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, type: "warning", id: Date.now() }]);
+                setSimulationLog(prev => [...prev, { 
+                    step: index, 
+                    text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, 
+                    type: "warning", 
+                    id: Date.now() 
+                }]);
                 setTimeout(() => runSimulationStep(index + 1), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
-                setSimulationLog(prev => [...prev, { step: index, text: `✅ ${item.name}: Operations stable.`, type: "success", id: Date.now() }]);
+                setSimulationLog(prev => [...prev, { 
+                    step: index, 
+                    text: `✅ ${item.name}: Operations stable.`, 
+                    type: "success", 
+                    id: Date.now() 
+                }]);
                 setTimeout(() => runSimulationStep(index + 1), 1500);
             }
         }, 1000);
@@ -249,8 +292,10 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setMetrics(metricsRef.current);
         setMetricsHistory([]);
         
-        // Reset drawn lines tracking
+        // Reset drawn tracking
         drawnLinesRef.current.clear();
+        drawnMarkersRef.current.clear();
+        animatingObjectsRef.current = [];
         
         setIsMetricsExpanded(false);
         setTimeout(() => { runSimulationStep(0); }, 1000);
@@ -337,6 +382,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         canvas.addEventListener('mouseup', handleMouseUp);
         canvas.addEventListener('mouseleave', handleMouseUp); 
 
+        // --- ANIMATION LOOP ---
         const animate = () => {
             frameIdRef.current = requestAnimationFrame(animate);
             if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
@@ -344,17 +390,21 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             
             // ANIMATE LINES HERE
             if (animatingObjectsRef.current.length > 0) {
-                animatingObjectsRef.current.forEach((mesh, idx) => {
-                    const totalCounts = mesh.geometry.index.count; 
-                    const speed = 40; 
-                    
-                    if (mesh.geometry.drawRange.count < totalCounts) {
-                        mesh.geometry.setDrawRange(0, mesh.geometry.drawRange.count + speed);
-                    } else {
-                        mesh.geometry.setDrawRange(0, Infinity); 
-                        animatingObjectsRef.current.splice(idx, 1); 
+                // Iterate backwards to allow splicing
+                for (let i = animatingObjectsRef.current.length - 1; i >= 0; i--) {
+                    const mesh = animatingObjectsRef.current[i];
+                    if (mesh && mesh.geometry) {
+                        const totalCounts = mesh.geometry.index.count; // Total vertices (not faces)
+                        const speed = 120; // Speed of line drawing
+                        
+                        if (mesh.geometry.drawRange.count < totalCounts) {
+                            mesh.geometry.setDrawRange(0, mesh.geometry.drawRange.count + speed);
+                        } else {
+                            mesh.geometry.setDrawRange(0, Infinity); 
+                            animatingObjectsRef.current.splice(i, 1); // Finished
+                        }
                     }
-                });
+                }
             }
 
             if (rendererRef.current && sceneRef.current && cameraRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -386,11 +436,13 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         const markersGroup = markersGroupRef.current;
         const arcGroup = arcGroupRef.current;
         
-        // Only clear if resetting (Step -1)
+        // ONLY CLEAR IF RESETTING
         if (currentStepIndex === -1) {
             while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
             while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
             drawnLinesRef.current.clear();
+            drawnMarkersRef.current.clear();
+            animatingObjectsRef.current = [];
         }
 
         const getStatusColor = (status, baseRisk) => {
@@ -406,40 +458,21 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
             if (!isVisible) return; 
 
-            // Create/Update Markers (Markers are static enough to just re-create or check existence, but clearing is safer)
-            // Ideally we'd track markers too, but for now we just clear and redraw markers to keep state sync simple
-            // Only Lines need strict duplication check because they animate
+            // --- HANDLE MARKERS ---
+            const markerId = `marker-${index}`;
+            const status = nodeStatuses[item.id] || 'pending';
             
-            // Re-drawing markers every frame is okay, but let's just clear markers group and redraw valid ones
-            // Actually, clearing every frame kills the line if we don't redraw it. 
-            // So we need to redraw EVERYTHING visible, but only animate NEW lines.
-            
-            // To fix flickering, we stop clearing every update.
-            // Instead, we unique-key the objects.
-            
-            // SIMPLIFIED APPROACH: Clear and redraw is fine for markers. 
-            // For lines, we check drawnLinesRef.
-        });
-        
-        // RE-WRITE VISUALS LOGIC TO BE ADDITIVE
-        // 1. Clear Markers (Cheap)
-        while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
-        
-        // 2. Redraw Markers
-        selectedPath.forEach((item, index) => {
-             const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
-             if (!isVisible) return;
-             
-             if (item.locations && item.locations[0]) {
+            if (!drawnMarkersRef.current.has(markerId) && item.locations && item.locations[0]) {
                 const pos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
-                const status = nodeStatuses[item.id] || 'pending';
                 const isActive = status === 'active';
                 const color = getStatusColor(status, item.risk);
                 
-                const markerGeo = new THREE.SphereGeometry(isActive ? 0.06 : 0.04, 16, 16);
-                const markerMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: isActive ? 1 : 0.7 });
+                const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
+                const markerMat = new THREE.MeshBasicMaterial({ color: color, transparent: true });
                 const marker = new THREE.Mesh(markerGeo, markerMat);
                 marker.position.copy(pos);
+                marker.userData = { id: markerId };
+                
                 markersGroup.add(marker);
                 
                 if (isActive) {
@@ -447,18 +480,21 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
                     glow.position.copy(pos);
+                    glow.userData = { id: `${markerId}-glow` };
                     markersGroup.add(glow);
                 }
-             }
-        });
+                drawnMarkersRef.current.add(markerId);
+            } else {
+                const existingMarker = markersGroup.children.find(child => child.userData.id === markerId);
+                if (existingMarker) {
+                    existingMarker.material.color.setHex(getStatusColor(status, item.risk));
+                }
+            }
 
-        // 3. Handle Lines (Additive + Check)
-        selectedPath.forEach((item, index) => {
+            // --- HANDLE LINES ---
             if (index > 0 && index <= currentStepIndex + 1) {
-                // Generate a unique ID for this leg
                 const legId = `line-${index}`;
                 
-                // If we haven't drawn this line yet, draw it!
                 if (!drawnLinesRef.current.has(legId)) {
                     const prevItem = selectedPath[index - 1];
                     const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.32);
@@ -481,7 +517,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     }
 
                     const arc = createArcLine(prevPos, currPos, new THREE.Color(lineColor), lineOpacity, animateThisLine);
-                    // Tag it so we can find it later if needed (optional)
                     arc.userData = { id: legId };
                     
                     arcGroup.add(arc);
@@ -491,15 +526,14 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                         animatingObjectsRef.current.push(arc);
                     }
                 } else {
-                    // OPTIONAL: If it already exists, update color (e.g. Blue -> Green)
-                    // We need to find the existing mesh in the group
                     const existingArc = arcGroup.children.find(child => child.userData.id === legId);
                     if (existingArc) {
                         let targetColor = 0x334155;
-                        if (index < currentStepIndex) targetColor = 0x22c55e; // Completed
-                        else if (index === currentStepIndex) targetColor = 0x3b82f6; // Active
+                        if (index < currentStepIndex) targetColor = 0x22c55e; 
+                        else if (index === currentStepIndex) targetColor = 0x3b82f6; 
                         
                         existingArc.material.color.setHex(targetColor);
+                        existingArc.material.opacity = (index === currentStepIndex) ? 1.0 : 0.6;
                     }
                 }
             }
@@ -539,7 +573,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             </div>
 
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[90%] pointer-events-auto">
-                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
+                {/* INCREASED padding to p-4 */}
+                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-4 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
                     {selectedPath.map((item, index) => {
                          const status = nodeStatuses[item.id] || 'pending';
                          let borderClass = 'border-slate-600';
@@ -550,11 +585,17 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                          if(status === 'blocked') borderClass = 'border-slate-700 opacity-50';
                          return (
                             <React.Fragment key={item.id}>
+                                {/* INCREASED width to w-8 */}
                                 {index > 0 && <div className={`h-0.5 w-3 transition-colors duration-500 ${status === 'pending' || status === 'blocked' ? 'bg-slate-700' : 'bg-blue-500'}`} />}
-                                <div className={`relative flex flex-col items-center justify-center w-9 h-9 rounded-lg border-2 transition-all duration-300 ${borderClass} ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}`}>
-                                    <span className="text-sm">{status === 'blocked' ? '🔒' : item.emoji}</span>
-                                    {status === 'error' && <div className="absolute -top-1.5 -right-1.5 bg-red-600 rounded-full p-0.5 border border-slate-900"><svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>}
-                                    {status === 'success' && <div className="absolute -top-1.5 -right-1.5 bg-green-600 rounded-full p-0.5 border border-slate-900"><svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>}
+                                <div className={`relative flex flex-col items-center justify-center 
+                                    /* INCREASED size to w-14 h-14 */
+                                    w-12 h-12 rounded-xl border-2 transition-all duration-300 
+                                    ${borderClass} ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}
+                                `}>
+                                    {/* INCREASED text size to text-xl */}
+                                    <span className="text-m">{status === 'blocked' ? '🔒' : item.emoji}</span>
+                                    {status === 'error' && <div className="absolute -top-1.5 -right-1.5 bg-red-600 rounded-full p-0.5 border border-slate-900"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>}
+                                    {status === 'success' && <div className="absolute -top-1.5 -right-1.5 bg-green-600 rounded-full p-0.5 border border-slate-900"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>}
                                 </div>
                             </React.Fragment>
                          );
