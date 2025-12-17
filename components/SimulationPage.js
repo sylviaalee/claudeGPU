@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
 // --- UTILITY: Geolocation Math ---
@@ -35,8 +35,9 @@ const MOCK_PATH = [
     { id: 'dist', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3 }
 ];
 
-const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
+const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const mountRef = useRef(null);
+    const hasInitialized = useRef(false);
     
     // --- STATE ---
     const [isSimulating, setIsSimulating] = useState(false);
@@ -63,19 +64,20 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
     const frameIdRef = useRef(null);
+    const textureRef = useRef(null);
 
     // --- LOGIC: SIMULATION ENGINE ---
-    const runSimulationStep = (index) => {
+    const runSimulationStep = useCallback((index) => {
         if (index >= selectedPath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
-            addToLog("✅ Supply Chain Successfully Completed!", "success");
+            setSimulationLog(prev => [...prev, { text: "✅ Supply Chain Successfully Completed!", type: "success", id: Date.now() + Math.random() }]);
             return;
         }
 
         const item = selectedPath[index];
         setCurrentStepIndex(index);
-        updateNodeStatus(item.id, 'active');
+        setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
 
         // Calculate metrics for this leg
         if (index > 0) {
@@ -120,80 +122,85 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
 
         setTimeout(() => {
             if (roll < failureChance) {
-                handleDisruption(item, index);
+                const severityRoll = Math.random() + (item.risk * 0.05);
+                
+                if (severityRoll > 0.85) {
+                    setNodeStatuses(prev => {
+                        const newStatuses = { ...prev, [item.id]: 'error' };
+                        for (let i = index + 1; i < selectedPath.length; i++) {
+                            newStatuses[selectedPath[i].id] = 'blocked';
+                        }
+                        return newStatuses;
+                    });
+                    setSimulationLog(prev => [...prev, { text: `⛔ CRITICAL STOPPAGE at ${item.name}. Supply chain halted.`, type: "danger", id: Date.now() + Math.random() }]);
+                    setIsSimulating(false);
+                    setSimulationStatus('failed');
+                } else if (severityRoll > 0.5) {
+                    setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
+                    setSimulationLog(prev => [...prev, { text: `⚠️ Capacity reduced at ${item.name} due to labor shortages. Moving forward with delays.`, type: "warning", id: Date.now() + Math.random() }]);
+                    setTimeout(() => runSimulationStep(index + 1), 3000);
+                } else {
+                    setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
+                    setSimulationLog(prev => [...prev, { text: `⏱️ Minor weather delays at ${item.name}. Schedule adjusted.`, type: "neutral", id: Date.now() + Math.random() }]);
+                    setTimeout(() => runSimulationStep(index + 1), 2000);
+                }
             } else {
-                updateNodeStatus(item.id, 'success');
-                addToLog(`✅ ${item.name}: Operations stable. Proceeding downstream.`, "success");
+                setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
+                setSimulationLog(prev => [...prev, { text: `✅ ${item.name}: Operations stable. Proceeding downstream.`, type: "success", id: Date.now() + Math.random() }]);
                 setTimeout(() => runSimulationStep(index + 1), 1500);
             }
         }, 1000);
-    };
+    }, [selectedPath]);
 
-    const handleDisruption = (item, index) => {
-        const severityRoll = Math.random() + (item.risk * 0.05);
-        
-        if (severityRoll > 0.85) {
-            updateNodeStatus(item.id, 'error');
-            addToLog(`⛔ CRITICAL STOPPAGE at ${item.name}. Supply chain halted.`, "danger");
-            
-            for (let i = index + 1; i < selectedPath.length; i++) {
-                updateNodeStatus(selectedPath[i].id, 'blocked');
-            }
-            
-            setIsSimulating(false);
-            setSimulationStatus('failed');
-
-        } else if (severityRoll > 0.5) {
-            updateNodeStatus(item.id, 'warning');
-            addToLog(`⚠️ Capacity reduced at ${item.name} due to labor shortages. Moving forward with delays.`, "warning");
-            setTimeout(() => runSimulationStep(index + 1), 3000);
-
-        } else {
-            updateNodeStatus(item.id, 'warning');
-            addToLog(`⏱️ Minor weather delays at ${item.name}. Schedule adjusted.`, "neutral");
-            setTimeout(() => runSimulationStep(index + 1), 2000);
-        }
-    };
-
-    const startSimulation = () => {
+    const startSimulation = useCallback(() => {
         if (isSimulating && simulationStatus === 'running') return;
         setIsSimulating(true);
         setSimulationStatus('running');
-        setSimulationLog([]);
+        setSimulationLog([{ text: "🚀 Initiating Supply Chain Simulation...", type: "neutral", id: Date.now() }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
         setMetrics({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
         setMetricsHistory([]);
         setIsMetricsExpanded(false);
-        addToLog("🚀 Initiating Supply Chain Simulation...", "neutral");
         
         setTimeout(() => {
             runSimulationStep(0);
         }, 1000);
-    };
-
-    const addToLog = (text, type) => {
-        setSimulationLog(prev => [...prev, { text, type, id: Date.now() + Math.random() }]);
-    };
-
-    const updateNodeStatus = (id, status) => {
-        setNodeStatuses(prev => ({ ...prev, [id]: status }));
-    };
+    }, [isSimulating, simulationStatus, runSimulationStep]);
 
     // --- THREE.JS SETUP ---
     useEffect(() => {
         if (!mountRef.current) return;
+        
+        // Prevent double initialization
+        if (hasInitialized.current) return;
+        hasInitialized.current = true;
+        
+        // Clear any existing canvases
+        while (mountRef.current.firstChild) {
+            mountRef.current.removeChild(mountRef.current.firstChild);
+        }
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a1a);
         sceneRef.current = scene;
 
-        const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(
+            45, 
+            mountRef.current.clientWidth / mountRef.current.clientHeight, 
+            0.1, 
+            1000
+        );
         camera.position.z = 5.5;
         cameraRef.current = camera;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            alpha: false,
+            powerPreference: "high-performance"
+        });
         renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
@@ -202,12 +209,33 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
         pointLight.position.set(5, 3, 5);
         scene.add(pointLight);
 
+        // Create globe with fallback color first
         const globeGeometry = new THREE.SphereGeometry(1.3, 64, 64);
-        const globeTexture = new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'); 
-        const globeMaterial = new THREE.MeshPhongMaterial({ map: globeTexture, shininess: 20 });
+        const globeMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x2563eb, // Blue fallback color
+            shininess: 20
+        });
         const globe = new THREE.Mesh(globeGeometry, globeMaterial);
         scene.add(globe);
         globeRef.current = globe;
+
+        // Load texture asynchronously
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load(
+            'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+            (texture) => {
+                // Apply texture when loaded
+                if (globeRef.current && globeRef.current.material) {
+                    globeRef.current.material.map = texture;
+                    globeRef.current.material.needsUpdate = true;
+                    textureRef.current = texture;
+                }
+            },
+            undefined,
+            (error) => {
+                console.log('Texture loading failed, using fallback color');
+            }
+        );
 
         const markersGroup = new THREE.Group();
         globe.add(markersGroup);
@@ -217,65 +245,132 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
         globe.add(arcGroup);
         arcGroupRef.current = arcGroup;
 
+        // Stars
         const starGeometry = new THREE.BufferGeometry();
         const starVertices = [];
         for (let i = 0; i < 2000; i++) {
-            const x = (Math.random() - 0.5) * 100;
-            const y = (Math.random() - 0.5) * 100;
-            const z = (Math.random() - 0.5) * 100;
-            starVertices.push(x, y, z);
+            starVertices.push(
+                (Math.random() - 0.5) * 100,
+                (Math.random() - 0.5) * 100,
+                (Math.random() - 0.5) * 100
+            );
         }
         starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true }));
+        const stars = new THREE.Points(
+            starGeometry, 
+            new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true })
+        );
         scene.add(stars);
 
+        // Mouse controls
         const handleMouseDown = (e) => {
             isDraggingRef.current = true;
             previousMouseRef.current = { x: e.clientX, y: e.clientY };
         };
 
         const handleMouseMove = (e) => {
-            if (!isDraggingRef.current) return;
+            if (!isDraggingRef.current || !globeRef.current) return;
             const deltaX = e.clientX - previousMouseRef.current.x;
             const deltaY = e.clientY - previousMouseRef.current.y;
-            globe.rotation.x += deltaY * 0.005;
-            globe.rotation.y += deltaX * 0.005;
+            globeRef.current.rotation.x += deltaY * 0.005;
+            globeRef.current.rotation.y += deltaX * 0.005;
             previousMouseRef.current = { x: e.clientX, y: e.clientY };
         };
 
-        const handleMouseUp = () => isDraggingRef.current = false;
+        const handleMouseUp = () => {
+            isDraggingRef.current = false;
+        };
 
-        renderer.domElement.addEventListener('mousedown', handleMouseDown);
-        renderer.domElement.addEventListener('mousemove', handleMouseMove);
-        renderer.domElement.addEventListener('mouseup', handleMouseUp);
+        const canvas = renderer.domElement;
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
 
+        // Animation loop
         const animate = () => {
             frameIdRef.current = requestAnimationFrame(animate);
-            if (!isDraggingRef.current) {
-                globe.rotation.y += 0.0005;
+            
+            if (globeRef.current && !isDraggingRef.current) {
+                globeRef.current.rotation.y += 0.0005;
             }
-            renderer.render(scene, camera);
+            
+            if (rendererRef.current && sceneRef.current && cameraRef.current) {
+                rendererRef.current.render(sceneRef.current, cameraRef.current);
+            }
         };
         animate();
 
+        // Resize handler
         const handleResize = () => {
-            if (!mountRef.current) return;
-            camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+            if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+            
+            cameraRef.current.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
+            cameraRef.current.updateProjectionMatrix();
+            rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
         };
         window.addEventListener('resize', handleResize);
 
+        // Cleanup
         return () => {
-            cancelAnimationFrame(frameIdRef.current);
-            window.removeEventListener('resize', handleResize);
-            if(renderer.domElement) {
-                renderer.domElement.removeEventListener('mousedown', handleMouseDown);
-                renderer.domElement.removeEventListener('mousemove', handleMouseMove);
-                renderer.domElement.removeEventListener('mouseup', handleMouseUp);
-                if (mountRef.current) mountRef.current.removeChild(renderer.domElement);
+            if (frameIdRef.current) {
+                cancelAnimationFrame(frameIdRef.current);
             }
-            renderer.dispose();
+            
+            window.removeEventListener('resize', handleResize);
+            
+            if (canvas) {
+                canvas.removeEventListener('mousedown', handleMouseDown);
+                canvas.removeEventListener('mousemove', handleMouseMove);
+                canvas.removeEventListener('mouseup', handleMouseUp);
+            }
+            
+            // Remove canvas from DOM
+            if (mountRef.current) {
+                while (mountRef.current.firstChild) {
+                    mountRef.current.removeChild(mountRef.current.firstChild);
+                }
+            }
+            
+            // Dispose Three.js resources
+            if (markersGroupRef.current) {
+                while (markersGroupRef.current.children.length > 0) {
+                    const child = markersGroupRef.current.children[0];
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                    markersGroupRef.current.remove(child);
+                }
+            }
+            
+            if (arcGroupRef.current) {
+                while (arcGroupRef.current.children.length > 0) {
+                    const child = arcGroupRef.current.children[0];
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                    arcGroupRef.current.remove(child);
+                }
+            }
+            
+            if (globeRef.current) {
+                if (globeRef.current.geometry) globeRef.current.geometry.dispose();
+                if (globeRef.current.material) {
+                    if (globeRef.current.material.map) globeRef.current.material.map.dispose();
+                    globeRef.current.material.dispose();
+                }
+            }
+            
+            if (textureRef.current) {
+                textureRef.current.dispose();
+            }
+            
+            if (rendererRef.current) {
+                rendererRef.current.dispose();
+            }
+            
+            // Don't reset hasInitialized here - let it stay true
+            sceneRef.current = null;
+            cameraRef.current = null;
+            rendererRef.current = null;
+            globeRef.current = null;
         };
     }, []);
 
@@ -286,8 +381,19 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
         const markersGroup = markersGroupRef.current;
         const arcGroup = arcGroupRef.current;
 
-        while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
-        while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
+        // Clear existing markers and arcs
+        while (markersGroup.children.length > 0) {
+            const child = markersGroup.children[0];
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+            markersGroup.remove(child);
+        }
+        while (arcGroup.children.length > 0) {
+            const child = arcGroup.children[0];
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+            arcGroup.remove(child);
+        }
 
         const getStatusColor = (status, baseRisk) => {
             if (status === 'active') return 0xffffff;
@@ -352,32 +458,21 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
 
 
     return (
-        <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
-            <div ref={mountRef} className="w-full h-full" />
+        <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
+            <div ref={mountRef} className="absolute inset-0 w-full h-full" />
 
             {/* --- TOP LEFT --- */}
-            <div className="absolute top-6 left-6 z-[2000] pointer-events-none">
+            <div className="absolute top-6 left-6 z-10 pointer-events-none">
                 <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
                     Impact Analysis
                 </h1>
                 <p className="text-blue-200/60 text-sm font-medium mt-1">
                     Simulating probability-based supply chain disruptions.
                 </p>
-                
-                {/* Restart Button */}
-                <button
-                    onClick={onRestart}
-                    className="mt-4 px-4 py-2 bg-slate-700/80 hover:bg-slate-600/80 border border-slate-500 rounded-lg text-white text-sm font-semibold transition-all flex items-center gap-2 pointer-events-auto shadow-lg hover:scale-105"
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Back to Main
-                </button>
             </div>
 
             {/* --- CONTROLS --- */}
-            <div className="absolute top-6 right-6 z-[2000] flex flex-col items-end gap-4 pointer-events-auto">
+            <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto">
                 <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-80">
                     <h2 className="text-white font-bold text-lg mb-2 flex items-center gap-2">
                         <span>⚡</span> Supply Chain Simulation
@@ -408,13 +503,15 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
                 </div>
 
                 {/* --- LOGS --- */}
-                {simulationLog.length > 0 && (
-                    <div className="bg-slate-900/90 backdrop-blur border border-slate-700 p-0 rounded-xl shadow-2xl w-80 max-h-96 overflow-hidden flex flex-col">
-                        <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">
-                            Live Status
-                        </div>
-                        <div className="overflow-y-auto p-3 space-y-3 flex-1">
-                            {simulationLog.map((log) => (
+                <div className="bg-slate-900/90 backdrop-blur border border-slate-700 p-0 rounded-xl shadow-2xl w-80 max-h-96 overflow-hidden flex flex-col">
+                    <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">
+                        Live Status
+                    </div>
+                    <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-[100px]">
+                        {simulationLog.length === 0 ? (
+                            <div className="text-gray-500 text-sm italic">No events yet...</div>
+                        ) : (
+                            simulationLog.map((log) => (
                                 <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${
                                     log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' :
                                     log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' :
@@ -423,15 +520,15 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
                                 }`}>
                                     {log.text}
                                 </div>
-                            ))}
-                            <div ref={(el) => el && el.scrollIntoView({ behavior: 'smooth' })} />
-                        </div>
+                            ))
+                        )}
+                        <div ref={(el) => el && el.scrollIntoView({ behavior: 'smooth' })} />
                     </div>
-                )}
+                </div>
             </div>
 
             {/* --- BREADCRUMBS --- */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[2000] w-auto max-w-[90%] pointer-events-auto">
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[90%] pointer-events-auto">
                 <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-3 rounded-2xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
                     {selectedPath.map((item, index) => {
                          const status = nodeStatuses[item.id] || 'pending';
@@ -475,7 +572,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
 
             {/* --- METRICS --- */}
             {(isSimulating || metricsHistory.length > 0) && (
-                <div className="absolute bottom-8 left-6 z-[2000] pointer-events-auto">
+                <div className="absolute bottom-8 left-6 z-10 pointer-events-auto">
                     <div 
                         className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${
                             isMetricsExpanded ? 'p-6 w-[600px]' : 'p-4 w-72'
