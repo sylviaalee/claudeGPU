@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+// Assuming supplyChainData is structured like: { gpus: [], components: [], materials: [], ... }
 import { supplyChainData } from '../data/supplyChainData';
 
 const GPUGlobe = () => {
@@ -15,13 +16,15 @@ const GPUGlobe = () => {
 
   // Refs
   const labelElementsRef = useRef([]);
-  const lineElementsRef = useRef([]);
+  const lineElementsRef = useRef([]); // Refs for the 2D SVG lines
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const globeRef = useRef(null);
   const markersGroupRef = useRef(null);
-  const markersDataRef = useRef([]);
+  const breadcrumbLinesGroupRef = useRef(null);
+  // Store all marker data, including historical items
+  const allMarkersDataRef = useRef([]); 
   const isDraggingRef = useRef(false);
   const previousMouseRef = useRef({ x: 0, y: 0 });
   const frameIdRef = useRef(null);
@@ -29,24 +32,13 @@ const GPUGlobe = () => {
   // --- DATA PROCESSING ---
   const getCurrentItems = () => {
     const isValid = (item) => item && item.locations && item.locations[0] && typeof item.locations[0].lat === 'number';
-    if (!data) return [];
+    if (!data) return { current: [], historical: [] };
 
-    let items = [];
-    if (breadcrumb.length === 0) {
-      items = (data.gpus || []).filter(isValid).map(item => ({ ...item, category: 'gpus' }));
-    } else {
-      const lastSelection = breadcrumb[breadcrumb.length - 1];
-      const nextIds = lastSelection.next || [];
-      const categories = Object.keys(data).filter(k => k !== 'gpus'); 
-      for (const category of categories) {
-        const categoryItems = data[category] || [];
-        const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
-        items = items.concat(matchingItems.filter(isValid).map(item => ({ ...item, category: category })));
-      }
-    }
-
-    // Add explicit lat/lon extraction with tiny random jitter to prevent mathematical stacking
-    return items.map((item, index) => {
+    const allCategories = Object.keys(data);
+    const categoriesWithoutGpus = allCategories.filter(k => k !== 'gpus'); 
+    
+    // Function to process an item into a standardized marker format
+    const processItem = (item, category, isHistorical = false) => {
         const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
         const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
         
@@ -56,11 +48,41 @@ const GPUGlobe = () => {
             lon: item.locations[0].lng + jitterX,
             location: item.locations[0].name,
             emoji: item.image,
-        }
-    });
+            category: category,
+            isHistorical: isHistorical, // NEW: Flag to distinguish historical markers
+        };
+    };
+
+    let currentLevelItems = [];
+    let historicalItems = [];
+
+    // 1. Determine Current Level Items
+    if (breadcrumb.length === 0) {
+      // Level 0: GPUs
+      currentLevelItems = (data.gpus || []).filter(isValid).map(item => processItem(item, 'gpus', false));
+    } else {
+      // Level N > 0: Components/Materials for the last selected item
+      const lastSelection = breadcrumb[breadcrumb.length - 1];
+      const nextIds = lastSelection.next || [];
+      
+      for (const category of categoriesWithoutGpus) {
+        const categoryItems = data[category] || [];
+        const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
+        currentLevelItems = currentLevelItems.concat(matchingItems.filter(isValid).map(item => processItem(item, category, false)));
+      }
+
+      // 2. Determine Historical Items (all items in the breadcrumb)
+      historicalItems = breadcrumb.filter(isValid).map(item => processItem(item, item.category || 'gpus', true));
+    }
+
+    // NEW: We return an object with separate lists
+    return { current: currentLevelItems, historical: historicalItems };
   };
 
-  const currentItems = getCurrentItems();
+  const { current: currentItems, historical: historicalItems } = getCurrentItems();
+
+  // NEW: Combine all items for rendering the markers on the globe
+  const allItemsForRendering = [...currentItems, ...historicalItems];
 
   const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -80,7 +102,17 @@ const GPUGlobe = () => {
 
   const handleConfirmSelection = () => {
     if (pendingSelection && pendingSelection.next && pendingSelection.next.length > 0) {
-      setBreadcrumb([...breadcrumb, pendingSelection]);
+      // Check if the item is already in the breadcrumb (only by ID, to avoid duplicate steps)
+      const isAlreadyInBreadcrumb = breadcrumb.some(item => item.id === pendingSelection.id);
+      
+      if (!isAlreadyInBreadcrumb) {
+        // Add the selected item (which is a current level item) to the breadcrumb
+        setBreadcrumb([...breadcrumb, pendingSelection]);
+      } else {
+        // Should not happen with current UI flow, but good for robustness
+        console.warn("Item already in breadcrumb, skipping addition.");
+      }
+      
       setShowConfirmDialog(false);
       setSelectedItem(null);
       setPendingSelection(null);
@@ -104,6 +136,7 @@ const GPUGlobe = () => {
   useEffect(() => {
     if (!mountRef.current) return;
 
+    // ... (THREE.js Scene Setup - No Change)
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a1a);
     sceneRef.current = scene;
@@ -134,6 +167,10 @@ const GPUGlobe = () => {
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
+    const breadcrumbLinesGroup = new THREE.Group();
+    scene.add(breadcrumbLinesGroup);
+    breadcrumbLinesGroupRef.current = breadcrumbLinesGroup;
+
     // Controls
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
@@ -148,6 +185,10 @@ const GPUGlobe = () => {
       globe.rotation.x += deltaY * 0.005;
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
+      if (breadcrumbLinesGroupRef.current) {
+        breadcrumbLinesGroupRef.current.rotation.y = globe.rotation.y;
+        breadcrumbLinesGroupRef.current.rotation.x = globe.rotation.x;
+      }
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -168,10 +209,15 @@ const GPUGlobe = () => {
       const heightHalf = height / 2;
 
       // 1. Calculate ideal positions (anchor points)
-      markersDataRef.current.forEach((markerData, index) => {
+      // IMPORTANT: Only iterate over CURRENT items (indices 0 to currentItems.length - 1)
+      const currentMarkersData = allMarkersDataRef.current.slice(0, currentItems.length);
+
+      currentMarkersData.forEach((markerData, index) => {
         const labelEl = labelElementsRef.current[index];
         const lineEl = lineElementsRef.current[index];
-        if (!labelEl || !lineEl) return;
+        
+        // Skip historical markers which do not have corresponding label/line elements
+        if (markerData.item.isHistorical || !labelEl || !lineEl) return;
 
         // Get the position of the marker on the globe (the dot)
         const markerWorldPos = new THREE.Vector3();
@@ -202,11 +248,13 @@ const GPUGlobe = () => {
             index,
             element: labelEl,
             lineElement: lineEl,
-            anchorX, 
+            anchorX, // Where the line starts (dot on globe)
             anchorY,
-            x: idealX,
+            x: idealX, // Where the box wants to be
             y: idealY,
             z: labelScreenPos.z,
+            w: 180, 
+            h: 60  
           });
         } else {
           labelEl.style.display = 'none';
@@ -215,12 +263,7 @@ const GPUGlobe = () => {
       });
 
       // 2. Resolve Collisions (Box vs Box)
-      // Standard Box Size: w-48 (12rem/192px) + padding -> approx 220px wide
-      // Height approx 80px
-      const BOX_WIDTH = 220; 
-      const BOX_HEIGHT = 90; // Generous vertical spacing
-
-      const iterations = 8; // More iterations for smoother solving
+      const iterations = 5; 
       for(let k=0; k<iterations; k++) {
         for(let i=0; i<visibleLabels.length; i++) {
           for(let j=i+1; j<visibleLabels.length; j++) {
@@ -230,33 +273,19 @@ const GPUGlobe = () => {
             const dx = l1.x - l2.x;
             const dy = l1.y - l2.y;
             
-            // Check if they are too close
-            if (Math.abs(dx) < BOX_WIDTH && Math.abs(dy) < BOX_HEIGHT) {
-               // Calculate overlap
-               const overlapX = BOX_WIDTH - Math.abs(dx);
-               const overlapY = BOX_HEIGHT - Math.abs(dy);
+            const minDistX = (l1.w + l2.w) / 2 * 0.85; 
+            const minDistY = (l1.h + l2.h) / 2 * 1.1;
+
+            if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
+               const force = 0.5;
+               const overlapY = minDistY - Math.abs(dy);
                
-               // We prefer to push them VERTICALLY (stacking) rather than horizontally
-               // unless the horizontal overlap is tiny.
-               if (overlapY < overlapX) {
-                    const force = 0.5;
-                    if (l1.y < l2.y) {
-                        l1.y -= overlapY * force;
-                        l2.y += overlapY * force;
-                    } else {
-                        l1.y += overlapY * force;
-                        l2.y -= overlapY * force;
-                    }
+               if (l1.y < l2.y) {
+                 l1.y -= overlapY * force;
+                 l2.y += overlapY * force;
                } else {
-                   // Fallback horizontal push (rarely used with this logic, but keeps them apart)
-                   const force = 0.2; // Weaker horizontal push
-                    if (l1.x < l2.x) {
-                        l1.x -= overlapX * force;
-                        l2.x += overlapX * force;
-                    } else {
-                        l1.x += overlapX * force;
-                        l2.x -= overlapX * force;
-                    }
+                 l1.y += overlapY * force;
+                 l2.y -= overlapY * force;
                }
             }
           }
@@ -268,10 +297,9 @@ const GPUGlobe = () => {
         // Update Box Position
         l.element.style.display = 'block';
         l.element.style.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
-        // Basic Z-index sorting
         l.element.style.zIndex = Math.floor((1 - l.z) * 1000);
 
-        // Update SVG Line
+        // Update SVG Line (From Globe Dot -> To Box Center)
         const dx = l.x - l.anchorX;
         const dy = l.y - l.anchorY;
         const length = Math.sqrt(dx*dx + dy*dy);
@@ -289,6 +317,9 @@ const GPUGlobe = () => {
       if (autoRotate && !isDraggingRef.current) {
         globe.rotation.y += 0.001;
         markersGroup.rotation.y = globe.rotation.y;
+        if (breadcrumbLinesGroupRef.current) {
+          breadcrumbLinesGroupRef.current.rotation.y = globe.rotation.y;
+        }
       }
       renderer.render(scene, camera);
       updateLabels();
@@ -316,30 +347,34 @@ const GPUGlobe = () => {
       }
       renderer.dispose();
     };
-  }, []);
+  }, [currentItems.length]); // Re-run effect when the number of CURRENT items changes
 
   // Update Markers
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
     while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
-    markersDataRef.current = [];
+    allMarkersDataRef.current = []; // Clear all marker data
 
-    const getRiskColor = (risk) => {
+    const getRiskColor = (risk, isHistorical) => {
+        if (isHistorical) return 0x333333; // Darker/Grey for historical
         if (risk >= 8) return 0xff3333;
         if (risk >= 6) return 0xff6b35;
         if (risk >= 4) return 0xffaa00;
         return 0x44ff44;
     };
 
-    currentItems.forEach((item) => {
+    // Iterate over the combined list
+    allItemsForRendering.forEach((item) => {
       if(typeof item.lat !== 'number' || typeof item.lon !== 'number') return;
 
       const position = latLonToVector3(item.lat, item.lon, 1.5);
-      const color = getRiskColor(item.risk);
+      const color = getRiskColor(item.risk, item.isHistorical);
       
-      const markerGeometry = new THREE.SphereGeometry(0.04, 16, 16);
-      const markerMaterial = new THREE.MeshBasicMaterial({ color: color, emissive: color, emissiveIntensity: 0.5 });
+      const markerSize = item.isHistorical ? 0.02 : 0.04; // Smaller for historical
+      
+      const markerGeometry = new THREE.SphereGeometry(markerSize, 16, 16);
+      const markerMaterial = new THREE.MeshBasicMaterial({ color: color, emissive: color, emissiveIntensity: item.isHistorical ? 0.2 : 0.5 });
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       marker.position.copy(position);
       
@@ -347,15 +382,67 @@ const GPUGlobe = () => {
       
       markersGroup.add(marker);
       
-      markersDataRef.current.push({ item, marker, position: position.clone(), labelPosition: lineEnd });
+      // Store all marker data
+      allMarkersDataRef.current.push({ item, marker, position: position.clone(), labelPosition: lineEnd });
     });
-  }, [currentItems]);
+  }, [allItemsForRendering.length, breadcrumb]); // Re-run when the list of items changes
+
+  // Update Breadcrumb Connection Lines
+  useEffect(() => {
+    if (!breadcrumbLinesGroupRef.current) return;
+    const linesGroup = breadcrumbLinesGroupRef.current;
+    
+    // Clear existing lines
+    while (linesGroup.children.length > 0) {
+      linesGroup.remove(linesGroup.children[0]);
+    }
+
+    // Draw lines connecting breadcrumb items
+    if (breadcrumb.length > 0) {
+      for (let i = 0; i < breadcrumb.length; i++) {
+        const currentItem = breadcrumb[i];
+        
+        // Find the position of this breadcrumb item
+        const currentPos = latLonToVector3(currentItem.lat, currentItem.lon, 1.5);
+        
+        // Draw line from previous item (or start from center for first item)
+        let startPos;
+        if (i === 0) {
+          // First item - optionally could start from a previous global point or skip
+          // For now, we'll draw from the previous breadcrumb item
+          continue;
+        } else {
+          const prevItem = breadcrumb[i - 1];
+          startPos = latLonToVector3(prevItem.lat, prevItem.lon, 1.5);
+        }
+        
+        // Create a curved line between the two points
+        const curve = new THREE.QuadraticBezierCurve3(
+          startPos,
+          startPos.clone().lerp(currentPos, 0.5).multiplyScalar(1.3), // Control point raised above surface
+          currentPos
+        );
+        
+        const points = curve.getPoints(50);
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const lineMaterial = new THREE.LineBasicMaterial({ 
+          color: 0xff6b35, 
+          linewidth: 2,
+          opacity: 0.8,
+          transparent: true
+        });
+        
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        linesGroup.add(line);
+      }
+    }
+  }, [breadcrumb]);
 
   return (
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* HUD Box */}
+      {/* HUD Box - No Change */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-40">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -372,7 +459,10 @@ const GPUGlobe = () => {
             </div>
           </div>
           <div className="bg-slate-700/50 p-2 rounded-lg text-2xl">
-            {breadcrumb.length === 0 ? '🌍' : breadcrumb[breadcrumb.length - 1].emoji}
+            {breadcrumb.length === 0 
+              ? '🌍' 
+              : breadcrumb[breadcrumb.length - 1].emoji
+            }
           </div>
         </div>
 
@@ -404,6 +494,7 @@ const GPUGlobe = () => {
       </div>
 
       {/* --- RENDER LINES AND LABELS --- */}
+      {/* IMPORTANT: Only render elements for the CURRENT (interactive) items */}
       {currentItems.map((item, index) => {
         const riskColor = item.risk >= 8 ? 'border-red-500' : 
                          item.risk >= 6 ? 'border-orange-500' : 
@@ -436,20 +527,12 @@ const GPUGlobe = () => {
                 style={{ display: 'none', top: 0, left: 0 }}
                 onClick={() => setSelectedItem(item)}
             >
-                {/* ADDED CLASS: w-48 (Fixed width) 
-                   This ensures standard size for collision detection.
-                */}
-                <div className={`w-48 bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl">{item.emoji}</span>
-                    <div className="overflow-hidden">
-                        {/* Truncate text so it doesn't break layout */}
-                        <div className="text-xs font-bold text-white whitespace-nowrap truncate" title={item.name}>
-                            {item.name}
-                        </div>
-                        <div className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
-                            Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}
-                        </div>
+                <div className={`bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">{item.emoji}</span>
+                    <div>
+                    <div className="text-xs font-bold text-white whitespace-nowrap">{item.name}</div>
+                    <div className="text-xs text-gray-400 whitespace-nowrap">Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}</div>
                     </div>
                 </div>
                 </div>
@@ -458,6 +541,7 @@ const GPUGlobe = () => {
         );
       })}
 
+      {/* Info Panel and Confirm Dialog remain the same - use selectedItem which is only a current item */}
       {/* Info Panel */}
       {selectedItem && !showConfirmDialog && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[9999]">
@@ -565,11 +649,33 @@ const GPUGlobe = () => {
         </div>
       )}
 
-       {/* Instructions */}
-       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-40">
+      {/* Instructions */}
+      <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-40">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
       </div>
+
+      {/* Breadcrumb Trail Visual Display */}
+      {breadcrumb.length > 0 && (
+        <div className="absolute bottom-4 left-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-4 rounded-xl shadow-2xl max-w-md pointer-events-auto z-40">
+          <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-3">Supply Chain Path</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-lg">
+              <span className="text-lg">🌍</span>
+              <span className="text-white text-sm font-medium">Global</span>
+            </div>
+            {breadcrumb.map((item, index) => (
+              <React.Fragment key={item.id || index}>
+                <span className="text-orange-400 text-lg">→</span>
+                <div className="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-lg border border-orange-500/30">
+                  <span className="text-lg">{item.emoji}</span>
+                  <span className="text-white text-sm font-medium">{item.name}</span>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
