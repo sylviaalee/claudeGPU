@@ -238,13 +238,14 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         scene.add(stars);
 
         // Load texture asynchronously with multiple fallback sources
+        // Load texture asynchronously with multiple fallback sources
         const textureLoader = new THREE.TextureLoader();
         textureLoader.crossOrigin = 'anonymous'; // Enable CORS
         
         const textureSources = [
+            'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
             'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_atmos_2048.jpg',
             'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/planets/earth_atmos_2048.jpg',
-            'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
             'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
         ];
         
@@ -337,7 +338,12 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             frameIdRef.current = requestAnimationFrame(animate);
             
             if (globeRef.current && !isDraggingRef.current) {
-                globeRef.current.rotation.y += 0.0005;
+                globeRef.current.rotation.y += 0.001;
+            }
+            
+            // Slowly rotate stars for extra effect
+            if (stars) {
+                stars.rotation.y += 0.0002;
             }
             
             if (rendererRef.current && sceneRef.current && cameraRef.current) {
