@@ -75,7 +75,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [simulationLog, setSimulationLog] = useState([]); 
     const [nodeStatuses, setNodeStatuses] = useState({});
     
-    // Use Ref for metrics to ensure we always calculate from the latest state without dependency loops
     const metricsRef = useRef({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
     const [metrics, setMetrics] = useState(metricsRef.current);
     const [metricsHistory, setMetricsHistory] = useState([]);
@@ -99,6 +98,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         if (index >= selectedPath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
+            // No step number for final completion message
             setSimulationLog(prev => [...prev, { text: "✅ Supply Chain Successfully Completed!", type: "success", id: Date.now() + Math.random() }]);
             return;
         }
@@ -121,7 +121,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
             
-            // Calc Base Metrics
             distance = prevPos.distanceTo(currPos) * 5000;
             const shipping = item.shipping || {};
             legCost = parseCost(shipping.cost);
@@ -129,7 +128,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             const methodFactor = METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
             legCarbon = distance * methodFactor;
 
-            // --- RISK ROLL ---
             const failureChance = item.risk * 0.05; 
             const roll = Math.random();
 
@@ -148,8 +146,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             }
         }
 
-        // 2. Update Metrics State (Applying Penalties)
-        const prev = metricsRef.current; // Read from Ref for safety
+        // 2. Update Metrics State
+        const prev = metricsRef.current;
         const appliedCost = disruptionType !== 'CRITICAL' ? (legCost + penaltyCost) : legCost;
         const appliedTime = disruptionType !== 'CRITICAL' ? (legTime + penaltyTime) : legTime;
 
@@ -160,17 +158,13 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             totalCarbon: prev.totalCarbon + legCarbon
         };
 
-        // Update Ref and State
         metricsRef.current = newMetrics;
         setMetrics(newMetrics);
 
-        // Update History (With Duplicate Check for Strict Mode)
         setMetricsHistory(history => {
-            // If this step is already recorded, don't add it again
             if (history.length > 0 && history[history.length - 1].step === index) {
                 return history;
             }
-
             const newEntry = {
                 step: index,
                 name: item.name,
@@ -179,12 +173,10 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 totalDistance: newMetrics.totalDistance,
                 totalCarbon: newMetrics.totalCarbon
             };
-
-            // If index 0, reset. Else append.
             return index === 0 ? [newEntry] : [...history, newEntry];
         });
 
-        // 3. Execute Simulation Delay & Logs
+        // 3. Execute Logs with Step Numbers
         setTimeout(() => {
             if (disruptionType === 'CRITICAL') {
                 setNodeStatuses(prev => {
@@ -194,26 +186,40 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     }
                     return newStatuses;
                 });
-                setSimulationLog(prev => [...prev, { text: `⛔ CRITICAL STOPPAGE at ${item.name}.`, type: "danger", id: Date.now() }]);
+                setSimulationLog(prev => [...prev, { 
+                    step: index, // <--- Added Step
+                    text: `⛔ CRITICAL STOPPAGE at ${item.name}.`, 
+                    type: "danger", 
+                    id: Date.now() 
+                }]);
                 setIsSimulating(false);
                 setSimulationStatus('failed');
             } else if (disruptionType === 'LOSS') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
                 setSimulationLog(prev => [...prev, { 
+                    step: index, // <--- Added Step
                     text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, 
-                    type: "warning", id: Date.now() 
+                    type: "warning", 
+                    id: Date.now() 
                 }]);
                 setTimeout(() => runSimulationStep(index + 1), 2500);
             } else if (disruptionType === 'DELAY') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
                 setSimulationLog(prev => [...prev, { 
+                    step: index, // <--- Added Step
                     text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, 
-                    type: "warning", id: Date.now() 
+                    type: "warning", 
+                    id: Date.now() 
                 }]);
                 setTimeout(() => runSimulationStep(index + 1), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
-                setSimulationLog(prev => [...prev, { text: `✅ ${item.name}: Operations stable.`, type: "success", id: Date.now() }]);
+                setSimulationLog(prev => [...prev, { 
+                    step: index, // <--- Added Step
+                    text: `✅ ${item.name}: Operations stable.`, 
+                    type: "success", 
+                    id: Date.now() 
+                }]);
                 setTimeout(() => runSimulationStep(index + 1), 1500);
             }
         }, 1000);
@@ -227,17 +233,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setSimulationLog([{ text: "🚀 Initiating Supply Chain Simulation...", type: "neutral", id: Date.now() }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
-        
-        // Reset metrics
         metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 };
         setMetrics(metricsRef.current);
         setMetricsHistory([]);
-        
         setIsMetricsExpanded(false);
-        
-        setTimeout(() => {
-            runSimulationStep(0);
-        }, 1000);
+        setTimeout(() => { runSimulationStep(0); }, 1000);
     }, [isSimulating, simulationStatus, runSimulationStep]);
 
     // --- THREE.JS SETUP (Standard) ---
@@ -417,7 +417,15 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">Live Status</div>
                     <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-[100px]">
                         {simulationLog.length === 0 ? <div className="text-gray-500 text-sm italic">No events yet...</div> : simulationLog.map((log) => (
-                            <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' : log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' : log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' : 'bg-slate-800 border-slate-500 text-gray-300'}`}>{log.text}</div>
+                            <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' : log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' : log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' : 'bg-slate-800 border-slate-500 text-gray-300'}`}>
+                                {/* Step number badge */}
+                                {log.step !== undefined && (
+                                    <span className="font-mono font-bold text-xs opacity-50 mr-2 text-white bg-slate-700 px-1.5 py-0.5 rounded">
+                                        Step {log.step}
+                                    </span>
+                                )}
+                                {log.text}
+                            </div>
                         ))}
                         <div ref={(el) => el && el.scrollIntoView({ behavior: 'smooth' })} />
                     </div>
@@ -484,18 +492,13 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                                             <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2"><span>{icon}</span> {title} Progression</div>
                                             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 relative">
                                                 <svg width="100%" height="120" viewBox="0 0 520 120" className="overflow-visible">
-                                                    {/* Grid lines */}
                                                     {[0, 1, 2, 3, 4].map(i => <line key={i} x1="60" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
                                                     
-                                                    {/* Y-Axis Line */}
                                                     <line x1="60" y1="20" x2="60" y2="100" stroke="#475569" strokeWidth="1" />
-                                                    
-                                                    {/* Y-Axis Labels */}
                                                     <text x="55" y="25" fontSize="9" fill="#64748b" textAnchor="end">{formatYAxis(maxVal, type)}</text>
                                                     <text x="55" y="60" fontSize="9" fill="#64748b" textAnchor="end">{formatYAxis(maxVal / 2, type)}</text>
                                                     <text x="55" y="100" fontSize="9" fill="#64748b" textAnchor="end">0</text>
 
-                                                    {/* Trend Line */}
                                                     {metricsHistory.length > 1 && (
                                                         <polyline
                                                             points={metricsHistory.map((point, i) => {
@@ -506,15 +509,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                                                             fill="none" stroke={color} strokeWidth="2"
                                                         />
                                                     )}
-                                                    
-                                                    {/* Points */}
                                                     {metricsHistory.map((point, i) => {
                                                         const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
                                                         const y = 100 - (point[dataKey] / (maxVal || 1)) * 80;
                                                         return <circle key={i} cx={x} cy={y} r="4" fill={color} />;
                                                     })}
-                                                    
-                                                    {/* X-Axis Labels (Corrected step index) */}
                                                     {metricsHistory.map((point, i) => {
                                                         const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
                                                         return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
