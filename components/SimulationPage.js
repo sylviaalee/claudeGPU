@@ -49,7 +49,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         totalCost: 0,
         totalTime: 0,
         totalDistance: 0,
-        totalCarbon: 0
+        totalCarbon: 0 
     });
     const [metricsHistory, setMetricsHistory] = useState([]);
     const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
