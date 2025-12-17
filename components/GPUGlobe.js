@@ -139,7 +139,7 @@ const GPUGlobe = ({ onSimulate }) => {
     // Start with first GPU
     if (currentLevel.length === 0) return;
     let currentItem = currentLevel[0];
-    path.push(currentItem);
+    path.push({ ...currentItem, emoji: currentItem.image });
     
     // Keep drilling down until no more next items
     while (currentItem && currentItem.next && currentItem.next.length > 0) {
@@ -153,7 +153,7 @@ const GPUGlobe = ({ onSimulate }) => {
         const matchingItem = categoryItems.find(item => nextIds.includes(item.id));
         if (matchingItem) {
           currentItem = matchingItem;
-          path.push(currentItem);
+          path.push({ ...currentItem, emoji: currentItem.image });
           found = true;
           break;
         }
