@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState } from 'react';
 // Make sure these paths match where you saved your files!
 import GPUGlobe from '../components/GPUGlobe'; 
@@ -16,9 +15,10 @@ export default function Home() {
     setView('simulation');
   };
 
-  // Optional: Function to go back to selection
+  // Function to go back to selection
   const handleBackToSelection = () => {
     setView('selection');
+    setConfirmedPath([]); // Optional: clear the path when going back
   };
 
   return (
@@ -29,9 +29,8 @@ export default function Home() {
       ) : (
         /* 2. Once selected, we switch to SimulationPage and pass the data */
         <SimulationPage 
-            selectedPath={confirmedPath} 
-            // Optional: Pass a way to go back if you want
-            // onBack={handleBackToSelection} 
+          selectedPath={confirmedPath} 
+          onRestart={handleBackToSelection} // ADD THIS LINE
         />
       )}
     </main>

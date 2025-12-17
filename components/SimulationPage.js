@@ -35,7 +35,7 @@ const MOCK_PATH = [
     { id: 'dist', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3 }
 ];
 
-const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
+const SimulationPage = ({ selectedPath = MOCK_PATH, onRestart }) => {
     const mountRef = useRef(null);
     
     // --- STATE ---
@@ -363,6 +363,17 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 <p className="text-blue-200/60 text-sm font-medium mt-1">
                     Simulating probability-based supply chain disruptions.
                 </p>
+                
+                {/* Restart Button */}
+                <button
+                    onClick={onRestart}
+                    className="mt-4 px-4 py-2 bg-slate-700/80 hover:bg-slate-600/80 border border-slate-500 rounded-lg text-white text-sm font-semibold transition-all flex items-center gap-2 pointer-events-auto shadow-lg hover:scale-105"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Main
+                </button>
             </div>
 
             {/* --- CONTROLS --- */}
