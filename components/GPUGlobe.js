@@ -131,6 +131,41 @@ const GPUGlobe = ({ onSimulate }) => {
     setSelectedItem(null);
   };
 
+  // Auto-select path: picks first item at each level until reaching end
+  const handleAutoSelect = () => {
+    const path = [];
+    let currentLevel = data.gpus || [];
+    
+    // Start with first GPU
+    if (currentLevel.length === 0) return;
+    let currentItem = currentLevel[0];
+    path.push(currentItem);
+    
+    // Keep drilling down until no more next items
+    while (currentItem && currentItem.next && currentItem.next.length > 0) {
+      const nextIds = currentItem.next;
+      const categories = Object.keys(data).filter(k => k !== 'gpus');
+      
+      // Find the first matching item in any category
+      let found = false;
+      for (const category of categories) {
+        const categoryItems = data[category] || [];
+        const matchingItem = categoryItems.find(item => nextIds.includes(item.id));
+        if (matchingItem) {
+          currentItem = matchingItem;
+          path.push(currentItem);
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) break;
+    }
+    
+    // Simulate with the complete path
+    onSimulate(path);
+  };
+
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -329,7 +364,6 @@ const GPUGlobe = ({ onSimulate }) => {
         globe.rotation.y += 0.001;
         markersGroup.rotation.y = globe.rotation.y;
         
-        // Optional: Slowly rotate stars for extra effect
         stars.rotation.y += 0.0002;
         breadcrumbGroup.rotation.y = globe.rotation.y;
       }
@@ -399,7 +433,6 @@ const GPUGlobe = ({ onSimulate }) => {
     if (!breadcrumbGroupRef.current) return;
     const breadcrumbGroup = breadcrumbGroupRef.current;
     
-    // Clear previous breadcrumb visuals
     while (breadcrumbGroup.children.length > 0) breadcrumbGroup.remove(breadcrumbGroup.children[0]);
     
     const trailColor = new THREE.Color(0x3366ff); 
@@ -411,7 +444,6 @@ const GPUGlobe = ({ onSimulate }) => {
         const { lat, lng } = item.locations[0];
         const position = latLonToVector3(lat, lng, radius);
 
-        // Marker
         const markerGeometry = new THREE.SphereGeometry(0.02, 16, 16);
         const markerMaterial = new THREE.MeshBasicMaterial({ 
             color: trailMarkerColor, 
@@ -422,7 +454,6 @@ const GPUGlobe = ({ onSimulate }) => {
         marker.position.copy(position);
         breadcrumbGroup.add(marker);
 
-        // Arc to previous
         if (index > 0) {
           const previousItem = breadcrumb[index - 1];
           if (previousItem.locations && previousItem.locations[0]) {
@@ -442,6 +473,17 @@ const GPUGlobe = ({ onSimulate }) => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
+      {/* Auto-Select Button */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-[2000]">
+        <button
+          onClick={handleAutoSelect}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-2xl border border-purple-400 hover:border-purple-300 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+        >
+          <span className="text-xl">⚡</span>
+          Auto-Select Path & Simulate
+        </button>
+      </div>
+
       {/* HUD Box */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
@@ -567,7 +609,7 @@ const GPUGlobe = ({ onSimulate }) => {
 
             {selectedItem.shipping && (
               <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-                <h3 className="text-lg font-semibold tex-blue-400 mb-2">Shipping Details</h3>
+                <h3 className="text-lg font-semibold text-blue-400 mb-2">Shipping Details</h3>
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div><div className="text-gray-400">Time</div><div className="text-white font-medium">{selectedItem.shipping.time}</div></div>
                   <div><div className="text-gray-400">Cost</div><div className="text-white font-medium">{selectedItem.shipping.cost}</div></div>
@@ -576,9 +618,7 @@ const GPUGlobe = ({ onSimulate }) => {
               </div>
             )}
 
-            {/* --- CHANGED LOGIC HERE: EXPLORE OR SIMULATE --- */}
             {selectedItem.next && selectedItem.next.length > 0 ? (
-                // CASE 1: Still has supply chain steps -> DRILL DOWN
                 <button
                     onClick={() => handleDrillDown(selectedItem)}
                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
@@ -586,7 +626,6 @@ const GPUGlobe = ({ onSimulate }) => {
                     Explore Supply Chain → ({selectedItem.next.length} suppliers)
                 </button>
             ) : (
-                // CASE 2: End of the line -> SIMULATE
                 <button
                     onClick={() => onSimulate([...breadcrumb, selectedItem])}
                     className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg border border-green-400 transition-transform hover:scale-105 active:scale-95 mb-4"
@@ -671,8 +710,6 @@ const GPUGlobe = ({ onSimulate }) => {
             </div>
         </div>
       )}
-      
-      {/* (Deleted the bottom-center button that used to be here) */}
       
     </div>
   );
