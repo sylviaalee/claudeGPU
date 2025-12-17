@@ -128,7 +128,7 @@ const GPUGlobe = () => {
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
-    // --- CONTROLS (Updated for Orientation) ---
+    // Controls
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -136,23 +136,18 @@ const GPUGlobe = () => {
 
     const handleMouseMove = (e) => {
       if (!isDraggingRef.current) return;
-      
       const deltaX = e.clientX - previousMouseRef.current.x;
       const deltaY = e.clientY - previousMouseRef.current.y;
       
-      // 1. Rotate vertically (tilt)
+      // 1. Vertical rotation
       globe.rotation.x += deltaY * 0.005;
       
-      // 2. Rotate horizontally (spin)
-      // FIX: If globe is upside down (Math.cos < 0), invert the horizontal rotation direction
-      // so dragging right always moves the surface right visually.
+      // 2. Horizontal rotation (with inversion fix)
       const upFactor = Math.cos(globe.rotation.x) > 0 ? 1 : -1;
       globe.rotation.y += deltaX * 0.005 * upFactor;
       
-      // Sync markers group
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
-      
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -178,16 +173,13 @@ const GPUGlobe = () => {
         const lineEl = lineElementsRef.current[index];
         if (!labelEl || !lineEl) return;
 
-        // Visibility Check
         const markerWorldPos = new THREE.Vector3();
         markerData.marker.getWorldPosition(markerWorldPos);
         const meshNormal = markerWorldPos.clone().normalize();
         const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
         
-        // Dot product: 1.0 (Front) to -1.0 (Back)
         const facingCamera = meshNormal.dot(vecToCamera);
         
-        // --- SMOOTH FADE CALCULATION ---
         let alpha = 0;
         if (facingCamera > 0.2) {
             alpha = 1;
@@ -244,7 +236,7 @@ const GPUGlobe = () => {
         }
       }
 
-      // 4. Apply final positions and OPACITY
+      // 4. Apply final positions
       visibleLabels.forEach(l => {
         const labelStyle = l.element.style;
         const lineStyle = l.lineElement.style;
@@ -435,7 +427,7 @@ const GPUGlobe = () => {
         );
       })}
 
-      {/* Info Panel */}
+      {/* Info Panel - Z-INDEX SET TO 3000 (Highest) */}
       {selectedItem && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[3000]">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
@@ -473,6 +465,16 @@ const GPUGlobe = () => {
               </div>
             )}
 
+            {/* DIRECT NAVIGATION BUTTON - MOVED ABOVE RISK ANALYSIS */}
+            {selectedItem.next && selectedItem.next.length > 0 && (
+              <button
+                onClick={() => handleDrillDown(selectedItem)}
+                className="w-full bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
+              >
+                Explore Supply Chain → ({selectedItem.next.length} suppliers)
+              </button>
+            )}
+
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
               <h3 className="text-lg font-semibold text-orange-400 mb-2">Risk Analysis</h3>
               <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.riskAnalysis}</p>
@@ -481,8 +483,9 @@ const GPUGlobe = () => {
              {selectedItem.riskScores && (
             <div className="space-y-2 mb-4">
               <h3 className="text-lg font-semibold text-orange-400 mb-2">Detailed Risk Breakdown</h3>
+              {/* SORTED FROM MOST RISKY (Highest value) TO LEAST RISKY */}
               {Object.entries(selectedItem.riskScores)
-                .sort((a, b) => b[1] - a[1])
+                .sort((a, b) => b[1] - a[1]) // <--- Sorting remains active
                 .map(([key, value]) => (
                 <div key={key} className="bg-slate-700 rounded-lg p-3">
                   <div className="flex justify-between items-center">
@@ -512,16 +515,6 @@ const GPUGlobe = () => {
                 </div>
               ))}
             </div>
-            )}
-            
-            {/* DIRECT NAVIGATION BUTTON */}
-            {selectedItem.next && selectedItem.next.length > 0 && (
-              <button
-                onClick={() => handleDrillDown(selectedItem)}
-                className="w-full bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                Explore Supply Chain → ({selectedItem.next.length} suppliers)
-              </button>
             )}
           </div>
         </div>
