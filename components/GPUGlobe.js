@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // Assuming supplyChainData is an external data structure
 import { supplyChainData } from '../data/supplyChainData'; 
 
-// *** NEW UTILITY: Simple Arc Line Generator ***
+// *** UTILITY: Simple Arc Line Generator ***
 const createArcLine = (startVector, endVector, color, height = 0.5) => {
     const midVector = startVector.clone().add(endVector).divideScalar(2);
     const distance = startVector.distanceTo(endVector);
@@ -30,7 +30,6 @@ const createArcLine = (startVector, endVector, color, height = 0.5) => {
     return new THREE.Line(geometry, material);
 };
 
-// *** FIX HERE: Added { onSimulate } to props ***
 const GPUGlobe = ({ onSimulate }) => {
   const mountRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -577,13 +576,23 @@ const GPUGlobe = ({ onSimulate }) => {
               </div>
             )}
 
-            {selectedItem.next && selectedItem.next.length > 0 && (
-              <button
-                onClick={() => handleDrillDown(selectedItem)}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
-              >
-                Explore Supply Chain → ({selectedItem.next.length} suppliers)
-              </button>
+            {/* --- CHANGED LOGIC HERE: EXPLORE OR SIMULATE --- */}
+            {selectedItem.next && selectedItem.next.length > 0 ? (
+                // CASE 1: Still has supply chain steps -> DRILL DOWN
+                <button
+                    onClick={() => handleDrillDown(selectedItem)}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
+                >
+                    Explore Supply Chain → ({selectedItem.next.length} suppliers)
+                </button>
+            ) : (
+                // CASE 2: End of the line -> SIMULATE
+                <button
+                    onClick={() => onSimulate([...breadcrumb, selectedItem])}
+                    className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg border border-green-400 transition-transform hover:scale-105 active:scale-95 mb-4"
+                >
+                    ✅ Confirm & Simulate Path
+                </button>
             )}
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
@@ -662,17 +671,9 @@ const GPUGlobe = ({ onSimulate }) => {
             </div>
         </div>
       )}
-
-      {breadcrumb.length > 0 && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[2000]">
-            <button 
-              onClick={() => onSimulate(breadcrumb)}
-              className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-full shadow-lg border border-green-400 transition-transform hover:scale-105 active:scale-95"
-            >
-              ✅ Confirm & Simulate Path
-            </button>
-        </div>
-      )}
+      
+      {/* (Deleted the bottom-center button that used to be here) */}
+      
     </div>
   );
 };
