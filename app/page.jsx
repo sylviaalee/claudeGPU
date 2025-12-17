@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { supplyChainData } from '../data/supplyChainData';
+// Assuming supplyChainData is an external data structure
+import { supplyChainData } from '../data/supplyChainData'; 
+
 
 const GPUGlobe = () => {
   const mountRef = useRef(null);
@@ -26,13 +28,18 @@ const GPUGlobe = () => {
 
   // --- DATA PROCESSING ---
   const getCurrentItems = () => {
+    // Defines a custom 'Item' type for the breadcrumb which includes id, name, category, and emoji/image.
+    // This allows the breadcrumb logic to work for both the initial 'gpus' list and subsequent category items.
+    
     const isValid = (item) => item && item.locations && item.locations[0] && typeof item.locations[0].lat === 'number';
     if (!data) return [];
 
     let items = [];
     if (breadcrumb.length === 0) {
-      items = (data.gpus || []).filter(isValid).map(item => ({ ...item, category: 'gpus' }));
+      // Root level: Show all GPUs
+      items = (data.gpus || []).filter(isValid).map(item => ({ ...item, category: 'gpus', isRoot: true }));
     } else {
+      // Drill-down level: Show items linked from the last breadcrumb item
       const lastSelection = breadcrumb[breadcrumb.length - 1];
       const nextIds = lastSelection.next || [];
       const categories = Object.keys(data).filter(k => k !== 'gpus'); 
@@ -44,6 +51,7 @@ const GPUGlobe = () => {
     }
 
     return items.map((item, index) => {
+        // Simple jitter for visual separation of co-located markers
         const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
         const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
         
@@ -89,6 +97,19 @@ const GPUGlobe = () => {
       setSelectedItem(null);
     }
   };
+  
+  // NEW: Navigate to a specific index in the breadcrumb path
+  const handleNavigateTo = (index) => {
+    if (index < breadcrumb.length) {
+      // Slice up to and including the target index
+      setBreadcrumb(breadcrumb.slice(0, index + 1));
+      setSelectedItem(null);
+    } else if (index === -1) {
+      // Special case for root
+      handleReset();
+    }
+  };
+
 
   const handleReset = () => {
     setBreadcrumb([]);
@@ -98,6 +119,7 @@ const GPUGlobe = () => {
   useEffect(() => {
     if (!mountRef.current) return;
 
+    // --- THREE.js Initialization (Remains the same) ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a1a);
     sceneRef.current = scene;
@@ -118,7 +140,8 @@ const GPUGlobe = () => {
     scene.add(pointLight);
 
     const globeGeometry = new THREE.SphereGeometry(1.5, 64, 64);
-    const globeTexture = new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+    // Note: The texture must be accessible at this URL or locally
+    const globeTexture = new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'); 
     const globeMaterial = new THREE.MeshPhongMaterial({ map: globeTexture, shininess: 20 });
     const globe = new THREE.Mesh(globeGeometry, globeMaterial);
     scene.add(globe);
@@ -128,7 +151,7 @@ const GPUGlobe = () => {
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
-    // --- CONTROLS (Updated for Orientation) ---
+    // --- CONTROLS (Rotation logic remains the same) ---
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -140,16 +163,11 @@ const GPUGlobe = () => {
       const deltaX = e.clientX - previousMouseRef.current.x;
       const deltaY = e.clientY - previousMouseRef.current.y;
       
-      // 1. Rotate vertically (tilt)
       globe.rotation.x += deltaY * 0.005;
       
-      // 2. Rotate horizontally (spin)
-      // FIX: If globe is upside down (Math.cos < 0), invert the horizontal rotation direction
-      // so dragging right always moves the surface right visually.
       const upFactor = Math.cos(globe.rotation.x) > 0 ? 1 : -1;
       globe.rotation.y += deltaX * 0.005 * upFactor;
       
-      // Sync markers group
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
       
@@ -162,7 +180,7 @@ const GPUGlobe = () => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // --- SORT & STACK ALGORITHM WITH FADING ---
+    // --- SORT & STACK ALGORITHM WITH FADING (Remains the same) ---
     const updateLabels = () => {
       scene.updateMatrixWorld();
       
@@ -184,7 +202,6 @@ const GPUGlobe = () => {
         const meshNormal = markerWorldPos.clone().normalize();
         const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
         
-        // Dot product: 1.0 (Front) to -1.0 (Back)
         const facingCamera = meshNormal.dot(vecToCamera);
         
         // --- SMOOTH FADE CALCULATION ---
@@ -302,7 +319,7 @@ const GPUGlobe = () => {
     };
   }, []);
 
-  // Update Markers
+  // Update Markers (Remains the same)
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
@@ -343,7 +360,7 @@ const GPUGlobe = () => {
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Current Level</h3>
+            <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Current Focus</h3>
             <div className="text-white font-bold text-xl leading-tight">
               {breadcrumb.length === 0 
                 ? <span className="text-orange-400">Global Market</span> 
@@ -387,7 +404,7 @@ const GPUGlobe = () => {
         </div>
       </div>
 
-      {/* --- RENDER LINES AND LABELS --- */}
+      {/* --- RENDER LINES AND LABELS (Remains the same) --- */}
       {currentItems.map((item, index) => {
         const riskColor = item.risk >= 8 ? 'border-red-500' : 
                          item.risk >= 6 ? 'border-orange-500' : 
@@ -401,7 +418,7 @@ const GPUGlobe = () => {
           <React.Fragment key={item.id || index}>
             <div
                 ref={(el) => (lineElementsRef.current[index] = el)}
-                className="absolute origin-left pointer-events-none transition-opacity duration-75" // Smooth fade
+                className="absolute origin-left pointer-events-none transition-opacity duration-75"
                 style={{
                     display: 'none',
                     top: 0,
@@ -413,7 +430,7 @@ const GPUGlobe = () => {
 
             <div
                 ref={(el) => (labelElementsRef.current[index] = el)}
-                className="absolute pointer-events-auto cursor-pointer will-change-transform transition-opacity duration-75" // Smooth fade
+                className="absolute pointer-events-auto cursor-pointer will-change-transform transition-opacity duration-75"
                 style={{ display: 'none', top: 0, left: 0 }}
                 onClick={() => setSelectedItem(item)}
             >
@@ -435,7 +452,7 @@ const GPUGlobe = () => {
         );
       })}
 
-      {/* Info Panel */}
+      {/* Info Panel (Remains the same) */}
       {selectedItem && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[3000]">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
@@ -527,10 +544,46 @@ const GPUGlobe = () => {
         </div>
       )}
 
-       {/* Instructions - Z-INDEX SET TO 2000 */}
-       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
+      {/* Instructions - Z-INDEX SET TO 2000 */}
+      <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
+      </div>
+
+      {/* --- NEW: Breadcrumb Bar at the bottom --- */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] w-auto max-w-full pointer-events-auto">
+        <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1">
+          
+          {/* Root/Global Market Link */}
+          <button 
+            onClick={() => handleNavigateTo(-1)}
+            className={`flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+              breadcrumb.length === 0 
+                ? 'bg-orange-600 text-white' 
+                : 'text-gray-400 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            🌍 Global Market
+          </button>
+          
+          {/* Breadcrumb Steps */}
+          {breadcrumb.map((item, index) => (
+            <React.Fragment key={item.id}>
+              <span className="text-gray-500">/</span>
+              <button
+                onClick={() => handleNavigateTo(index)}
+                className={`flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                  index === breadcrumb.length - 1
+                    ? 'bg-orange-600 text-white' // Current step
+                    : 'text-gray-400 hover:text-white hover:bg-slate-700' // Previous steps
+                }`}
+              >
+                <span className="mr-2">{item.emoji}</span>
+                {item.name}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
     </div>
   );
