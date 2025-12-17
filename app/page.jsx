@@ -28,9 +28,6 @@ const GPUGlobe = () => {
 
   // --- DATA PROCESSING ---
   const getCurrentItems = () => {
-    // Defines a custom 'Item' type for the breadcrumb which includes id, name, category, and emoji/image.
-    // This allows the breadcrumb logic to work for both the initial 'gpus' list and subsequent category items.
-    
     const isValid = (item) => item && item.locations && item.locations[0] && typeof item.locations[0].lat === 'number';
     if (!data) return [];
 
@@ -119,7 +116,7 @@ const GPUGlobe = () => {
   useEffect(() => {
     if (!mountRef.current) return;
 
-    // --- THREE.js Initialization (Remains the same) ---
+    // --- THREE.js Initialization ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a1a);
     sceneRef.current = scene;
@@ -139,8 +136,34 @@ const GPUGlobe = () => {
     pointLight.position.set(5, 3, 5);
     scene.add(pointLight);
 
+    // --- STARFIELD ADDITION ---
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 3000;
+    const starVertices = [];
+    
+    for (let i = 0; i < starCount; i++) {
+        // Generate random positions between -60 and 60
+        const x = (Math.random() - 0.5) * 120;
+        const y = (Math.random() - 0.5) * 120;
+        const z = (Math.random() - 0.5) * 120;
+        // Basic check to ensure stars don't spawn inside the globe (radius 1.3)
+        if(Math.abs(x) > 2 || Math.abs(y) > 2 || Math.abs(z) > 2) {
+            starVertices.push(x, y, z);
+        }
+    }
+    
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    const starMaterial = new THREE.PointsMaterial({ 
+        color: 0xffffff, 
+        size: 0.05, 
+        transparent: true, 
+        opacity: 0.6 
+    });
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+    // --------------------------
+
     const globeGeometry = new THREE.SphereGeometry(1.3, 64, 64);
-    // Note: The texture must be accessible at this URL or locally
     const globeTexture = new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'); 
     const globeMaterial = new THREE.MeshPhongMaterial({ map: globeTexture, shininess: 20 });
     const globe = new THREE.Mesh(globeGeometry, globeMaterial);
@@ -178,7 +201,7 @@ const GPUGlobe = () => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // --- SORT & STACK ALGORITHM WITH FADING (Remains the same) ---
+    // --- SORT & STACK ALGORITHM ---
     const updateLabels = () => {
       scene.updateMatrixWorld();
       
@@ -188,7 +211,6 @@ const GPUGlobe = () => {
       const widthHalf = width / 2;
       const heightHalf = height / 2;
 
-      // 1. Calculate ideal positions & Opacity
       markersDataRef.current.forEach((markerData, index) => {
         const labelEl = labelElementsRef.current[index];
         const lineEl = lineElementsRef.current[index];
@@ -238,10 +260,8 @@ const GPUGlobe = () => {
         }
       });
 
-      // 2. SORT by Y position
       visibleLabels.sort((a, b) => a.y - b.y);
 
-      // 3. STACK Algorithm
       const BOX_WIDTH = 210; 
       const BOX_HEIGHT = 85;
 
@@ -257,7 +277,6 @@ const GPUGlobe = () => {
         }
       }
 
-      // 4. Apply final positions
       visibleLabels.forEach(l => {
         const labelStyle = l.element.style;
         const lineStyle = l.lineElement.style;
@@ -286,6 +305,9 @@ const GPUGlobe = () => {
       if (autoRotate && !isDraggingRef.current) {
         globe.rotation.y += 0.001;
         markersGroup.rotation.y = globe.rotation.y;
+        
+        // Optional: Slowly rotate stars for extra effect
+        stars.rotation.y += 0.0002;
       }
       renderer.render(scene, camera);
       updateLabels();
@@ -352,15 +374,15 @@ const GPUGlobe = () => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* HUD Box - Z-INDEX SET TO 2000 */}
+      {/* HUD Box */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Current Focus</h3>
             <div className="text-white font-bold text-xl leading-tight">
               {breadcrumb.length === 0 
-                ? <span className="text-orange-400">Global Market</span> 
-                : <span className="text-orange-400">{breadcrumb[breadcrumb.length - 1].name}</span>
+                ? <span className="text-blue-400">Global Market</span> 
+                : <span className="text-blue-400">{breadcrumb[breadcrumb.length - 1].name}</span>
               }
             </div>
             <div className="text-xs text-green-400 mt-1 flex items-center gap-1">
@@ -392,7 +414,7 @@ const GPUGlobe = () => {
             className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               breadcrumb.length === 0
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-700'
-                : 'bg-orange-600 hover:bg-orange-500 text-white shadow-lg border border-orange-500 hover:border-orange-400'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg border border-blue-500 hover:border-blue-400'
             }`}
           >
             Reset
@@ -400,7 +422,7 @@ const GPUGlobe = () => {
         </div>
       </div>
 
-      {/* --- RENDER LINES AND LABELS (Remains the same) --- */}
+      {/* --- RENDER LINES AND LABELS --- */}
       {currentItems.map((item, index) => {
         const riskColor = item.risk >= 8 ? 'border-red-500' : 
                          item.risk >= 6 ? 'border-orange-500' : 
@@ -448,7 +470,7 @@ const GPUGlobe = () => {
         );
       })}
 
-      {/* Info Panel - Z-INDEX SET TO 3000 (Highest) */}
+      {/* Info Panel */}
       {selectedItem && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[3000]">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
@@ -477,7 +499,7 @@ const GPUGlobe = () => {
 
             {selectedItem.shipping && (
               <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-                <h3 className="text-lg font-semibold text-orange-400 mb-2">Shipping Details</h3>
+                <h3 className="text-lg font-semibold tex-blue-400 mb-2">Shipping Details</h3>
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div><div className="text-gray-400">Time</div><div className="text-white font-medium">{selectedItem.shipping.time}</div></div>
                   <div><div className="text-gray-400">Cost</div><div className="text-white font-medium">{selectedItem.shipping.cost}</div></div>
@@ -486,27 +508,25 @@ const GPUGlobe = () => {
               </div>
             )}
 
-            {/* DIRECT NAVIGATION BUTTON - MOVED ABOVE RISK ANALYSIS */}
             {selectedItem.next && selectedItem.next.length > 0 && (
               <button
                 onClick={() => handleDrillDown(selectedItem)}
-                className="w-full bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
               >
                 Explore Supply Chain → ({selectedItem.next.length} suppliers)
               </button>
             )}
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-              <h3 className="text-lg font-semibold text-orange-400 mb-2">Risk Analysis</h3>
+              <h3 className="text-lg font-semibold text-blue-400 mb-2">Risk Analysis</h3>
               <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.riskAnalysis}</p>
             </div>
 
              {selectedItem.riskScores && (
             <div className="space-y-2 mb-4">
-              <h3 className="text-lg font-semibold text-orange-400 mb-2">Detailed Risk Breakdown</h3>
-              {/* SORTED FROM MOST RISKY (Highest value) TO LEAST RISKY */}
+              <h3 className="text-lg font-semibold text-blue-400 mb-2">Detailed Risk Breakdown</h3>
               {Object.entries(selectedItem.riskScores)
-                .sort((a, b) => b[1] - a[1]) // <--- Sorting remains active
+                .sort((a, b) => b[1] - a[1]) 
                 .map(([key, value]) => (
                 <div key={key} className="bg-slate-700 rounded-lg p-3">
                   <div className="flex justify-between items-center">
@@ -541,47 +561,35 @@ const GPUGlobe = () => {
         </div>
       )}
 
-      {/* Instructions - Z-INDEX SET TO 2000 */}
+      {/* Instructions */}
       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
       </div>
 
-      {/* --- NEW: Breadcrumb Bar at the bottom --- */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] w-auto max-w-full pointer-events-auto">
-        <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1">
-          
-          {/* Root/Global Market Link */}
-          <button 
-            onClick={() => handleNavigateTo(-1)}
-            className={`flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              breadcrumb.length === 0 
-                ? 'bg-orange-600 text-white' 
-                : 'text-gray-400 hover:text-white hover:bg-slate-700'
-            }`}
-          >
-            🌍 Global Market
-          </button>
-          
-          {/* Breadcrumb Steps */}
-          {breadcrumb.map((item, index) => (
-            <React.Fragment key={item.id}>
-              <span className="text-gray-500">/</span>
-              <button
-                onClick={() => handleNavigateTo(index)}
-                className={`flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                  index === breadcrumb.length - 1
-                    ? 'bg-orange-600 text-white' // Current step
-                    : 'text-gray-400 hover:text-white hover:bg-slate-700' // Previous steps
-                }`}
-              >
-                <span className="mr-2">{item.emoji}</span>
-                {item.name}
-              </button>
-            </React.Fragment>
-          ))}
+      {/* --- Breadcrumb Bar at the bottom --- */}
+      {breadcrumb.length > 0 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] w-auto max-w-full pointer-events-auto">
+            <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1">
+            {breadcrumb.map((item, index) => (
+                <React.Fragment key={item.id}>
+                {index > 0 && <span className="text-gray-500">/</span>}
+                <button
+                    onClick={() => handleNavigateTo(index)}
+                    className={`flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    index === breadcrumb.length - 1
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-400 hover:text-white hover:bg-slate-700'
+                    }`}
+                >
+                    <span className="mr-2">{item.emoji}</span>
+                    {item.name}
+                </button>
+                </React.Fragment>
+            ))}
+            </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
