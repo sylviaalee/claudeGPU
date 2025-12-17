@@ -460,8 +460,8 @@ const GPUGlobe = () => {
 
       {/* Info Panel */}
       {selectedItem && !showConfirmDialog && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 pointer-events-auto z-50" onClick={() => setSelectedItem(null)}>
-          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[9999]">
+          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">{selectedItem.emoji}</span>
