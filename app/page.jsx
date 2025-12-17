@@ -151,7 +151,7 @@ const GPUGlobe = () => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // --- SORT & STACK ALGORITHM ---
+    // --- SORT & STACK ALGORITHM WITH FADING ---
     const updateLabels = () => {
       scene.updateMatrixWorld();
       
@@ -161,7 +161,7 @@ const GPUGlobe = () => {
       const widthHalf = width / 2;
       const heightHalf = height / 2;
 
-      // 1. Calculate ideal positions
+      // 1. Calculate ideal positions & Opacity
       markersDataRef.current.forEach((markerData, index) => {
         const labelEl = labelElementsRef.current[index];
         const lineEl = lineElementsRef.current[index];
@@ -172,8 +172,21 @@ const GPUGlobe = () => {
         markerData.marker.getWorldPosition(markerWorldPos);
         const meshNormal = markerWorldPos.clone().normalize();
         const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
+        
+        // Dot product: 1.0 (Front) to -1.0 (Back)
         const facingCamera = meshNormal.dot(vecToCamera);
-        const isVisible = facingCamera > 0.2; 
+        
+        // --- SMOOTH FADE CALCULATION ---
+        // Range 0.2 to -0.2: Fade from 1.0 to 0.0
+        let alpha = 0;
+        if (facingCamera > 0.2) {
+            alpha = 1;
+        } else if (facingCamera > -0.2) {
+            // Normalize -0.2...0.2 range to 0...1
+            alpha = (facingCamera + 0.2) / 0.4;
+        }
+        
+        const isVisible = alpha > 0.01;
 
         if (isVisible) {
           const markerScreenPos = markerWorldPos.clone().project(camera);
@@ -195,6 +208,7 @@ const GPUGlobe = () => {
             x: idealX,
             y: idealY,
             z: labelScreenPos.z,
+            opacity: alpha // Store opacity
           });
         } else {
           labelEl.style.display = 'none';
@@ -221,20 +235,29 @@ const GPUGlobe = () => {
         }
       }
 
-      // 4. Apply final positions
+      // 4. Apply final positions and OPACITY
       visibleLabels.forEach(l => {
-        l.element.style.display = 'block';
-        l.element.style.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
-        l.element.style.zIndex = Math.floor((1 - l.z) * 1000);
+        const labelStyle = l.element.style;
+        const lineStyle = l.lineElement.style;
+
+        labelStyle.display = 'block';
+        labelStyle.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
+        labelStyle.zIndex = Math.floor((1 - l.z) * 1000);
+        
+        // Apply smooth fading
+        labelStyle.opacity = l.opacity;
+        
+        // Lines fade out slightly faster to keep text readable longer
+        lineStyle.display = 'block';
+        lineStyle.opacity = l.opacity * 0.6; 
 
         const dx = l.x - l.anchorX;
         const dy = l.y - l.anchorY;
         const length = Math.sqrt(dx*dx + dy*dy);
         const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-        l.lineElement.style.display = 'block';
-        l.lineElement.style.width = `${length}px`;
-        l.lineElement.style.transform = `translate(${l.anchorX}px, ${l.anchorY}px) rotate(${angle}deg)`;
+        lineStyle.width = `${length}px`;
+        lineStyle.transform = `translate(${l.anchorX}px, ${l.anchorY}px) rotate(${angle}deg)`;
       });
     };
 
@@ -310,7 +333,7 @@ const GPUGlobe = () => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* HUD Box - Z-INDEX SET TO 2000 */}
+      {/* HUD Box */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -372,20 +395,19 @@ const GPUGlobe = () => {
           <React.Fragment key={item.id || index}>
             <div
                 ref={(el) => (lineElementsRef.current[index] = el)}
-                className="absolute origin-left pointer-events-none"
+                className="absolute origin-left pointer-events-none transition-opacity duration-75" // Smooth fade
                 style={{
                     display: 'none',
                     top: 0,
                     left: 0,
                     height: '1px',
                     backgroundColor: lineColor,
-                    opacity: 0.6,
                 }}
             />
 
             <div
                 ref={(el) => (labelElementsRef.current[index] = el)}
-                className="absolute pointer-events-auto cursor-pointer will-change-transform"
+                className="absolute pointer-events-auto cursor-pointer will-change-transform transition-opacity duration-75" // Smooth fade
                 style={{ display: 'none', top: 0, left: 0 }}
                 onClick={() => setSelectedItem(item)}
             >
@@ -407,7 +429,7 @@ const GPUGlobe = () => {
         );
       })}
 
-      {/* Info Panel - Z-INDEX SET TO 3000 (Highest) */}
+      {/* Info Panel */}
       {selectedItem && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[3000]">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
@@ -453,9 +475,8 @@ const GPUGlobe = () => {
              {selectedItem.riskScores && (
             <div className="space-y-2 mb-4">
               <h3 className="text-lg font-semibold text-orange-400 mb-2">Detailed Risk Breakdown</h3>
-              {/* SORTED FROM MOST RISKY (Highest value) TO LEAST RISKY */}
               {Object.entries(selectedItem.riskScores)
-                .sort((a, b) => b[1] - a[1]) // <--- Added Sort Logic Here
+                .sort((a, b) => b[1] - a[1])
                 .map(([key, value]) => (
                 <div key={key} className="bg-slate-700 rounded-lg p-3">
                   <div className="flex justify-between items-center">
@@ -487,7 +508,6 @@ const GPUGlobe = () => {
             </div>
             )}
             
-            {/* DIRECT NAVIGATION BUTTON */}
             {selectedItem.next && selectedItem.next.length > 0 && (
               <button
                 onClick={() => handleDrillDown(selectedItem)}
@@ -500,7 +520,7 @@ const GPUGlobe = () => {
         </div>
       )}
 
-       {/* Instructions - Z-INDEX SET TO 2000 */}
+       {/* Instructions */}
        <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
