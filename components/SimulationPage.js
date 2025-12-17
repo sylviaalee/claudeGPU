@@ -50,6 +50,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         totalDistance: 0,
         totalCarbon: 0
     });
+    const [metricsHistory, setMetricsHistory] = useState([]);
+    const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
 
     // --- REFS ---
     const sceneRef = useRef(null);
@@ -92,12 +94,33 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             const legTime = distance / (500 + Math.random() * 300); // 500-800 km/day
             const legCarbon = distance * (0.2 + Math.random() * 0.3); // 0.2-0.5 kg CO2/km
             
-            setMetrics(prev => ({
-                totalCost: prev.totalCost + legCost,
-                totalTime: prev.totalTime + legTime,
-                totalDistance: prev.totalDistance + distance,
-                totalCarbon: prev.totalCarbon + legCarbon
-            }));
+            setMetrics(prev => {
+                const newMetrics = {
+                    totalCost: prev.totalCost + legCost,
+                    totalTime: prev.totalTime + legTime,
+                    totalDistance: prev.totalDistance + distance,
+                    totalCarbon: prev.totalCarbon + legCarbon
+                };
+                
+                // Add to history
+                setMetricsHistory(history => [...history, {
+                    step: index,
+                    name: item.name,
+                    ...newMetrics
+                }]);
+                
+                return newMetrics;
+            });
+        } else {
+            // First step - add initial zero values
+            setMetricsHistory([{
+                step: 0,
+                name: item.name,
+                totalCost: 0,
+                totalTime: 0,
+                totalDistance: 0,
+                totalCarbon: 0
+            }]);
         }
 
         // 3. Generate Log Message
@@ -133,6 +156,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setSimulatedRisks({});
         setCurrentStepIndex(-1);
         setMetrics({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
+        setMetricsHistory([]);
+        setIsMetricsExpanded(false);
         addToLog("🚀 Initializing Simulation Sequence...", "neutral");
         
         setTimeout(() => {
@@ -433,45 +458,304 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
 
             {/* --- BOTTOM RIGHT: METRICS STATUS --- */}
             {(isSimulating || Object.keys(simulatedRisks).length > 0) && (
-                <div className="absolute bottom-8 right-6 z-[2000] pointer-events-auto">
-                    <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-72">
-                        <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
-                            <span>📊</span> Supply Chain Metrics
-                        </h3>
-                        <div className="space-y-2.5">
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-400 text-sm flex items-center gap-2">
-                                    <span>💰</span> Total Cost
-                                </span>
-                                <span className="text-emerald-400 font-bold text-sm">
-                                    ${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-400 text-sm flex items-center gap-2">
-                                    <span>⏱️</span> Total Time
-                                </span>
-                                <span className="text-blue-400 font-bold text-sm">
-                                    {metrics.totalTime.toFixed(1)} days
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-400 text-sm flex items-center gap-2">
-                                    <span>🌍</span> Distance
-                                </span>
-                                <span className="text-purple-400 font-bold text-sm">
-                                    {metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-400 text-sm flex items-center gap-2">
-                                    <span>🌱</span> Carbon
-                                </span>
-                                <span className="text-orange-400 font-bold text-sm">
-                                    {metrics.totalCarbon.toFixed(1)} kg CO₂
-                                </span>
-                            </div>
+                <div className="absolute bottom-8 left-6 z-[2000] pointer-events-auto">
+                    <div 
+                        className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${
+                            isMetricsExpanded ? 'p-6 w-[600px]' : 'p-4 w-72'
+                        }`}
+                        onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                                <span>📊</span> Supply Chain Metrics
+                            </h3>
+                            <button className="text-gray-400 hover:text-white text-xs">
+                                {isMetricsExpanded ? '⬇ Collapse' : '⬆ Expand'}
+                            </button>
                         </div>
+
+                        {!isMetricsExpanded ? (
+                            <div className="space-y-2.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm flex items-center gap-2">
+                                        <span>💰</span> Total Cost
+                                    </span>
+                                    <span className="text-emerald-400 font-bold text-sm">
+                                        ${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm flex items-center gap-2">
+                                        <span>⏱️</span> Total Time
+                                    </span>
+                                    <span className="text-blue-400 font-bold text-sm">
+                                        {metrics.totalTime.toFixed(1)} days
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm flex items-center gap-2">
+                                        <span>🌍</span> Distance
+                                    </span>
+                                    <span className="text-purple-400 font-bold text-sm">
+                                        {metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm flex items-center gap-2">
+                                        <span>🌱</span> Carbon
+                                    </span>
+                                    <span className="text-orange-400 font-bold text-sm">
+                                        {metrics.totalCarbon.toFixed(1)} kg CO₂
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* Summary Row */}
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                        <div className="text-gray-400 text-xs mb-1">💰 Cost</div>
+                                        <div className="text-emerald-400 font-bold text-lg">
+                                            ${(metrics.totalCost / 1000).toFixed(1)}k
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                        <div className="text-gray-400 text-xs mb-1">⏱️ Time</div>
+                                        <div className="text-blue-400 font-bold text-lg">
+                                            {metrics.totalTime.toFixed(1)}d
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                        <div className="text-gray-400 text-xs mb-1">🌍 Distance</div>
+                                        <div className="text-purple-400 font-bold text-lg">
+                                            {(metrics.totalDistance / 1000).toFixed(1)}k km
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                        <div className="text-gray-400 text-xs mb-1">🌱 Carbon</div>
+                                        <div className="text-orange-400 font-bold text-lg">
+                                            {(metrics.totalCarbon / 1000).toFixed(1)}t
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Cost Chart */}
+                                <div>
+                                    <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                        <span>💰</span> Cost Progression
+                                    </div>
+                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                        <svg width="100%" height="120" viewBox="0 0 520 120">
+                                            {/* Grid lines */}
+                                            {[0, 1, 2, 3, 4].map(i => (
+                                                <line
+                                                    key={i}
+                                                    x1="40"
+                                                    y1={20 + i * 20}
+                                                    x2="500"
+                                                    y2={20 + i * 20}
+                                                    stroke="#334155"
+                                                    strokeWidth="0.5"
+                                                    opacity="0.3"
+                                                />
+                                            ))}
+                                            
+                                            {/* Line */}
+                                            {metricsHistory.length > 1 && (
+                                                <polyline
+                                                    points={metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                        const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
+                                                        const y = 100 - (point.totalCost / maxCost) * 80;
+                                                        return `${x},${y}`;
+                                                    }).join(' ')}
+                                                    fill="none"
+                                                    stroke="#10b981"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            
+                                            {/* Points */}
+                                            {metricsHistory.map((point, i) => {
+                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
+                                                const y = 100 - (point.totalCost / maxCost) * 80;
+                                                return (
+                                                    <circle
+                                                        key={i}
+                                                        cx={x}
+                                                        cy={y}
+                                                        r="4"
+                                                        fill="#10b981"
+                                                    />
+                                                );
+                                            })}
+                                            
+                                            {/* Labels */}
+                                            {metricsHistory.map((point, i) => {
+                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                return (
+                                                    <text
+                                                        key={i}
+                                                        x={x}
+                                                        y="115"
+                                                        fontSize="10"
+                                                        fill="#94a3b8"
+                                                        textAnchor="middle"
+                                                    >
+                                                        {point.step}
+                                                    </text>
+                                                );
+                                            })}
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                {/* Distance Chart */}
+                                <div>
+                                    <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                        <span>🌍</span> Distance Progression
+                                    </div>
+                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                        <svg width="100%" height="120" viewBox="0 0 520 120">
+                                            {/* Grid lines */}
+                                            {[0, 1, 2, 3, 4].map(i => (
+                                                <line
+                                                    key={i}
+                                                    x1="40"
+                                                    y1={20 + i * 20}
+                                                    x2="500"
+                                                    y2={20 + i * 20}
+                                                    stroke="#334155"
+                                                    strokeWidth="0.5"
+                                                    opacity="0.3"
+                                                />
+                                            ))}
+                                            
+                                            {/* Line */}
+                                            {metricsHistory.length > 1 && (
+                                                <polyline
+                                                    points={metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                        const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
+                                                        const y = 100 - (point.totalDistance / maxDist) * 80;
+                                                        return `${x},${y}`;
+                                                    }).join(' ')}
+                                                    fill="none"
+                                                    stroke="#a855f7"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            
+                                            {/* Points */}
+                                            {metricsHistory.map((point, i) => {
+                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
+                                                const y = 100 - (point.totalDistance / maxDist) * 80;
+                                                return (
+                                                    <circle
+                                                        key={i}
+                                                        cx={x}
+                                                        cy={y}
+                                                        r="4"
+                                                        fill="#a855f7"
+                                                    />
+                                                );
+                                            })}
+                                            
+                                            {/* Labels */}
+                                            {metricsHistory.map((point, i) => {
+                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                return (
+                                                    <text
+                                                        key={i}
+                                                        x={x}
+                                                        y="115"
+                                                        fontSize="10"
+                                                        fill="#94a3b8"
+                                                        textAnchor="middle"
+                                                    >
+                                                        {point.step}
+                                                    </text>
+                                                );
+                                            })}
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                {/* Carbon Chart */}
+                                <div>
+                                    <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                        <span>🌱</span> Carbon Emissions Progression
+                                    </div>
+                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                        <svg width="100%" height="120" viewBox="0 0 520 120">
+                                            {/* Grid lines */}
+                                            {[0, 1, 2, 3, 4].map(i => (
+                                                <line
+                                                    key={i}
+                                                    x1="40"
+                                                    y1={20 + i * 20}
+                                                    x2="500"
+                                                    y2={20 + i * 20}
+                                                    stroke="#334155"
+                                                    strokeWidth="0.5"
+                                                    opacity="0.3"
+                                                />
+                                            ))}
+                                            
+                                            {/* Line */}
+                                            {metricsHistory.length > 1 && (
+                                                <polyline
+                                                    points={metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                        const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
+                                                        const y = 100 - (point.totalCarbon / maxCarbon) * 80;
+                                                        return `${x},${y}`;
+                                                    }).join(' ')}
+                                                    fill="none"
+                                                    stroke="#fb923c"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            
+                                            {/* Points */}
+                                            {metricsHistory.map((point, i) => {
+                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
+                                                const y = 100 - (point.totalCarbon / maxCarbon) * 80;
+                                                return (
+                                                    <circle
+                                                        key={i}
+                                                        cx={x}
+                                                        cy={y}
+                                                        r="4"
+                                                        fill="#fb923c"
+                                                    />
+                                                );
+                                            })}
+                                            
+                                            {/* Labels */}
+                                            {metricsHistory.map((point, i) => {
+                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                return (
+                                                    <text
+                                                        key={i}
+                                                        x={x}
+                                                        y="115"
+                                                        fontSize="10"
+                                                        fill="#94a3b8"
+                                                        textAnchor="middle"
+                                                    >
+                                                        {point.step}
+                                                    </text>
+                                                );
+                                            })}
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
