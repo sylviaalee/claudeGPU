@@ -15,7 +15,7 @@ const GPUGlobe = () => {
 
   // Refs
   const labelElementsRef = useRef([]);
-  const lineElementsRef = useRef([]); // NEW: Refs for the 2D SVG lines
+  const lineElementsRef = useRef([]);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
@@ -45,7 +45,7 @@ const GPUGlobe = () => {
       }
     }
 
-    // Add explicit lat/lon extraction with tiny random jitter 
+    // Add explicit lat/lon extraction with tiny random jitter to prevent mathematical stacking
     return items.map((item, index) => {
         const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
         const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
@@ -202,13 +202,11 @@ const GPUGlobe = () => {
             index,
             element: labelEl,
             lineElement: lineEl,
-            anchorX, // Where the line starts (dot on globe)
+            anchorX, 
             anchorY,
-            x: idealX, // Where the box wants to be
+            x: idealX,
             y: idealY,
             z: labelScreenPos.z,
-            w: 180, 
-            h: 60  
           });
         } else {
           labelEl.style.display = 'none';
@@ -217,7 +215,12 @@ const GPUGlobe = () => {
       });
 
       // 2. Resolve Collisions (Box vs Box)
-      const iterations = 5; 
+      // Standard Box Size: w-48 (12rem/192px) + padding -> approx 220px wide
+      // Height approx 80px
+      const BOX_WIDTH = 220; 
+      const BOX_HEIGHT = 90; // Generous vertical spacing
+
+      const iterations = 8; // More iterations for smoother solving
       for(let k=0; k<iterations; k++) {
         for(let i=0; i<visibleLabels.length; i++) {
           for(let j=i+1; j<visibleLabels.length; j++) {
@@ -227,19 +230,33 @@ const GPUGlobe = () => {
             const dx = l1.x - l2.x;
             const dy = l1.y - l2.y;
             
-            const minDistX = (l1.w + l2.w) / 2 * 0.85; 
-            const minDistY = (l1.h + l2.h) / 2 * 1.1;
-
-            if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
-               const force = 0.5;
-               const overlapY = minDistY - Math.abs(dy);
+            // Check if they are too close
+            if (Math.abs(dx) < BOX_WIDTH && Math.abs(dy) < BOX_HEIGHT) {
+               // Calculate overlap
+               const overlapX = BOX_WIDTH - Math.abs(dx);
+               const overlapY = BOX_HEIGHT - Math.abs(dy);
                
-               if (l1.y < l2.y) {
-                 l1.y -= overlapY * force;
-                 l2.y += overlapY * force;
+               // We prefer to push them VERTICALLY (stacking) rather than horizontally
+               // unless the horizontal overlap is tiny.
+               if (overlapY < overlapX) {
+                    const force = 0.5;
+                    if (l1.y < l2.y) {
+                        l1.y -= overlapY * force;
+                        l2.y += overlapY * force;
+                    } else {
+                        l1.y += overlapY * force;
+                        l2.y -= overlapY * force;
+                    }
                } else {
-                 l1.y += overlapY * force;
-                 l2.y -= overlapY * force;
+                   // Fallback horizontal push (rarely used with this logic, but keeps them apart)
+                   const force = 0.2; // Weaker horizontal push
+                    if (l1.x < l2.x) {
+                        l1.x -= overlapX * force;
+                        l2.x += overlapX * force;
+                    } else {
+                        l1.x += overlapX * force;
+                        l2.x -= overlapX * force;
+                    }
                }
             }
           }
@@ -251,10 +268,10 @@ const GPUGlobe = () => {
         // Update Box Position
         l.element.style.display = 'block';
         l.element.style.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
+        // Basic Z-index sorting
         l.element.style.zIndex = Math.floor((1 - l.z) * 1000);
 
-        // Update SVG Line (From Globe Dot -> To Box Center)
-        // We use a CSS transform on the line element to rotate/stretch it
+        // Update SVG Line
         const dx = l.x - l.anchorX;
         const dy = l.y - l.anchorY;
         const length = Math.sqrt(dx*dx + dy*dy);
@@ -326,8 +343,6 @@ const GPUGlobe = () => {
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       marker.position.copy(position);
       
-      // We no longer need the 3D THREE.Line here because we are drawing 2D lines in the DOM
-      // However, we still calculate the "ideal" label position in 3D space
       const lineEnd = position.clone().normalize().multiplyScalar(2.2);
       
       markersGroup.add(marker);
@@ -421,12 +436,20 @@ const GPUGlobe = () => {
                 style={{ display: 'none', top: 0, left: 0 }}
                 onClick={() => setSelectedItem(item)}
             >
-                <div className={`bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
-                <div className="flex items-center gap-2">
-                    <span className="text-lg">{item.emoji}</span>
-                    <div>
-                    <div className="text-xs font-bold text-white whitespace-nowrap">{item.name}</div>
-                    <div className="text-xs text-gray-400 whitespace-nowrap">Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}</div>
+                {/* ADDED CLASS: w-48 (Fixed width) 
+                   This ensures standard size for collision detection.
+                */}
+                <div className={`w-48 bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
+                <div className="flex items-center gap-3">
+                    <span className="text-2xl">{item.emoji}</span>
+                    <div className="overflow-hidden">
+                        {/* Truncate text so it doesn't break layout */}
+                        <div className="text-xs font-bold text-white whitespace-nowrap truncate" title={item.name}>
+                            {item.name}
+                        </div>
+                        <div className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
+                            Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}
+                        </div>
                     </div>
                 </div>
                 </div>
