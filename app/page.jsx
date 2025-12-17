@@ -45,7 +45,6 @@ const GPUGlobe = () => {
       }
     }
 
-    // Add explicit lat/lon extraction with tiny random jitter to prevent mathematical stacking
     return items.map((item, index) => {
         const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
         const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
@@ -157,7 +156,7 @@ const GPUGlobe = () => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // --- COLLISION AVOIDANCE & LINE UPDATE LOOP ---
+    // --- SORT & STACK ALGORITHM ---
     const updateLabels = () => {
       scene.updateMatrixWorld();
       
@@ -167,34 +166,43 @@ const GPUGlobe = () => {
       const widthHalf = width / 2;
       const heightHalf = height / 2;
 
-      // 1. Calculate ideal positions (anchor points)
+      // 1. Calculate ideal positions
       markersDataRef.current.forEach((markerData, index) => {
         const labelEl = labelElementsRef.current[index];
         const lineEl = lineElementsRef.current[index];
         if (!labelEl || !lineEl) return;
 
-        // Get the position of the marker on the globe (the dot)
+        // --- VISIBILITY CHECK START ---
+        // Get the real world position of the marker on the sphere
         const markerWorldPos = new THREE.Vector3();
         markerData.marker.getWorldPosition(markerWorldPos);
-        const markerScreenPos = markerWorldPos.clone().project(camera);
-
-        // Get the ideal position for the label
-        const labelWorldPos = markerData.labelPosition.clone();
-        labelWorldPos.applyMatrix4(markersGroup.matrixWorld);
-        const labelScreenPos = labelWorldPos.clone().project(camera);
         
-        // Check visibility
-        const cameraDirection = new THREE.Vector3();
-        camera.getWorldDirection(cameraDirection);
-        const toLabel = labelWorldPos.clone().sub(camera.position).normalize();
-        const dotProduct = toLabel.dot(cameraDirection);
-        const isVisible = dotProduct > 0 && labelScreenPos.z < 1;
+        // 1. Get the normal vector of the surface at this point
+        // Since sphere center is (0,0,0), the normal is just the position vector normalized
+        const meshNormal = markerWorldPos.clone().normalize();
+        
+        // 2. Get the vector pointing from the marker to the camera
+        const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
+        
+        // 3. Calculate Dot Product
+        // 1.0 = Facing directly at camera
+        // 0.0 = Exactly on the horizon
+        // < 0.0 = Facing away (behind earth)
+        const facingCamera = meshNormal.dot(vecToCamera);
+
+        // 4. Strict Visibility Threshold
+        // > 0.2 ensures it disappears slightly BEFORE hitting the exact edge
+        const isVisible = facingCamera > 0.2;
+        // --- VISIBILITY CHECK END ---
 
         if (isVisible) {
-          // Convert to pixels
+          const markerScreenPos = markerWorldPos.clone().project(camera);
+          const labelWorldPos = markerData.labelPosition.clone();
+          labelWorldPos.applyMatrix4(markersGroup.matrixWorld);
+          const labelScreenPos = labelWorldPos.clone().project(camera);
+
           const anchorX = (markerScreenPos.x * widthHalf) + widthHalf;
           const anchorY = -(markerScreenPos.y * heightHalf) + heightHalf;
-          
           const idealX = (labelScreenPos.x * widthHalf) + widthHalf;
           const idealY = -(labelScreenPos.y * heightHalf) + heightHalf;
 
@@ -214,64 +222,31 @@ const GPUGlobe = () => {
         }
       });
 
-      // 2. Resolve Collisions (Box vs Box)
-      // Standard Box Size: w-48 (12rem/192px) + padding -> approx 220px wide
-      // Height approx 80px
-      const BOX_WIDTH = 220; 
-      const BOX_HEIGHT = 90; // Generous vertical spacing
+      // 2. SORT by Y position (Top to Bottom) for standard stacking
+      visibleLabels.sort((a, b) => a.y - b.y);
 
-      const iterations = 8; // More iterations for smoother solving
-      for(let k=0; k<iterations; k++) {
-        for(let i=0; i<visibleLabels.length; i++) {
-          for(let j=i+1; j<visibleLabels.length; j++) {
-            const l1 = visibleLabels[i];
-            const l2 = visibleLabels[j];
+      // 3. STACK Algorithm to prevent overlapping
+      const BOX_WIDTH = 210; 
+      const BOX_HEIGHT = 85;
 
-            const dx = l1.x - l2.x;
-            const dy = l1.y - l2.y;
-            
-            // Check if they are too close
-            if (Math.abs(dx) < BOX_WIDTH && Math.abs(dy) < BOX_HEIGHT) {
-               // Calculate overlap
-               const overlapX = BOX_WIDTH - Math.abs(dx);
-               const overlapY = BOX_HEIGHT - Math.abs(dy);
-               
-               // We prefer to push them VERTICALLY (stacking) rather than horizontally
-               // unless the horizontal overlap is tiny.
-               if (overlapY < overlapX) {
-                    const force = 0.5;
-                    if (l1.y < l2.y) {
-                        l1.y -= overlapY * force;
-                        l2.y += overlapY * force;
-                    } else {
-                        l1.y += overlapY * force;
-                        l2.y -= overlapY * force;
-                    }
-               } else {
-                   // Fallback horizontal push (rarely used with this logic, but keeps them apart)
-                   const force = 0.2; // Weaker horizontal push
-                    if (l1.x < l2.x) {
-                        l1.x -= overlapX * force;
-                        l2.x += overlapX * force;
-                    } else {
-                        l1.x += overlapX * force;
-                        l2.x -= overlapX * force;
-                    }
-               }
+      for(let i = 0; i < visibleLabels.length; i++) {
+        const current = visibleLabels[i];
+        for(let j = i + 1; j < visibleLabels.length; j++) {
+            const next = visibleLabels[j];
+            if (Math.abs(current.x - next.x) < BOX_WIDTH) {
+                if (next.y < current.y + BOX_HEIGHT) {
+                    next.y = current.y + BOX_HEIGHT + 5; 
+                }
             }
-          }
         }
       }
 
-      // 3. Apply final positions & Update Lines
+      // 4. Apply final positions
       visibleLabels.forEach(l => {
-        // Update Box Position
         l.element.style.display = 'block';
         l.element.style.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
-        // Basic Z-index sorting
         l.element.style.zIndex = Math.floor((1 - l.z) * 1000);
 
-        // Update SVG Line
         const dx = l.x - l.anchorX;
         const dy = l.y - l.anchorY;
         const length = Math.sqrt(dx*dx + dy*dy);
@@ -415,7 +390,6 @@ const GPUGlobe = () => {
 
         return (
           <React.Fragment key={item.id || index}>
-            {/* The Dynamic Line (DOM-based) */}
             <div
                 ref={(el) => (lineElementsRef.current[index] = el)}
                 className="absolute origin-left pointer-events-none"
@@ -429,21 +403,16 @@ const GPUGlobe = () => {
                 }}
             />
 
-            {/* The Label Box */}
             <div
                 ref={(el) => (labelElementsRef.current[index] = el)}
                 className="absolute pointer-events-auto cursor-pointer will-change-transform"
                 style={{ display: 'none', top: 0, left: 0 }}
                 onClick={() => setSelectedItem(item)}
             >
-                {/* ADDED CLASS: w-48 (Fixed width) 
-                   This ensures standard size for collision detection.
-                */}
                 <div className={`w-48 bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
                 <div className="flex items-center gap-3">
                     <span className="text-2xl">{item.emoji}</span>
                     <div className="overflow-hidden">
-                        {/* Truncate text so it doesn't break layout */}
                         <div className="text-xs font-bold text-white whitespace-nowrap truncate" title={item.name}>
                             {item.name}
                         </div>
@@ -501,11 +470,9 @@ const GPUGlobe = () => {
               <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.riskAnalysis}</p>
             </div>
 
-             {/* Detailed Risk Scores */}
              {selectedItem.riskScores && (
             <div className="space-y-2 mb-4">
               <h3 className="text-lg font-semibold text-orange-400 mb-2">Detailed Risk Breakdown</h3>
-              
               {Object.entries(selectedItem.riskScores).map(([key, value]) => (
                 <div key={key} className="bg-slate-700 rounded-lg p-3">
                   <div className="flex justify-between items-center">
