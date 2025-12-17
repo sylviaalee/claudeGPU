@@ -601,7 +601,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                          return (
                             <React.Fragment key={item.id}>
                                 {index > 0 && (
-                                    <div className={`h-0.5 w-6 transition-colors duration-500 ${
+                                    <div className={`h-0.5 w-4 transition-colors duration-500 ${
                                         status === 'pending' || status === 'blocked' ? 'bg-slate-700' : 'bg-blue-500'
                                     }`} />
                                 )}
