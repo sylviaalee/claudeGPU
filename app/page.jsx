@@ -2,18 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { supplyChainData } from './data/supplyChainData';
 
 const GPUGlobe = () => {
   const mountRef = useRef(null);
   const [selectedGPU, setSelectedGPU] = useState(null);
+  const [markerPositions, setMarkerPositions] = useState([]);
   
-  // We remove the state for positions to avoid re-renders
-  // const [markerPositions, setMarkerPositions] = useState([]); 
-  
-  // Instead, we keep references to the actual HTML DOM elements
-  const labelElementsRef = useRef([]);
-
-  // Three.js refs
+  // Refs for Three.js objects
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
@@ -24,104 +20,19 @@ const GPUGlobe = () => {
   const previousMouseRef = useRef({ x: 0, y: 0 });
   const frameIdRef = useRef(null);
 
-  const gpuLocations = [
-    {
-      name: "NVIDIA H100",
-      lat: 37.7749,
-      lon: -122.4194,
-      location: "San Francisco, USA",
-      risks: {
-        supply: "Medium - Limited fab capacity",
-        demand: "High - Strong AI/ML demand",
-        geopolitical: "Low - Domestic production",
-        price: "High - Premium positioning"
-      }
-    },
-    {
-      name: "AMD MI300X",
-      lat: 30.2672,
-      lon: -97.7431,
-      location: "Austin, USA",
-      risks: {
-        supply: "Medium - TSMC dependency",
-        demand: "Growing - Enterprise adoption",
-        geopolitical: "Low - Diversified supply",
-        price: "Medium - Competitive pricing"
-      }
-    },
-    {
-      name: "Google TPU v5",
-      lat: 37.4220,
-      lon: -122.0841,
-      location: "Mountain View, USA",
-      risks: {
-        supply: "Low - Captive use",
-        demand: "N/A - Internal only",
-        geopolitical: "Low - Strategic control",
-        price: "N/A - Not for sale"
-      }
-    },
-    {
-      name: "Huawei Ascend 910",
-      lat: 31.2304,
-      lon: 121.4737,
-      location: "Shanghai, China",
-      risks: {
-        supply: "High - Sanctions impact",
-        demand: "High - Domestic focus",
-        geopolitical: "High - Trade restrictions",
-        price: "Medium - Government support"
-      }
-    },
-    {
-      name: "Intel Gaudi 3",
-      lat: 32.0853,
-      lon: 34.7818,
-      location: "Tel Aviv, Israel",
-      risks: {
-        supply: "Medium - New entrant",
-        demand: "Low - Market penetration",
-        geopolitical: "Medium - Regional concerns",
-        price: "Low - Aggressive pricing"
-      }
-    },
-    {
-      name: "NVIDIA A100",
-      lat: 51.5074,
-      lon: -0.1278,
-      location: "London, UK",
-      risks: {
-        supply: "Medium - Export controls",
-        demand: "High - Research institutions",
-        geopolitical: "Low - Stable region",
-        price: "High - Legacy premium"
-      }
-    },
-    {
-      name: "AMD MI250X",
-      lat: 48.8566,
-      lon: 2.3522,
-      location: "Paris, France",
-      risks: {
-        supply: "Medium - EU distribution",
-        demand: "Medium - HPC focus",
-        geopolitical: "Low - EU market",
-        price: "Medium - Competitive"
-      }
-    },
-    {
-      name: "AWS Trainium",
-      lat: 47.6062,
-      lon: -122.3321,
-      location: "Seattle, USA",
-      risks: {
-        supply: "Low - Cloud-only",
-        demand: "Growing - AWS ecosystem",
-        geopolitical: "Low - US-based",
-        price: "Low - Cloud economics"
-      }
-    }
-  ];
+  // Transform supply chain data into GPU locations for the globe
+  const gpuLocations = supplyChainData.gpus.map(gpu => ({
+    id: gpu.id,
+    name: gpu.name,
+    lat: gpu.locations[0].lat,
+    lon: gpu.locations[0].lng,
+    location: gpu.locations[0].name,
+    emoji: gpu.image,
+    risk: gpu.risk,
+    shipping: gpu.shipping,
+    riskAnalysis: gpu.riskAnalysis,
+    riskScores: gpu.riskScores
+  }));
 
   const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -132,6 +43,20 @@ const GPUGlobe = () => {
     const y = radius * Math.cos(phi);
     
     return new THREE.Vector3(x, y, z);
+  };
+
+  const getRiskColor = (risk) => {
+    if (risk >= 8) return 0xff3333; // High risk - red
+    if (risk >= 6) return 0xff6b35; // Medium-high - orange
+    if (risk >= 4) return 0xffaa00; // Medium - yellow-orange
+    return 0x44ff44; // Low risk - green
+  };
+
+  const getRiskLabel = (risk) => {
+    if (risk >= 8) return 'High';
+    if (risk >= 6) return 'Medium-High';
+    if (risk >= 4) return 'Medium';
+    return 'Low';
   };
 
   useEffect(() => {
@@ -179,7 +104,7 @@ const GPUGlobe = () => {
     scene.add(globe);
     globeRef.current = globe;
 
-    // Group for markers
+    // Create a group for all markers that will rotate with the globe
     const markersGroup = new THREE.Group();
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
@@ -187,23 +112,26 @@ const GPUGlobe = () => {
     // Add markers
     gpuLocations.forEach((gpu) => {
       const position = latLonToVector3(gpu.lat, gpu.lon, 1.5);
+      const color = getRiskColor(gpu.risk);
       
+      // Create marker sphere
       const markerGeometry = new THREE.SphereGeometry(0.04, 16, 16);
       const markerMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xff6b35,
-        emissive: 0xff6b35,
+        color: color,
+        emissive: color,
         emissiveIntensity: 0.5
       });
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       marker.position.copy(position);
       
+      // Create a line connecting marker to label position
       const lineEnd = position.clone().normalize().multiplyScalar(2.2);
       const lineGeometry = new THREE.BufferGeometry().setFromPoints([
         position,
         lineEnd
       ]);
       const lineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0xff6b35,
+        color: color,
         transparent: true,
         opacity: 0.6
       });
@@ -236,6 +164,7 @@ const GPUGlobe = () => {
       globe.rotation.y += deltaX * 0.005;
       globe.rotation.x += deltaY * 0.005;
       
+      // Rotate the entire markers group with the globe
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
       
@@ -250,16 +179,9 @@ const GPUGlobe = () => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // DIRECT DOM UPDATE FUNCTION
-    const updateLabels = () => {
-      // 1. Force update matrix world to get latest rotation immediately
-      scene.updateMatrixWorld();
-
-      markersDataRef.current.forEach((markerData, index) => {
-        const labelEl = labelElementsRef.current[index];
-        if (!labelEl) return;
-
-        // 2. Calculate position
+    // Function to update marker positions
+    const updateMarkerPositions = () => {
+      const positions = markersDataRef.current.map(markerData => {
         const labelWorldPos = markerData.labelPosition.clone();
         labelWorldPos.applyMatrix4(markersGroup.matrixWorld);
         
@@ -269,29 +191,26 @@ const GPUGlobe = () => {
         const widthHalf = renderer.domElement.width / 2;
         const heightHalf = renderer.domElement.height / 2;
         
-        const x = (vector.x * widthHalf) + widthHalf;
-        const y = -(vector.y * heightHalf) + heightHalf;
-
-        // 3. Check visibility
+        // Check if behind camera
         const cameraDirection = new THREE.Vector3();
         camera.getWorldDirection(cameraDirection);
         const toLabel = labelWorldPos.clone().sub(camera.position).normalize();
         const dotProduct = toLabel.dot(cameraDirection);
-        const isVisible = dotProduct > 0 && vector.z < 1;
-
-        // 4. Apply directly to DOM style (High Performance)
-        if (isVisible) {
-          labelEl.style.display = 'block';
-          labelEl.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-          labelEl.style.zIndex = Math.floor((1 - vector.z) * 1000); // Optional: sort z-index
-        } else {
-          labelEl.style.display = 'none';
-        }
+        
+        return {
+          x: (vector.x * widthHalf) + widthHalf,
+          y: -(vector.y * heightHalf) + heightHalf,
+          visible: dotProduct > 0 && vector.z < 1,
+          gpu: markerData.gpu
+        };
       });
+      
+      setMarkerPositions(positions);
     };
 
-    // Animation Loop
+    // Auto-rotation and animation
     let autoRotate = true;
+    
     const animate = () => {
       frameIdRef.current = requestAnimationFrame(animate);
       
@@ -300,15 +219,14 @@ const GPUGlobe = () => {
         markersGroup.rotation.y = globe.rotation.y;
       }
       
-      // Render Scene
-      renderer.render(scene, camera);
+      // Update marker positions on every frame
+      updateMarkerPositions();
       
-      // Update Labels AFTER render to ensure matrices are fresh, 
-      // or we can force update them inside updateLabels
-      updateLabels();
+      renderer.render(scene, camera);
     };
     animate();
 
+    // Handle resize
     const handleResize = () => {
       if (!mountRef.current) return;
       camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
@@ -318,13 +236,18 @@ const GPUGlobe = () => {
     window.addEventListener('resize', handleResize);
 
     return () => {
-      if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
+      if (frameIdRef.current) {
+        cancelAnimationFrame(frameIdRef.current);
+      }
       window.removeEventListener('resize', handleResize);
+      
+      // Cleanup event listeners safely
       if(renderer.domElement) {
           renderer.domElement.removeEventListener('mousedown', handleMouseDown);
           renderer.domElement.removeEventListener('mousemove', handleMouseMove);
           renderer.domElement.removeEventListener('mouseup', handleMouseUp);
       }
+      
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
         mountRef.current.removeChild(renderer.domElement);
       }
@@ -336,41 +259,53 @@ const GPUGlobe = () => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* We map over the STATIC data once.
-        The `style` is updated directly by the animation loop.
-        Note: We initialize top/left to 0 and use transform for positioning.
-      */}
-      {gpuLocations.map((gpu, index) => (
-        <div
-          key={index}
-          ref={(el) => (labelElementsRef.current[index] = el)}
-          className="absolute pointer-events-auto cursor-pointer transition-transform duration-0 will-change-transform" 
-          style={{
-            top: 0,
-            left: 0,
-            display: 'none', // Hidden until first frame
-          }}
-          onClick={() => setSelectedGPU(gpu)}
-        >
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-orange-500 text-white px-4 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 hover:border-orange-400 transition-all">
-            <div className="text-sm font-bold text-orange-400 whitespace-nowrap">
-              {gpu.name}
-            </div>
-            <div className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
-              {gpu.location.split(',')[0]}
+      {/* GPU Labels as floating boxes */}
+      {markerPositions.map((pos, index) => {
+        if (!pos.visible) return null;
+        
+        const riskColor = pos.gpu.risk >= 8 ? 'border-red-500' : 
+                         pos.gpu.risk >= 6 ? 'border-orange-500' : 
+                         pos.gpu.risk >= 4 ? 'border-yellow-500' : 'border-green-500';
+        
+        return (
+          <div
+            key={index}
+            className="absolute pointer-events-auto cursor-pointer"
+            style={{
+              left: `${pos.x}px`,
+              top: `${pos.y}px`,
+              transform: 'translate(-50%, -50%)'
+            }}
+            onClick={() => setSelectedGPU(pos.gpu)}
+          >
+            <div className={`bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{pos.gpu.emoji}</span>
+                <div>
+                  <div className="text-xs font-bold text-white whitespace-nowrap">
+                    {pos.gpu.name}
+                  </div>
+                  <div className="text-xs text-gray-400 whitespace-nowrap">
+                    Risk: {pos.gpu.risk.toFixed(1)}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Info Panel */}
       {selectedGPU && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 pointer-events-auto z-50" onClick={() => setSelectedGPU(null)}>
-          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-1">{selectedGPU.name}</h2>
-                <p className="text-gray-400 text-sm">{selectedGPU.location}</p>
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">{selectedGPU.emoji}</span>
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-1">{selectedGPU.name}</h2>
+                  <p className="text-gray-400 text-sm">{selectedGPU.location}</p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedGPU(null)}
@@ -380,21 +315,80 @@ const GPUGlobe = () => {
               </button>
             </div>
             
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-orange-400 mb-2">Risk Breakdown</h3>
-              {Object.entries(selectedGPU.risks).map(([key, value]) => (
-                <div key={key} className="bg-slate-700 rounded-lg p-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-white font-medium capitalize">{key} Risk</span>
-                    <span className={`text-sm font-semibold ${
-                      value.startsWith('High') ? 'text-red-400' :
-                      value.startsWith('Medium') || value.startsWith('Growing') ? 'text-yellow-400' :
-                      'text-green-400'
-                    }`}>
-                      {value.split(' - ')[0]}
-                    </span>
+            {/* Overall Risk Score */}
+            <div className="mb-4 p-4 bg-slate-700 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-white font-semibold">Overall Risk Score</span>
+                <span className={`text-2xl font-bold ${
+                  selectedGPU.risk >= 8 ? 'text-red-400' :
+                  selectedGPU.risk >= 6 ? 'text-orange-400' :
+                  selectedGPU.risk >= 4 ? 'text-yellow-400' : 'text-green-400'
+                }`}>
+                  {selectedGPU.risk.toFixed(1)} / 10
+                </span>
+              </div>
+              <div className="text-sm text-gray-300 mt-2">
+                {getRiskLabel(selectedGPU.risk)} Risk
+              </div>
+            </div>
+
+            {/* Shipping Info */}
+            {selectedGPU.shipping && (
+              <div className="mb-4 p-4 bg-slate-700 rounded-lg">
+                <h3 className="text-lg font-semibold text-orange-400 mb-2">Shipping Details</h3>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-gray-400">Time</div>
+                    <div className="text-white font-medium">{selectedGPU.shipping.time}</div>
                   </div>
-                  <p className="text-gray-300 text-sm">{value.split(' - ')[1] || value}</p>
+                  <div>
+                    <div className="text-gray-400">Cost</div>
+                    <div className="text-white font-medium">{selectedGPU.shipping.cost}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-400">Method</div>
+                    <div className="text-white font-medium">{selectedGPU.shipping.method}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Risk Analysis */}
+            <div className="mb-4 p-4 bg-slate-700 rounded-lg">
+              <h3 className="text-lg font-semibold text-orange-400 mb-2">Risk Analysis</h3>
+              <p className="text-gray-300 text-sm leading-relaxed">{selectedGPU.riskAnalysis}</p>
+            </div>
+            
+            {/* Detailed Risk Scores */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-orange-400 mb-2">Detailed Risk Breakdown</h3>
+              
+              {Object.entries(selectedGPU.riskScores).map(([key, value]) => (
+                <div key={key} className="bg-slate-700 rounded-lg p-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white font-medium capitalize text-sm">
+                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-2 bg-slate-600 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${
+                            value >= 8 ? 'bg-red-500' :
+                            value >= 6 ? 'bg-orange-500' :
+                            value >= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                          }`}
+                          style={{ width: `${value * 10}%` }}
+                        />
+                      </div>
+                      <span className={`text-sm font-semibold w-8 text-right ${
+                        value >= 8 ? 'text-red-400' :
+                        value >= 6 ? 'text-orange-400' :
+                        value >= 4 ? 'text-yellow-400' : 'text-green-400'
+                      }`}>
+                        {value}/10
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -404,8 +398,14 @@ const GPUGlobe = () => {
 
       {/* Instructions */}
       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg">
-        <p className="font-semibold mb-1">🌍 Interactive GPU Globe</p>
-        <p className="text-gray-300">Drag to rotate • Click boxes for details</p>
+        <p className="font-semibold mb-1">🌍 GPU Supply Chain Risk Globe</p>
+        <p className="text-gray-300">Drag to rotate • Click markers for details</p>
+        <div className="mt-2 flex gap-2 text-xs">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full"></span>Low</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-yellow-500 rounded-full"></span>Med</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-500 rounded-full"></span>High</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500 rounded-full"></span>Critical</span>
+        </div>
       </div>
     </div>
   );
