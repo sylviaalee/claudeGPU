@@ -6,88 +6,101 @@ import { supplyChainData } from '../data/supplyChainData';
 
 const GPUGlobe = () => {
   const mountRef = useRef(null);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [breadcrumb, setBreadcrumb] = useState([]); 
-  
-  const data = supplyChainData;
 
-  // Refs
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [breadcrumb, setBreadcrumb] = useState([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState(null);
+
   const labelElementsRef = useRef([]);
   const lineElementsRef = useRef([]);
+  const allMarkersDataRef = useRef([]);
+
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const globeRef = useRef(null);
   const markersGroupRef = useRef(null);
-  const markersDataRef = useRef([]);
+  const breadcrumbLinesGroupRef = useRef(null);
+
   const isDraggingRef = useRef(false);
   const previousMouseRef = useRef({ x: 0, y: 0 });
   const frameIdRef = useRef(null);
 
-  // --- DATA PROCESSING ---
-  const getCurrentItems = () => {
-    const isValid = (item) => item && item.locations && item.locations[0] && typeof item.locations[0].lat === 'number';
-    if (!data) return [];
+  const data = supplyChainData;
 
-    let items = [];
-    if (breadcrumb.length === 0) {
-      items = (data.gpus || []).filter(isValid).map(item => ({ ...item, category: 'gpus' }));
-    } else {
-      const lastSelection = breadcrumb[breadcrumb.length - 1];
-      const nextIds = lastSelection.next || [];
-      const categories = Object.keys(data).filter(k => k !== 'gpus'); 
-      for (const category of categories) {
-        const categoryItems = data[category] || [];
-        const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
-        items = items.concat(matchingItems.filter(isValid).map(item => ({ ...item, category: category })));
-      }
-    }
+  const isValid = (item) => item?.locations?.[0] && typeof item.locations[0].lat === 'number';
 
-    return items.map((item, index) => {
-        const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
-        const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
-        
-        return {
-            ...item,
-            lat: item.locations[0].lat + jitterY,
-            lon: item.locations[0].lng + jitterX,
-            location: item.locations[0].name,
-            emoji: item.image,
-        }
-    });
+  const processItem = (item, category, isHistorical = false) => {
+    const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05;
+    const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
+
+    return {
+      ...item,
+      category,
+      isHistorical,
+      lat: item.locations[0].lat + jitterY,
+      lon: item.locations[0].lng + jitterX,
+      location: item.locations[0].name,
+      emoji: item.image,
+    };
   };
 
-  const currentItems = getCurrentItems();
+  const getCurrentItems = () => {
+    let current = [];
+    let historical = [];
+
+    if (breadcrumb.length === 0) {
+      current = (data.gpus || []).filter(isValid).map(i => processItem(i, 'gpus'));
+    } else {
+      const last = breadcrumb[breadcrumb.length - 1];
+      const nextIds = last.next || [];
+
+      Object.keys(data)
+        .filter(k => k !== 'gpus')
+        .forEach(category => {
+          (data[category] || [])
+            .filter(i => nextIds.includes(i.id) && isValid(i))
+            .forEach(i => current.push(processItem(i, category)));
+        });
+
+      historical = breadcrumb.map(b => ({ ...b, isHistorical: true }));
+    }
+
+    return { current, historical };
+  };
+
+  const { current: currentItems, historical: historicalItems } = getCurrentItems();
+  const allItems = [...currentItems, ...historicalItems];
 
   const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lon + 180) * (Math.PI / 180);
-    const x = -(radius * Math.sin(phi) * Math.cos(theta));
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-    const y = radius * Math.cos(phi);
-    return new THREE.Vector3(x, y, z);
+    return new THREE.Vector3(
+      -(radius * Math.sin(phi) * Math.cos(theta)),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.sin(theta)
+    );
   };
 
-  const getRiskLabel = (risk) => {
-    if (risk >= 8) return 'High';
-    if (risk >= 6) return 'Medium-High';
-    if (risk >= 4) return 'Medium';
-    return 'Low';
-  };
-
-  // --- NAVIGATION ACTIONS ---
   const handleDrillDown = (item) => {
-    if (item && item.next && item.next.length > 0) {
-      setBreadcrumb([...breadcrumb, item]);
-      setSelectedItem(null);
+    if (item.next?.length) {
+      setPendingSelection(item);
+      setShowConfirmDialog(true);
     }
+  };
+
+  const handleConfirmSelection = () => {
+    const loc = pendingSelection.locations[0];
+    setBreadcrumb([...breadcrumb, { ...pendingSelection, lat: loc.lat, lon: loc.lng }]);
+    setPendingSelection(null);
+    setShowConfirmDialog(false);
+    setSelectedItem(null);
   };
 
   const handleGoBack = () => {
-    if (breadcrumb.length > 0) {
-      setBreadcrumb(breadcrumb.slice(0, -1));
-      setSelectedItem(null);
-    }
+    setBreadcrumb(breadcrumb.slice(0, -1));
+    setSelectedItem(null);
   };
 
   const handleReset = () => {
@@ -95,6 +108,7 @@ const GPUGlobe = () => {
     setSelectedItem(null);
   };
 
+  /* -------------------- THREE SETUP -------------------- */
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -111,29 +125,28 @@ const GPUGlobe = () => {
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 0.8);
-    pointLight.position.set(5, 3, 5);
-    scene.add(pointLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const light = new THREE.PointLight(0xffffff, 0.8);
+    light.position.set(5, 3, 5);
+    scene.add(light);
 
-    const globeGeometry = new THREE.SphereGeometry(1.5, 64, 64);
-    const globeTexture = new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
-    const globeMaterial = new THREE.MeshPhongMaterial({ map: globeTexture, shininess: 20 });
-    const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+    const globe = new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 64, 64),
+      new THREE.MeshPhongMaterial({
+        map: new THREE.TextureLoader().load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'),
+      })
+    );
     scene.add(globe);
     globeRef.current = globe;
 
-    const markersGroup = new THREE.Group();
-    scene.add(markersGroup);
-    markersGroupRef.current = markersGroup;
+    markersGroupRef.current = new THREE.Group();
+    scene.add(markersGroupRef.current);
 
-    // --- CONTROLS (Updated for Orientation) ---
-    const handleMouseDown = (e) => {
-      isDraggingRef.current = true;
-      previousMouseRef.current = { x: e.clientX, y: e.clientY };
-    };
+    breadcrumbLinesGroupRef.current = new THREE.Group();
+    scene.add(breadcrumbLinesGroupRef.current);
 
+<<<<<<< HEAD
+=======
     const handleMouseMove = (e) => {
       if (!isDraggingRef.current) return;
       
@@ -268,76 +281,61 @@ const GPUGlobe = () => {
     };
 
     let autoRotate = true;
+>>>>>>> b33e98df26e72be1db8f688f9ab1522b4839e8fb
     const animate = () => {
       frameIdRef.current = requestAnimationFrame(animate);
-      if (autoRotate && !isDraggingRef.current) {
-        globe.rotation.y += 0.001;
-        markersGroup.rotation.y = globe.rotation.y;
-      }
+      globe.rotation.y += 0.001;
+      markersGroupRef.current.rotation.y = globe.rotation.y;
       renderer.render(scene, camera);
-      updateLabels();
     };
     animate();
 
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
-      window.removeEventListener('resize', handleResize);
-      if(renderer.domElement) {
-          renderer.domElement.removeEventListener('mousedown', handleMouseDown);
-          renderer.domElement.removeEventListener('mousemove', handleMouseMove);
-          renderer.domElement.removeEventListener('mouseup', handleMouseUp);
-      }
-      if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
+      cancelAnimationFrame(frameIdRef.current);
       renderer.dispose();
+      mountRef.current.removeChild(renderer.domElement);
     };
   }, []);
 
-  // Update Markers
+  /* -------------------- MARKERS -------------------- */
   useEffect(() => {
-    if (!markersGroupRef.current) return;
-    const markersGroup = markersGroupRef.current;
-    while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
-    markersDataRef.current = [];
+    const group = markersGroupRef.current;
+    if (!group) return;
 
-    const getRiskColor = (risk) => {
-        if (risk >= 8) return 0xff3333;
-        if (risk >= 6) return 0xff6b35;
-        if (risk >= 4) return 0xffaa00;
-        return 0x44ff44;
-    };
+    while (group.children.length) group.remove(group.children[0]);
+    allMarkersDataRef.current = [];
 
-    currentItems.forEach((item) => {
-      if(typeof item.lat !== 'number' || typeof item.lon !== 'number') return;
+    allItems.forEach(item => {
+      const pos = latLonToVector3(item.lat, item.lon, 1.5);
+      const mat = new THREE.MeshStandardMaterial({
+        color: item.isHistorical ? 0x333333 : 0xff6b35,
+        emissive: item.isHistorical ? 0x111111 : 0xff6b35,
+        emissiveIntensity: item.isHistorical ? 0.2 : 0.6,
+      });
 
-      const position = latLonToVector3(item.lat, item.lon, 1.5);
-      const color = getRiskColor(item.risk);
-      
-      const markerGeometry = new THREE.SphereGeometry(0.04, 16, 16);
-      const markerMaterial = new THREE.MeshBasicMaterial({ color: color, emissive: color, emissiveIntensity: 0.5 });
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-      marker.position.copy(position);
-      
-      const lineEnd = position.clone().normalize().multiplyScalar(2.2);
-      
-      markersGroup.add(marker);
-      
-      markersDataRef.current.push({ item, marker, position: position.clone(), labelPosition: lineEnd });
+      const marker = new THREE.Mesh(new THREE.SphereGeometry(item.isHistorical ? 0.02 : 0.04, 16, 16), mat);
+      marker.position.copy(pos);
+      group.add(marker);
+
+      allMarkersDataRef.current.push({ marker, item });
     });
-  }, [currentItems]);
+  }, [allItems]);
 
+  /* -------------------- UI -------------------- */
   return (
-    <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
+    <div className="relative w-full h-screen bg-black overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
+<<<<<<< HEAD
+
+      {currentItems.map((item, i) => (
+        <div
+          key={item.id}
+          ref={el => (labelElementsRef.current[i] = el)}
+          className="absolute cursor-pointer bg-slate-800 text-white px-3 py-2 rounded-lg"
+          onClick={() => setSelectedItem(item)}
+        >
+          {item.emoji} {item.name}
+=======
       
       {/* HUD Box - Z-INDEX SET TO 2000 */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
@@ -358,8 +356,17 @@ const GPUGlobe = () => {
           <div className="bg-slate-700/50 p-2 rounded-lg text-2xl">
             {breadcrumb.length === 0 ? '🌍' : breadcrumb[breadcrumb.length - 1].emoji}
           </div>
+>>>>>>> b33e98df26e72be1db8f688f9ab1522b4839e8fb
         </div>
+      ))}
 
+<<<<<<< HEAD
+      {selectedItem && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-slate-800 p-6 rounded-xl max-w-lg w-full">
+            <h2 className="text-white text-xl font-bold mb-4">{selectedItem.name}</h2>
+            {selectedItem.next?.length > 0 && (
+=======
         <div className="flex gap-2">
           <button
             onClick={handleGoBack}
@@ -516,21 +523,40 @@ const GPUGlobe = () => {
             
             {/* DIRECT NAVIGATION BUTTON */}
             {selectedItem.next && selectedItem.next.length > 0 && (
+>>>>>>> b33e98df26e72be1db8f688f9ab1522b4839e8fb
               <button
                 onClick={() => handleDrillDown(selectedItem)}
-                className="w-full bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3 rounded-lg transition-colors"
+                className="w-full bg-orange-600 py-2 rounded-lg"
               >
-                Explore Supply Chain → ({selectedItem.next.length} suppliers)
+                Explore Supply Chain
               </button>
             )}
           </div>
         </div>
       )}
 
-       {/* Instructions - Z-INDEX SET TO 2000 */}
+<<<<<<< HEAD
+      {showConfirmDialog && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-slate-800 p-6 rounded-xl">
+            <p className="text-white mb-4">Explore suppliers?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirmDialog(false)} className="bg-slate-600 px-4 py-2 rounded">Cancel</button>
+              <button onClick={handleConfirmSelection} className="bg-orange-600 px-4 py-2 rounded">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute bottom-4 left-4 flex gap-2 z-50">
+        <button onClick={handleGoBack} className="bg-slate-700 px-3 py-2 rounded">Back</button>
+        <button onClick={handleReset} className="bg-orange-600 px-3 py-2 rounded">Reset</button>
+=======
+       {/* Instructions */}
        <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
+>>>>>>> b33e98df26e72be1db8f688f9ab1522b4839e8fb
       </div>
     </div>
   );
