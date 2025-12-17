@@ -35,6 +35,44 @@ const MOCK_PATH = [
     { id: 'dist', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3 }
 ];
 
+
+// --- SHIPPING PARSERS ---
+
+const parseCost = (costStr) => {
+  if (!costStr || costStr === 'Internal Transfer') return 0;
+  return Number(costStr.replace(/[^0-9.]/g, '')) || 0;
+};
+
+const parseTimeDays = (timeStr) => {
+  if (!timeStr || timeStr.includes('Instant') || timeStr.includes('N/A')) return 0;
+
+  const range = timeStr.match(/(\d+)\s*-\s*(\d+)/);
+  if (range) return (Number(range[1]) + Number(range[2])) / 2;
+
+  const single = timeStr.match(/(\d+)/);
+  return single ? Number(single[1]) : 0;
+};
+
+const METHOD_CARBON_FACTOR = {
+  'Secure Air Freight': 0.6,
+  'Priority Secure Air': 0.7,
+  'Standard Air Freight': 0.55,
+  'International Air': 0.75,
+  'Consolidated Air': 0.45,
+  'Regional Air Freight': 0.5,
+  'Shock-Proof Air': 0.65,
+  'Temperature-Controlled Air': 0.7,
+  'Armored Air Freight': 0.8,
+  'Specialized 747 Charter': 0.9,
+  'Ocean Freight': 0.2,
+  'Sea/Air Hybrid': 0.35,
+  'Secure Trucking': 0.15,
+  'Rail/Truck Freight': 0.12,
+  'Direct to Data Center': 0.1,
+  'Digital Transfer': 0.0
+};
+
+
 const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const mountRef = useRef(null);
     const hasInitialized = useRef(false);
@@ -87,26 +125,41 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
             const distance = prevPos.distanceTo(currPos) * 5000;
             
-            const legCost = distance * (0.5 + Math.random() * 0.5);
-            const legTime = distance / (500 + Math.random() * 300);
-            const legCarbon = distance * (0.2 + Math.random() * 0.3);
+            const shipping = item.shipping || {};
+
+            const legCost = parseCost(shipping.cost);
+            const legTime = parseTimeDays(shipping.time);
+
+            const methodFactor =
+            METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
+
+            const legCarbon = distance * methodFactor;
+
             
             setMetrics(prev => {
-                const newMetrics = {
-                    totalCost: prev.totalCost + legCost,
-                    totalTime: prev.totalTime + legTime,
-                    totalDistance: prev.totalDistance + distance,
-                    totalCarbon: prev.totalCarbon + legCarbon
-                };
-                
-                setMetricsHistory(history => [...history, {
-                    step: index,
-                    name: item.name,
-                    ...newMetrics
-                }]);
-                
-                return newMetrics;
+            const newMetrics = {
+                totalCost: prev.totalCost + legCost,
+                totalTime: prev.totalTime + legTime,
+                totalDistance: prev.totalDistance + distance,
+                totalCarbon: prev.totalCarbon + legCarbon
+            };
+
+            setMetricsHistory(history => [
+                ...history,
+                {
+                step: index,
+                name: item.name,
+                method: shipping.method,
+                cost: legCost,
+                time: legTime,
+                carbon: legCarbon,
+                ...newMetrics
+                }
+            ]);
+
+            return newMetrics;
             });
+
         } else {
             setMetricsHistory([{
                 step: 0,
