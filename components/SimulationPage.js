@@ -24,12 +24,13 @@ const latLonToVector3 = (lat, lon, radius) => {
     return new THREE.Vector3(x, y, z);
 };
 
-// --- UTILITY: Thick & Safe Arc Generator ---
+// --- UTILITY: Animated Arc Generator ---
 const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated = false) => {
     const distance = startVector.distanceTo(endVector);
     
-    // 1. Calculate a robust midpoint (Apex)
+    // 1. Calculate Apex
     let midVector = startVector.clone().add(endVector);
+    // Handle antipodal points (opposite sides of globe)
     if (midVector.lengthSq() < 0.01) {
         const axis = new THREE.Vector3(0, 1, 0); 
         if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
@@ -48,15 +49,22 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
         endVector
     );
 
-    // 3. TubeGeometry (Higher segment count for smoother animation)
+    // 3. TubeGeometry 
+    // High segment count needed for smooth "growth" animation
     const tubularSegments = 128; 
-    const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, 8, false);
+    const radialSegments = 8;
+    const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
     
-    // SETUP ANIMATION: Start invisible if animated
+    // 4. Animation Setup
+    // Calculate total indices: segments * radial * 6 (2 tris per face * 3 verts per tri)
+    const totalIndices = tubularSegments * radialSegments * 6;
+
     if (isAnimated) {
-        // We multiply by 6 indices per quad (2 triangles * 3 vertices) * radialSegments
-        // But drawRange works on vertices/indices count.
+        // Start with 0 vertices drawn (invisible)
         geometry.setDrawRange(0, 0); 
+    } else {
+        // Draw full line immediately
+        geometry.setDrawRange(0, totalIndices);
     }
 
     const material = new THREE.MeshBasicMaterial({ 
@@ -66,13 +74,17 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
     });
 
     const mesh = new THREE.Mesh(geometry, material);
-    // Store total count for animation reference
-    mesh.userData = { totalCounts: tubularSegments * 8 * 6 }; 
+    
+    // Store metadata for the animation loop
+    mesh.userData = { 
+        totalIndices: totalIndices,
+        currentCount: 0 
+    }; 
     
     return mesh;
 };
 
-// --- HELPERS ---
+// --- HELPERS (Cost/Time Parsing) ---
 const parseCost = (costStr) => {
   if (!costStr || costStr === 'Internal Transfer') return 0;
   return Number(costStr.replace(/[^0-9.]/g, '')) || 0;
@@ -134,11 +146,9 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const markersGroupRef = useRef(null);
     const arcGroupRef = useRef(null);
     
-    // Tracking for additive drawing
     const drawnLinesRef = useRef(new Set()); 
     const drawnMarkersRef = useRef(new Set());
-    // Using a ref to hold active animations ensures the render loop sees them without re-renders
-    const animatingObjectsRef = useRef([]); 
+    const animatingObjectsRef = useRef([]); // Holds active lines being drawn
     
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
@@ -159,7 +169,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
 
-        // 1. Calculate Baselines & Disruption Penalties
         let distance = 0;
         let legCost = 0;
         let legTime = 0;
@@ -198,7 +207,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             }
         }
 
-        // 2. Update Metrics State
         const prev = metricsRef.current;
         const appliedCost = disruptionType !== 'CRITICAL' ? (legCost + penaltyCost) : legCost;
         const appliedTime = disruptionType !== 'CRITICAL' ? (legTime + penaltyTime) : legTime;
@@ -228,7 +236,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             return index === 0 ? [newEntry] : [...history, newEntry];
         });
 
-        // 3. Execute Logs with Step Numbers
         setTimeout(() => {
             if (disruptionType === 'CRITICAL') {
                 setNodeStatuses(prev => {
@@ -292,7 +299,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setMetrics(metricsRef.current);
         setMetricsHistory([]);
         
-        // Reset drawn tracking
         drawnLinesRef.current.clear();
         drawnMarkersRef.current.clear();
         animatingObjectsRef.current = [];
@@ -388,20 +394,28 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
             if (stars) stars.rotation.y += 0.0002;
             
-            // ANIMATE LINES HERE
+            // --- DRAWING ANIMATION LOGIC ---
             if (animatingObjectsRef.current.length > 0) {
-                // Iterate backwards to allow splicing
+                // Iterate backwards to allow safe splicing
                 for (let i = animatingObjectsRef.current.length - 1; i >= 0; i--) {
                     const mesh = animatingObjectsRef.current[i];
+                    
                     if (mesh && mesh.geometry) {
-                        const totalCounts = mesh.geometry.index.count; // Total vertices (not faces)
-                        const speed = 120; // Speed of line drawing
+                        const totalIndices = mesh.userData.totalIndices;
                         
-                        if (mesh.geometry.drawRange.count < totalCounts) {
-                            mesh.geometry.setDrawRange(0, mesh.geometry.drawRange.count + speed);
+                        // "Speed" is how many vertices we reveal per frame. 
+                        // 150 gives a snappy, high-tech feel. Lower to 50 for slow travel.
+                        const speed = 150; 
+                        
+                        // Increment current count
+                        mesh.userData.currentCount += speed;
+                        
+                        if (mesh.userData.currentCount < totalIndices) {
+                            mesh.geometry.setDrawRange(0, mesh.userData.currentCount);
                         } else {
-                            mesh.geometry.setDrawRange(0, Infinity); 
-                            animatingObjectsRef.current.splice(i, 1); // Finished
+                            // Animation finished, ensure it's fully drawn and remove from queue
+                            mesh.geometry.setDrawRange(0, totalIndices);
+                            animatingObjectsRef.current.splice(i, 1); 
                         }
                     }
                 }
@@ -436,7 +450,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         const markersGroup = markersGroupRef.current;
         const arcGroup = arcGroupRef.current;
         
-        // ONLY CLEAR IF RESETTING
+        // RESET
         if (currentStepIndex === -1) {
             while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
             while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
@@ -458,7 +472,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
             if (!isVisible) return; 
 
-            // --- HANDLE MARKERS ---
+            // --- MARKERS ---
             const markerId = `marker-${index}`;
             const status = nodeStatuses[item.id] || 'pending';
             
@@ -491,7 +505,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 }
             }
 
-            // --- HANDLE LINES ---
+            // --- LINES (ARCS) ---
             if (index > 0 && index <= currentStepIndex + 1) {
                 const legId = `line-${index}`;
                 
@@ -504,6 +518,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     let lineOpacity = 0.2;
                     let animateThisLine = false;
 
+                    // Only animate the line connecting to the CURRENT active step
                     if (index === currentStepIndex + 1) {
                         lineColor = 0x64748b; 
                         lineOpacity = 0.5;
@@ -512,12 +527,13 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                         lineOpacity = 1.0;
                         animateThisLine = true; 
                     } else {
+                        // Completed lines are green
                         lineColor = 0x22c55e; 
                         lineOpacity = 0.6;
                     }
 
                     const arc = createArcLine(prevPos, currPos, new THREE.Color(lineColor), lineOpacity, animateThisLine);
-                    arc.userData = { id: legId };
+                    arc.userData = { ...arc.userData, id: legId };
                     
                     arcGroup.add(arc);
                     drawnLinesRef.current.add(legId);
@@ -545,11 +561,13 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
             <div ref={mountRef} className="absolute inset-0 w-full h-full" />
 
+            {/* UI - Header */}
             <div className="absolute top-6 left-6 z-10 pointer-events-none">
                 <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Impact Analysis</h1>
                 <p className="text-blue-200/60 text-sm font-medium mt-1">Simulating probability-based supply chain disruptions.</p>
             </div>
 
+            {/* UI - Right Controls */}
             <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto">
                 <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-80">
                     <h2 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
@@ -572,8 +590,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 </div>
             </div>
 
+            {/* UI - Bottom Path Steps */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[90%] pointer-events-auto">
-                {/* INCREASED padding to p-4 */}
                 <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-4 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
                     {selectedPath.map((item, index) => {
                          const status = nodeStatuses[item.id] || 'pending';
@@ -585,14 +603,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                          if(status === 'blocked') borderClass = 'border-slate-700 opacity-50';
                          return (
                             <React.Fragment key={item.id}>
-                                {/* INCREASED width to w-8 */}
                                 {index > 0 && <div className={`h-0.5 w-3 transition-colors duration-500 ${status === 'pending' || status === 'blocked' ? 'bg-slate-700' : 'bg-blue-500'}`} />}
-                                <div className={`relative flex flex-col items-center justify-center 
-                                    /* INCREASED size to w-14 h-14 */
-                                    w-12 h-12 rounded-xl border-2 transition-all duration-300 
-                                    ${borderClass} ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}
-                                `}>
-                                    {/* INCREASED text size to text-xl */}
+                                <div className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-xl border-2 transition-all duration-300 ${borderClass} ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}`}>
                                     <span className="text-m">{status === 'blocked' ? '🔒' : item.emoji}</span>
                                     {status === 'error' && <div className="absolute -top-1.5 -right-1.5 bg-red-600 rounded-full p-0.5 border border-slate-900"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>}
                                     {status === 'success' && <div className="absolute -top-1.5 -right-1.5 bg-green-600 rounded-full p-0.5 border border-slate-900"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>}
@@ -603,6 +615,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 </div>
             </div>
 
+            {/* UI - Metrics Dashboard */}
             {(isSimulating || metricsHistory.length > 0) && (
                 <div className="absolute bottom-8 left-6 z-10 pointer-events-auto">
                     <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${isMetricsExpanded ? 'p-6 w-[600px]' : 'p-4 w-72'}`} onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}>
