@@ -4,6 +4,41 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 // Assuming supplyChainData is an external data structure
 import { supplyChainData } from '../data/supplyChainData'; 
+// Import a library for drawing curved lines (arcs) on the globe
+// THREE.js doesn't include a standard arc curve, so we'll use a simple implementation for now.
+// For production, you might use 'three-globe' or a custom curve geometry.
+
+// *** NEW UTILITY: Simple Arc Line Generator ***
+// This function creates a simple, elevated arc between two points on the sphere's surface.
+const createArcLine = (startVector, endVector, color, height = 0.5) => {
+    // 1. Calculate the midpoint
+    const midVector = startVector.clone().add(endVector).divideScalar(2);
+    
+    // 2. Normalize and elevate the midpoint to form the peak of the arc
+    const distance = startVector.distanceTo(endVector);
+    // Use the distance to scale the elevation (tweak 'height' for visual effect)
+    const arcHeight = Math.sqrt(distance) * height; 
+    const midPoint = midVector.normalize().multiplyScalar(1.3 + arcHeight); // 1.3 is the globe radius
+
+    // 3. Create a Quadratic Bezier Curve (needs 3 points: start, control, end)
+    const curve = new THREE.QuadraticBezierCurve3(
+        startVector,
+        midPoint,
+        endVector
+    );
+
+    // 4. Create the geometry and material
+    const points = curve.getPoints(50); // Get 50 points to define the line
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ 
+        color: color, 
+        linewidth: 2, 
+        transparent: true, 
+        opacity: 0.8 
+    });
+
+    return new THREE.Line(geometry, material);
+};
 
 
 const GPUGlobe = () => {
@@ -21,6 +56,7 @@ const GPUGlobe = () => {
   const rendererRef = useRef(null);
   const globeRef = useRef(null);
   const markersGroupRef = useRef(null);
+  const breadcrumbGroupRef = useRef(null); // *** NEW REF FOR BREADCRUMB OBJECTS ***
   const markersDataRef = useRef([]);
   const isDraggingRef = useRef(false);
   const previousMouseRef = useRef({ x: 0, y: 0 });
@@ -174,6 +210,10 @@ const GPUGlobe = () => {
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
+    const breadcrumbGroup = new THREE.Group(); // *** NEW GROUP FOR BREADCRUMB VISUALS ***
+    scene.add(breadcrumbGroup);
+    breadcrumbGroupRef.current = breadcrumbGroup;
+
     // Controls
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
@@ -192,6 +232,10 @@ const GPUGlobe = () => {
       
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
+      
+      breadcrumbGroup.rotation.y = globe.rotation.y; // *** APPLY ROTATION TO NEW GROUP ***
+      breadcrumbGroup.rotation.x = globe.rotation.x; // *** APPLY ROTATION TO NEW GROUP ***
+      
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -308,6 +352,7 @@ const GPUGlobe = () => {
         
         // Optional: Slowly rotate stars for extra effect
         stars.rotation.y += 0.0002;
+        breadcrumbGroup.rotation.y = globe.rotation.y; // *** ROTATE BREADCRUMB GROUP ***
       }
       renderer.render(scene, camera);
       updateLabels();
@@ -337,7 +382,7 @@ const GPUGlobe = () => {
     };
   }, []);
 
-  // Update Markers (Remains the same)
+  // Update CURRENT Markers (Remains the same logic)
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
@@ -369,6 +414,54 @@ const GPUGlobe = () => {
       markersDataRef.current.push({ item, marker, position: position.clone(), labelPosition: lineEnd });
     });
   }, [currentItems]);
+  
+  // *** NEW useEffect to draw breadcrumb trail and markers ***
+  useEffect(() => {
+    if (!breadcrumbGroupRef.current) return;
+    const breadcrumbGroup = breadcrumbGroupRef.current;
+    
+    // Clear previous breadcrumb visuals
+    while (breadcrumbGroup.children.length > 0) breadcrumbGroup.remove(breadcrumbGroup.children[0]);
+    
+    // Use a distinct, less intrusive color for the trail
+    const trailColor = new THREE.Color(0x3366ff); // A deep blue
+    const trailMarkerColor = new THREE.Color(0x77aaff); // A lighter blue
+    const radius = 1.3;
+    
+    // 1. Draw markers for each item in the breadcrumb
+    breadcrumb.forEach((item, index) => {
+      if(item.locations && item.locations[0]) {
+        const { lat, lng } = item.locations[0];
+        const position = latLonToVector3(lat, lng, radius);
+
+        // Marker (Smaller, transparent)
+        const markerGeometry = new THREE.SphereGeometry(0.02, 16, 16);
+        const markerMaterial = new THREE.MeshBasicMaterial({ 
+            color: trailMarkerColor, 
+            transparent: true, 
+            opacity: 0.8
+        });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        marker.position.copy(position);
+        breadcrumbGroup.add(marker);
+
+        // 2. Draw the connection arc from the *previous* item
+        if (index > 0) {
+          const previousItem = breadcrumb[index - 1];
+          if (previousItem.locations && previousItem.locations[0]) {
+            const { lat: prevLat, lng: prevLng } = previousItem.locations[0];
+            const prevPosition = latLonToVector3(prevLat, prevLng, radius);
+            
+            // Create the arc line
+            const arcLine = createArcLine(prevPosition, position, trailColor, 0.4); 
+            breadcrumbGroup.add(arcLine);
+          }
+        }
+      }
+    });
+
+  }, [breadcrumb]);
+
 
   return (
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
@@ -565,6 +658,10 @@ const GPUGlobe = () => {
       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
+        {/* NEW INSTRUCTION */}
+        {breadcrumb.length > 0 && (
+          <p className="text-blue-300 mt-2">Blue dots/lines show the path you explored.</p>
+        )}
       </div>
 
       {/* --- Breadcrumb Bar at the bottom --- */}
