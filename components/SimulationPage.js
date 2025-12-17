@@ -27,6 +27,36 @@ const createArcLine = (startVector, endVector, color, height = 0.5) => {
     return new THREE.Line(geometry, material);
 };
 
+// --- HELPERS ---
+const parseCost = (costStr) => {
+  if (!costStr || costStr === 'Internal Transfer') return 0;
+  return Number(costStr.replace(/[^0-9.]/g, '')) || 0;
+};
+
+const parseTimeDays = (timeStr) => {
+  if (!timeStr || timeStr.includes('Instant') || timeStr.includes('N/A')) return 0;
+  const range = timeStr.match(/(\d+)\s*-\s*(\d+)/);
+  if (range) return (Number(range[1]) + Number(range[2])) / 2;
+  const single = timeStr.match(/(\d+)/);
+  return single ? Number(single[1]) : 0;
+};
+
+const formatYAxis = (value, type) => {
+    if (value === 0) return '0';
+    if (type === 'cost') return `$${(value / 1000).toFixed(1)}k`;
+    if (type === 'time') return `${value.toFixed(0)}d`;
+    if (type === 'distance') return `${(value / 1000).toFixed(0)}k`;
+    if (type === 'carbon') return `${(value / 1000).toFixed(1)}t`;
+    return value;
+};
+
+const METHOD_CARBON_FACTOR = {
+  'Secure Air Freight': 0.6, 'Priority Secure Air': 0.7, 'Standard Air Freight': 0.55,
+  'International Air': 0.75, 'Consolidated Air': 0.45, 'Ocean Freight': 0.2,
+  'Sea/Air Hybrid': 0.35, 'Secure Trucking': 0.15, 'Rail/Truck Freight': 0.12,
+  'Direct to Data Center': 0.1, 'Digital Transfer': 0.0
+};
+
 // --- MOCK DATA ---
 const MOCK_PATH = [
     { id: 'root', name: 'Nvidia HQ', emoji: '🏭', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 2 },
@@ -37,7 +67,6 @@ const MOCK_PATH = [
 
 const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const mountRef = useRef(null);
-    // REMOVED: const hasInitialized = useRef(false); <--- This was the culprit
     
     // --- STATE ---
     const [isSimulating, setIsSimulating] = useState(false);
@@ -45,12 +74,10 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [simulationStatus, setSimulationStatus] = useState('idle');
     const [simulationLog, setSimulationLog] = useState([]); 
     const [nodeStatuses, setNodeStatuses] = useState({});
-    const [metrics, setMetrics] = useState({
-        totalCost: 0,
-        totalTime: 0,
-        totalDistance: 0,
-        totalCarbon: 0 
-    });
+    
+    // Use Ref for metrics to ensure we always calculate from the latest state without dependency loops
+    const metricsRef = useRef({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
+    const [metrics, setMetrics] = useState(metricsRef.current);
     const [metricsHistory, setMetricsHistory] = useState([]);
     const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
 
@@ -80,50 +107,117 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
 
-        // Calculate metrics for this leg
+        // 1. Calculate Baselines & Disruption Penalties
+        let distance = 0;
+        let legCost = 0;
+        let legTime = 0;
+        let legCarbon = 0;
+        let disruptionType = null;
+        let penaltyCost = 0;
+        let penaltyTime = 0;
+
         if (index > 0) {
             const prevItem = selectedPath[index - 1];
             const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
-            const distance = prevPos.distanceTo(currPos) * 5000;
             
+            // Calc Base Metrics
+            distance = prevPos.distanceTo(currPos) * 5000;
             const shipping = item.shipping || {};
-            const legCost = 1000; // Placeholder parser
-            const legTime = 5; // Placeholder parser
-            const legCarbon = distance * 0.4; // Placeholder calc
-            
-            setMetrics(prev => {
-                const newMetrics = {
-                    totalCost: prev.totalCost + legCost,
-                    totalTime: prev.totalTime + legTime,
-                    totalDistance: prev.totalDistance + distance,
-                    totalCarbon: prev.totalCarbon + legCarbon
-                };
-                
-                setMetricsHistory(history => [...history, {
-                    step: index,
-                    name: item.name,
-                    ...newMetrics
-                }]);
-                
-                return newMetrics;
-            });
+            legCost = parseCost(shipping.cost);
+            legTime = parseTimeDays(shipping.time);
+            const methodFactor = METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
+            legCarbon = distance * methodFactor;
+
+            // --- RISK ROLL ---
+            const failureChance = item.risk * 0.05; 
+            const roll = Math.random();
+
+            if (roll < failureChance) {
+                const severity = Math.random();
+                if (severity > 0.85) {
+                    disruptionType = 'CRITICAL';
+                } else if (severity > 0.5) {
+                    disruptionType = 'LOSS';
+                    penaltyCost = legCost * 0.6;
+                    penaltyTime = 2;
+                } else {
+                    disruptionType = 'DELAY';
+                    penaltyTime = Math.ceil(Math.random() * 4) + 1;
+                }
+            }
         }
 
-        const failureChance = item.risk * 0.05; 
-        const roll = Math.random();
+        // 2. Update Metrics State (Applying Penalties)
+        const prev = metricsRef.current; // Read from Ref for safety
+        const appliedCost = disruptionType !== 'CRITICAL' ? (legCost + penaltyCost) : legCost;
+        const appliedTime = disruptionType !== 'CRITICAL' ? (legTime + penaltyTime) : legTime;
 
+        const newMetrics = {
+            totalCost: prev.totalCost + appliedCost,
+            totalTime: prev.totalTime + appliedTime,
+            totalDistance: prev.totalDistance + distance,
+            totalCarbon: prev.totalCarbon + legCarbon
+        };
+
+        // Update Ref and State
+        metricsRef.current = newMetrics;
+        setMetrics(newMetrics);
+
+        // Update History (With Duplicate Check for Strict Mode)
+        setMetricsHistory(history => {
+            // If this step is already recorded, don't add it again
+            if (history.length > 0 && history[history.length - 1].step === index) {
+                return history;
+            }
+
+            const newEntry = {
+                step: index,
+                name: item.name,
+                totalCost: newMetrics.totalCost,
+                totalTime: newMetrics.totalTime,
+                totalDistance: newMetrics.totalDistance,
+                totalCarbon: newMetrics.totalCarbon
+            };
+
+            // If index 0, reset. Else append.
+            return index === 0 ? [newEntry] : [...history, newEntry];
+        });
+
+        // 3. Execute Simulation Delay & Logs
         setTimeout(() => {
-            if (roll < failureChance) {
-               // ... (Simulation Logic kept same as before) ...
-               setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-               setTimeout(() => runSimulationStep(index + 1), 2000);
+            if (disruptionType === 'CRITICAL') {
+                setNodeStatuses(prev => {
+                    const newStatuses = { ...prev, [item.id]: 'error' };
+                    for (let i = index + 1; i < selectedPath.length; i++) {
+                        newStatuses[selectedPath[i].id] = 'blocked';
+                    }
+                    return newStatuses;
+                });
+                setSimulationLog(prev => [...prev, { text: `⛔ CRITICAL STOPPAGE at ${item.name}.`, type: "danger", id: Date.now() }]);
+                setIsSimulating(false);
+                setSimulationStatus('failed');
+            } else if (disruptionType === 'LOSS') {
+                setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
+                setSimulationLog(prev => [...prev, { 
+                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, 
+                    type: "warning", id: Date.now() 
+                }]);
+                setTimeout(() => runSimulationStep(index + 1), 2500);
+            } else if (disruptionType === 'DELAY') {
+                setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
+                setSimulationLog(prev => [...prev, { 
+                    text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, 
+                    type: "warning", id: Date.now() 
+                }]);
+                setTimeout(() => runSimulationStep(index + 1), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
-                setSimulationLog(prev => [...prev, { text: `✅ ${item.name}: Operations stable. Proceeding downstream.`, type: "success", id: Date.now() + Math.random() }]);
+                setSimulationLog(prev => [...prev, { text: `✅ ${item.name}: Operations stable.`, type: "success", id: Date.now() }]);
                 setTimeout(() => runSimulationStep(index + 1), 1500);
             }
         }, 1000);
+
     }, [selectedPath]);
 
     const startSimulation = useCallback(() => {
@@ -133,8 +227,12 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setSimulationLog([{ text: "🚀 Initiating Supply Chain Simulation...", type: "neutral", id: Date.now() }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
-        setMetrics({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
+        
+        // Reset metrics
+        metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 };
+        setMetrics(metricsRef.current);
         setMetricsHistory([]);
+        
         setIsMetricsExpanded(false);
         
         setTimeout(() => {
@@ -142,36 +240,20 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         }, 1000);
     }, [isSimulating, simulationStatus, runSimulationStep]);
 
-    // --- THREE.JS SETUP ---
+    // --- THREE.JS SETUP (Standard) ---
     useEffect(() => {
         if (!mountRef.current) return;
-        
-        // REMOVED: if (hasInitialized.current) return;
-        // REMOVED: hasInitialized.current = true;
-        
-        // Clear any existing canvases (Important for Strict Mode second mount)
-        while (mountRef.current.firstChild) {
-            mountRef.current.removeChild(mountRef.current.firstChild);
-        }
+        while (mountRef.current.firstChild) mountRef.current.removeChild(mountRef.current.firstChild);
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a1a);
         sceneRef.current = scene;
 
-        const camera = new THREE.PerspectiveCamera(
-            45, 
-            mountRef.current.clientWidth / mountRef.current.clientHeight, 
-            0.1, 
-            1000
-        );
+        const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
         camera.position.z = 5.5;
         cameraRef.current = camera;
 
-        const renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            alpha: false,
-            powerPreference: "high-performance"
-        });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         mountRef.current.appendChild(renderer.domElement);
@@ -182,84 +264,39 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         pointLight.position.set(5, 3, 5);
         scene.add(pointLight);
 
-        // Create globe with fallback color first
         const globeGeometry = new THREE.SphereGeometry(1.3, 64, 64);
-        const globeMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0x2563eb, // Blue fallback color
-            shininess: 20
-        });
+        const globeMaterial = new THREE.MeshPhongMaterial({ color: 0x2563eb, shininess: 20 });
         const globe = new THREE.Mesh(globeGeometry, globeMaterial);
         scene.add(globe);
         globeRef.current = globe;
 
-        // Stars
         const starGeometry = new THREE.BufferGeometry();
         const starVertices = [];
-        for (let i = 0; i < 2000; i++) {
-            starVertices.push(
-                (Math.random() - 0.5) * 100,
-                (Math.random() - 0.5) * 100,
-                (Math.random() - 0.5) * 100
-            );
-        }
+        for (let i = 0; i < 2000; i++) starVertices.push((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100);
         starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const stars = new THREE.Points(
-            starGeometry, 
-            new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true })
-        );
+        const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true }));
         scene.add(stars);
 
         const textureLoader = new THREE.TextureLoader();
-        textureLoader.crossOrigin = 'anonymous'; // Enable CORS
-        
-        const textureSources = [
-            'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-            'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_atmos_2048.jpg',
-            'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/planets/earth_atmos_2048.jpg',
-            'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
-        ];
-        
+        textureLoader.crossOrigin = 'anonymous'; 
+        const textureSources = ['https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'];
         let currentSource = 0;
         const tryLoadTexture = () => {
-            if (currentSource >= textureSources.length) {
-                console.error('All texture sources failed, using fallback color');
-                return;
-            }
-            
-            textureLoader.load(
-                textureSources[currentSource],
-                (texture) => {
-                    if (!isMountedRef.current) {
-                        texture.dispose();
-                        return;
-                    }
-                    if (globeRef.current && globeRef.current.material) {
-                        textureRef.current = texture;
-                        globeRef.current.material.color.setHex(0xffffff); // Reset to white
-                        globeRef.current.material.map = texture;
-                        globeRef.current.material.needsUpdate = true;
-                        
-                        if (rendererRef.current && sceneRef.current && cameraRef.current) {
-                            rendererRef.current.render(sceneRef.current, cameraRef.current);
-                        }
-                    } 
-                },
-                undefined,
-                (error) => {
-                    currentSource++;
-                    tryLoadTexture();
-                }
-            );
+            if (currentSource >= textureSources.length) return;
+            textureLoader.load(textureSources[currentSource], (texture) => {
+                if (!isMountedRef.current) return;
+                if (globeRef.current && globeRef.current.material) {
+                    textureRef.current = texture;
+                    globeRef.current.material.color.setHex(0xffffff);
+                    globeRef.current.material.map = texture;
+                    globeRef.current.material.needsUpdate = true;
+                    if(rendererRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
+                } 
+            }, undefined, () => { currentSource++; tryLoadTexture(); });
         };
-        
         tryLoadTexture();
 
-        // Mouse controls
-        const handleMouseDown = (e) => {
-            isDraggingRef.current = true;
-            previousMouseRef.current = { x: e.clientX, y: e.clientY };
-        };
-
+        const handleMouseDown = (e) => { isDraggingRef.current = true; previousMouseRef.current = { x: e.clientX, y: e.clientY }; };
         const handleMouseMove = (e) => {
             if (!isDraggingRef.current || !globeRef.current) return;
             const deltaX = e.clientX - previousMouseRef.current.x;
@@ -268,175 +305,142 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             globeRef.current.rotation.y += deltaX * 0.005;
             previousMouseRef.current = { x: e.clientX, y: e.clientY };
         };
-
-        const handleMouseUp = () => {
-            isDraggingRef.current = false;
-        };
+        const handleMouseUp = () => { isDraggingRef.current = false; };
 
         const canvas = renderer.domElement;
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
-        // Added mouseleave so rotation doesn't get stuck if you drag off screen
         canvas.addEventListener('mouseleave', handleMouseUp); 
 
-        // Animation loop
         const animate = () => {
             frameIdRef.current = requestAnimationFrame(animate);
-            
-            if (globeRef.current && !isDraggingRef.current) {
-                globeRef.current.rotation.y += 0.001;
-            }
-            
-            if (stars) {
-                stars.rotation.y += 0.0002;
-            }
-            
-            if (rendererRef.current && sceneRef.current && cameraRef.current) {
-                rendererRef.current.render(sceneRef.current, cameraRef.current);
-            }
+            if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
+            if (stars) stars.rotation.y += 0.0002;
+            if (rendererRef.current && sceneRef.current && cameraRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         animate();
 
-        // Resize handler
         const handleResize = () => {
             if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
-            
             cameraRef.current.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
             cameraRef.current.updateProjectionMatrix();
             rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
         };
         window.addEventListener('resize', handleResize);
 
-        // Cleanup
         return () => {
-            // Keep cleanup logic, but we removed hasInitialized, so this runs correctly on unmount
             if (rendererRef.current?.domElement && mountRef.current?.contains(rendererRef.current.domElement)) {
                 mountRef.current.removeChild(rendererRef.current.domElement);
             }
-            
-            if (frameIdRef.current) {
-                cancelAnimationFrame(frameIdRef.current);
-                frameIdRef.current = null;
-            }
+            if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
         };
     }, []);
 
-    // --- EFFECT: Visuals ---
+    // --- VISUALS ---
     useEffect(() => {
-       // ... (Same Visuals Effect Logic) ...
-       if (!globeRef.current) return;
-       // ...
-       // (Keeping logic hidden for brevity as it was correct)
-    }, [selectedPath, nodeStatuses, currentStepIndex]);
+        if (!globeRef.current) return;
+        if (!markersGroupRef.current) { const g = new THREE.Group(); globeRef.current.add(g); markersGroupRef.current = g; }
+        if (!arcGroupRef.current) { const g = new THREE.Group(); globeRef.current.add(g); arcGroupRef.current = g; }
 
+        const markersGroup = markersGroupRef.current;
+        const arcGroup = arcGroupRef.current;
+        while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
+        while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
+
+        const getStatusColor = (status, baseRisk) => {
+            if (status === 'active') return 0xffffff;
+            if (status === 'success') return 0x22c55e;
+            if (status === 'warning') return 0xf59e0b;
+            if (status === 'error') return 0xef4444;
+            if (status === 'blocked') return 0x334155;
+            if (baseRisk >= 8) return 0x7f1d1d;
+            if (baseRisk >= 5) return 0x7c2d12;
+            return 0x14532d;
+        };
+
+        selectedPath.forEach((item, index) => {
+            const status = nodeStatuses[item.id] || 'pending';
+            const isActive = status === 'active';
+            if (item.locations && item.locations[0]) {
+                const pos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
+                const color = getStatusColor(status, item.risk);
+                
+                const markerGeo = new THREE.SphereGeometry(isActive ? 0.06 : 0.04, 16, 16);
+                const markerMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: status === 'blocked' ? 0.3 : 1 });
+                const marker = new THREE.Mesh(markerGeo, markerMat);
+                marker.position.copy(pos);
+                if (isActive) {
+                    const glowGeo = new THREE.SphereGeometry(0.08, 16, 16);
+                    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                    glow.position.copy(pos);
+                    markersGroup.add(glow);
+                }
+                markersGroup.add(marker);
+
+                if (index > 0) {
+                    const prevItem = selectedPath[index - 1];
+                    const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
+                    let lineColor = 0x334155;
+                    let lineOpacity = 0.2;
+                    if (status === 'active' || status === 'success' || status === 'warning' || status === 'error') {
+                        lineColor = 0x3b82f6;
+                        lineOpacity = 1.0;
+                    }
+                    const arc = createArcLine(prevPos, pos, new THREE.Color(lineColor), 0.3);
+                    arc.material.opacity = lineOpacity;
+                    arcGroup.add(arc);
+                }
+            }
+        });
+    }, [selectedPath, nodeStatuses, currentStepIndex]);
 
     return (
         <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
             <div ref={mountRef} className="absolute inset-0 w-full h-full" />
 
-            {/* --- UI Elements remain exactly as they were --- */}
             <div className="absolute top-6 left-6 z-10 pointer-events-none">
-                <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-                    Impact Analysis
-                </h1>
-                <p className="text-blue-200/60 text-sm font-medium mt-1">
-                    Simulating probability-based supply chain disruptions.
-                </p>
+                <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Impact Analysis</h1>
+                <p className="text-blue-200/60 text-sm font-medium mt-1">Simulating probability-based supply chain disruptions.</p>
             </div>
 
-            {/* --- CONTROLS --- */}
             <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto">
                 <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-80">
-                    <h2 className="text-white font-bold text-lg mb-2 flex items-center gap-2">
-                        <span>⚡</span> Supply Chain Simulation
-                    </h2>
-                    <p className="text-gray-400 text-sm mb-4">
-                        Simulating probability of failure at each node based on risk thresholds.
-                    </p>
-                    
-                    <button 
-                        onClick={startSimulation}
-                        disabled={isSimulating && simulationStatus === 'running'}
-                        className={`w-full py-3 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
-                            isSimulating && simulationStatus === 'running'
-                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600'
-                            : simulationStatus === 'failed'
-                                ? 'bg-red-600 hover:bg-red-500 text-white border border-red-500'
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:scale-[1.02]'
-                        }`}
-                    >
-                        {simulationStatus === 'running' ? (
-                            <><span className="animate-spin">⚙️</span> Running...</>
-                        ) : simulationStatus === 'failed' ? (
-                            <>↻ Retry Simulation</>
-                        ) : (
-                            <>▶️ Run Simulation</>
-                        )}
+                    <h2 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
+                    <p className="text-gray-400 text-sm mb-4">Simulating probability of failure at each node based on risk thresholds.</p>
+                    <button onClick={startSimulation} disabled={isSimulating && simulationStatus === 'running'} className={`w-full py-3 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${isSimulating && simulationStatus === 'running' ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600' : simulationStatus === 'failed' ? 'bg-red-600 hover:bg-red-500 text-white border border-red-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:scale-[1.02]'}`}>
+                        {simulationStatus === 'running' ? <><span className="animate-spin">⚙️</span> Running...</> : simulationStatus === 'failed' ? <>↻ Retry Simulation</> : <>▶️ Run Simulation</>}
                     </button>
                 </div>
-
-                {/* --- LOGS --- */}
                 <div className="bg-slate-900/90 backdrop-blur border border-slate-700 p-0 rounded-xl shadow-2xl w-80 max-h-96 overflow-hidden flex flex-col">
-                    <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">
-                        Live Status
-                    </div>
+                    <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">Live Status</div>
                     <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-[100px]">
-                        {simulationLog.length === 0 ? (
-                            <div className="text-gray-500 text-sm italic">No events yet...</div>
-                        ) : (
-                            simulationLog.map((log) => (
-                                <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${
-                                    log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' :
-                                    log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' :
-                                    log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' :
-                                    'bg-slate-800 border-slate-500 text-gray-300'
-                                }`}>
-                                    {log.text}
-                                </div>
-                            ))
-                        )}
+                        {simulationLog.length === 0 ? <div className="text-gray-500 text-sm italic">No events yet...</div> : simulationLog.map((log) => (
+                            <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' : log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' : log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' : 'bg-slate-800 border-slate-500 text-gray-300'}`}>{log.text}</div>
+                        ))}
                         <div ref={(el) => el && el.scrollIntoView({ behavior: 'smooth' })} />
                     </div>
                 </div>
             </div>
 
-            {/* --- BREADCRUMBS --- */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[90%] pointer-events-auto">
-                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-3 rounded-2xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
+                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
                     {selectedPath.map((item, index) => {
                          const status = nodeStatuses[item.id] || 'pending';
-                         
                          let borderClass = 'border-slate-600';
                          if(status === 'active') borderClass = 'border-white animate-pulse';
                          if(status === 'success') borderClass = 'border-green-500';
                          if(status === 'warning') borderClass = 'border-orange-500';
                          if(status === 'error') borderClass = 'border-red-500';
                          if(status === 'blocked') borderClass = 'border-slate-700 opacity-50';
-
                          return (
                             <React.Fragment key={item.id}>
-                                {index > 0 && (
-                                    <div className={`h-0.5 w-4 transition-colors duration-500 ${
-                                        status === 'pending' || status === 'blocked' ? 'bg-slate-700' : 'bg-blue-500'
-                                    }`} />
-                                )}
-                                <div className={`
-                                    relative flex flex-col items-center justify-center w-12 h-12 rounded-xl border-2 transition-all duration-300
-                                    ${borderClass}
-                                    ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}
-                                `}>
-                                    <span className="text-xl">{status === 'blocked' ? '🔒' : item.emoji}</span>
-                                    {status === 'error' && (
-                                        <div className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5 border border-slate-900">
-                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </div>
-                                    )}
-                                    {status === 'success' && (
-                                        <div className="absolute -top-2 -right-2 bg-green-600 rounded-full p-0.5 border border-slate-900">
-                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                        </div>
-                                    )}
+                                {index > 0 && <div className={`h-0.5 w-3 transition-colors duration-500 ${status === 'pending' || status === 'blocked' ? 'bg-slate-700' : 'bg-blue-500'}`} />}
+                                <div className={`relative flex flex-col items-center justify-center w-9 h-9 rounded-lg border-2 transition-all duration-300 ${borderClass} ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}`}>
+                                    <span className="text-sm">{status === 'blocked' ? '🔒' : item.emoji}</span>
+                                    {status === 'error' && <div className="absolute -top-1.5 -right-1.5 bg-red-600 rounded-full p-0.5 border border-slate-900"><svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>}
+                                    {status === 'success' && <div className="absolute -top-1.5 -right-1.5 bg-green-600 rounded-full p-0.5 border border-slate-900"><svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>}
                                 </div>
                             </React.Fragment>
                          );
@@ -444,199 +448,82 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 </div>
             </div>
 
-            {/* --- METRICS --- */}
             {(isSimulating || metricsHistory.length > 0) && (
                 <div className="absolute bottom-8 left-6 z-10 pointer-events-auto">
-                    <div 
-                        className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${
-                            isMetricsExpanded ? 'p-6 w-[600px]' : 'p-4 w-72'
-                        }`}
-                        onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
-                    >
+                    <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${isMetricsExpanded ? 'p-6 w-[600px]' : 'p-4 w-72'}`} onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}>
                         <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                                <span>📊</span> Supply Chain Metrics
-                            </h3>
-                            <button className="text-gray-400 hover:text-white text-xs">
-                                {isMetricsExpanded ? '⬇ Collapse' : '⬆ Expand'}
-                            </button>
+                            <h3 className="text-white font-bold text-sm flex items-center gap-2"><span>📊</span> Supply Chain Metrics</h3>
+                            <button className="text-gray-400 hover:text-white text-xs">{isMetricsExpanded ? '⬇ Collapse' : '⬆ Expand'}</button>
                         </div>
 
                         {!isMetricsExpanded ? (
                             <div className="space-y-2.5">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm flex items-center gap-2">
-                                        <span>💰</span> Total Cost
-                                    </span>
-                                    <span className="text-emerald-400 font-bold text-sm">
-                                        ${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm flex items-center gap-2">
-                                        <span>⏱️</span> Total Time
-                                    </span>
-                                    <span className="text-blue-400 font-bold text-sm">
-                                        {metrics.totalTime.toFixed(1)} days
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm flex items-center gap-2">
-                                        <span>🌍</span> Distance
-                                    </span>
-                                    <span className="text-purple-400 font-bold text-sm">
-                                        {metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm flex items-center gap-2">
-                                        <span>🌱</span> Carbon
-                                    </span>
-                                    <span className="text-orange-400 font-bold text-sm">
-                                        {metrics.totalCarbon.toFixed(1)} kg CO₂
-                                    </span>
-                                </div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>💰</span> Total Cost</span><span className="text-emerald-400 font-bold text-sm">${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>⏱️</span> Total Time</span><span className="text-blue-400 font-bold text-sm">{metrics.totalTime.toFixed(1)} days</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌍</span> Distance</span><span className="text-purple-400 font-bold text-sm">{metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toFixed(1)} kg CO₂</span></div>
                             </div>
                         ) : (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-4 gap-3">
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                        <div className="text-gray-400 text-xs mb-1">💰 Cost</div>
-                                        <div className="text-emerald-400 font-bold text-lg">
-                                            ${(metrics.totalCost / 1000).toFixed(1)}k
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                        <div className="text-gray-400 text-xs mb-1">⏱️ Time</div>
-                                        <div className="text-blue-400 font-bold text-lg">
-                                            {metrics.totalTime.toFixed(1)}d
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                        <div className="text-gray-400 text-xs mb-1">🌍 Distance</div>
-                                        <div className="text-purple-400 font-bold text-lg">
-                                            {(metrics.totalDistance / 1000).toFixed(1)}k km
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                        <div className="text-gray-400 text-xs mb-1">🌱 Carbon</div>
-                                        <div className="text-orange-400 font-bold text-lg">
-                                            {(metrics.totalCarbon / 1000).toFixed(1)}t
-                                        </div>
-                                    </div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">💰 Cost</div><div className="text-emerald-400 font-bold text-lg">${(metrics.totalCost / 1000).toFixed(1)}k</div></div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">⏱️ Time</div><div className="text-blue-400 font-bold text-lg">{metrics.totalTime.toFixed(1)}d</div></div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">🌍 Distance</div><div className="text-purple-400 font-bold text-lg">{(metrics.totalDistance / 1000).toFixed(1)}k km</div></div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">🌱 Carbon</div><div className="text-orange-400 font-bold text-lg">{(metrics.totalCarbon / 1000).toFixed(1)}t</div></div>
                                 </div>
 
-                                {metricsHistory.length > 0 && (
-                                    <>
-                                        <div>
-                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                                <span>💰</span> Cost Progression
-                                            </div>
-                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                                <svg width="100%" height="120" viewBox="0 0 520 120">
-                                                    {[0, 1, 2, 3, 4].map(i => (
-                                                        <line key={i} x1="40" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />
-                                                    ))}
-                                                    {metricsHistory.length > 1 && (
-                                                        <polyline
-                                                            points={metricsHistory.map((point, i) => {
-                                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                                const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
-                                                                const y = 100 - (point.totalCost / (maxCost || 1)) * 80;
-                                                                return `${x},${y}`;
-                                                            }).join(' ')}
-                                                            fill="none"
-                                                            stroke="#10b981"
-                                                            strokeWidth="2"
-                                                        />
-                                                    )}
-                                                    {metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
-                                                        const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
-                                                        const y = 100 - (point.totalCost / (maxCost || 1)) * 80;
-                                                        return <circle key={i} cx={x} cy={y} r="4" fill="#10b981" />;
-                                                    })}
-                                                    {metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
-                                                        return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
-                                                    })}
-                                                </svg>
-                                            </div>
-                                        </div>
+                                {metricsHistory.length > 0 && ['cost', 'distance', 'carbon'].map((type, idx) => {
+                                    const dataKey = type === 'cost' ? 'totalCost' : type === 'distance' ? 'totalDistance' : 'totalCarbon';
+                                    const color = type === 'cost' ? '#10b981' : type === 'distance' ? '#a855f7' : '#fb923c';
+                                    const icon = type === 'cost' ? '💰' : type === 'distance' ? '🌍' : '🌱';
+                                    const title = type === 'cost' ? 'Cost' : type === 'distance' ? 'Distance' : 'Carbon';
+                                    const maxVal = Math.max(...metricsHistory.map(p => p[dataKey]));
+                                    
+                                    return (
+                                        <div key={type}>
+                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2"><span>{icon}</span> {title} Progression</div>
+                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 relative">
+                                                <svg width="100%" height="120" viewBox="0 0 520 120" className="overflow-visible">
+                                                    {/* Grid lines */}
+                                                    {[0, 1, 2, 3, 4].map(i => <line key={i} x1="60" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
+                                                    
+                                                    {/* Y-Axis Line */}
+                                                    <line x1="60" y1="20" x2="60" y2="100" stroke="#475569" strokeWidth="1" />
+                                                    
+                                                    {/* Y-Axis Labels */}
+                                                    <text x="55" y="25" fontSize="9" fill="#64748b" textAnchor="end">{formatYAxis(maxVal, type)}</text>
+                                                    <text x="55" y="60" fontSize="9" fill="#64748b" textAnchor="end">{formatYAxis(maxVal / 2, type)}</text>
+                                                    <text x="55" y="100" fontSize="9" fill="#64748b" textAnchor="end">0</text>
 
-                                        <div>
-                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                                <span>🌍</span> Distance Progression
-                                            </div>
-                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                                <svg width="100%" height="120" viewBox="0 0 520 120">
-                                                    {[0, 1, 2, 3, 4].map(i => (
-                                                        <line key={i} x1="40" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />
-                                                    ))}
+                                                    {/* Trend Line */}
                                                     {metricsHistory.length > 1 && (
                                                         <polyline
                                                             points={metricsHistory.map((point, i) => {
-                                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                                const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
-                                                                const y = 100 - (point.totalDistance / (maxDist || 1)) * 80;
+                                                                const x = 60 + (i / (metricsHistory.length - 1)) * 440;
+                                                                const y = 100 - (point[dataKey] / (maxVal || 1)) * 80;
                                                                 return `${x},${y}`;
                                                             }).join(' ')}
-                                                            fill="none"
-                                                            stroke="#a855f7"
-                                                            strokeWidth="2"
+                                                            fill="none" stroke={color} strokeWidth="2"
                                                         />
                                                     )}
+                                                    
+                                                    {/* Points */}
                                                     {metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
-                                                        const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
-                                                        const y = 100 - (point.totalDistance / (maxDist || 1)) * 80;
-                                                        return <circle key={i} cx={x} cy={y} r="4" fill="#a855f7" />;
+                                                        const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
+                                                        const y = 100 - (point[dataKey] / (maxVal || 1)) * 80;
+                                                        return <circle key={i} cx={x} cy={y} r="4" fill={color} />;
                                                     })}
+                                                    
+                                                    {/* X-Axis Labels (Corrected step index) */}
                                                     {metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
+                                                        const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
                                                         return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
                                                     })}
                                                 </svg>
                                             </div>
                                         </div>
-
-                                        <div>
-                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                                <span>🌱</span> Carbon Emissions Progression
-                                            </div>
-                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                                <svg width="100%" height="120" viewBox="0 0 520 120">
-                                                    {[0, 1, 2, 3, 4].map(i => (
-                                                        <line key={i} x1="40" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />
-                                                    ))}
-                                                    {metricsHistory.length > 1 && (
-                                                        <polyline
-                                                            points={metricsHistory.map((point, i) => {
-                                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                                const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
-                                                                const y = 100 - (point.totalCarbon / (maxCarbon || 1)) * 80;
-                                                                return `${x},${y}`;
-                                                            }).join(' ')}
-                                                            fill="none"
-                                                            stroke="#fb923c"
-                                                            strokeWidth="2"
-                                                        />
-                                                    )}
-                                                    {metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
-                                                        const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
-                                                        const y = 100 - (point.totalCarbon / (maxCarbon || 1)) * 80;
-                                                        return <circle key={i} cx={x} cy={y} r="4" fill="#fb923c" />;
-                                                    })}
-                                                    {metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
-                                                        return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
-                                                    })}
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
