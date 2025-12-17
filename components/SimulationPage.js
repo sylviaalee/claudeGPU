@@ -41,9 +41,15 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     // --- STATE ---
     const [isSimulating, setIsSimulating] = useState(false);
     const [currentStepIndex, setCurrentStepIndex] = useState(-1);
-    const [simulationStatus, setSimulationStatus] = useState('idle'); // 'idle', 'running', 'completed', 'failed'
+    const [simulationStatus, setSimulationStatus] = useState('idle');
     const [simulationLog, setSimulationLog] = useState([]); 
-    const [nodeStatuses, setNodeStatuses] = useState({}); // { id: 'pending' | 'active' | 'success' | 'warning' | 'error' | 'blocked' }
+    const [nodeStatuses, setNodeStatuses] = useState({});
+    const [metrics, setMetrics] = useState({
+        totalCost: 0,
+        totalTime: 0,
+        totalDistance: 0,
+        totalCarbon: 0
+    });
     const [metricsHistory, setMetricsHistory] = useState([]);
     const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
 
@@ -60,7 +66,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
 
     // --- LOGIC: SIMULATION ENGINE ---
     const runSimulationStep = (index) => {
-        // 1. Check if we reached the end
         if (index >= selectedPath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
@@ -72,42 +77,65 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setCurrentStepIndex(index);
         updateNodeStatus(item.id, 'active');
 
-        // 2. Calculate Probability of Failure based on Risk Score
-        // Formula: Risk 1 = 5%, Risk 5 = 25%, Risk 10 = 50% chance of *some* issue
+        // Calculate metrics for this leg
+        if (index > 0) {
+            const prevItem = selectedPath[index - 1];
+            const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
+            const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
+            const distance = prevPos.distanceTo(currPos) * 5000;
+            
+            const legCost = distance * (0.5 + Math.random() * 0.5);
+            const legTime = distance / (500 + Math.random() * 300);
+            const legCarbon = distance * (0.2 + Math.random() * 0.3);
+            
+            setMetrics(prev => {
+                const newMetrics = {
+                    totalCost: prev.totalCost + legCost,
+                    totalTime: prev.totalTime + legTime,
+                    totalDistance: prev.totalDistance + distance,
+                    totalCarbon: prev.totalCarbon + legCarbon
+                };
+                
+                setMetricsHistory(history => [...history, {
+                    step: index,
+                    name: item.name,
+                    ...newMetrics
+                }]);
+                
+                return newMetrics;
+            });
+        } else {
+            setMetricsHistory([{
+                step: 0,
+                name: item.name,
+                totalCost: 0,
+                totalTime: 0,
+                totalDistance: 0,
+                totalCarbon: 0
+            }]);
+        }
+
         const failureChance = item.risk * 0.05; 
         const roll = Math.random();
 
-        console.log(`Node: ${item.name} | Risk: ${item.risk} | Chance: ${failureChance.toFixed(2)} | Roll: ${roll.toFixed(2)}`);
-
         setTimeout(() => {
-            // 3. Determine Outcome
             if (roll < failureChance) {
-                // --- DISRUPTION OCCURRED ---
                 handleDisruption(item, index);
             } else {
-                // --- SUCCESS ---
                 updateNodeStatus(item.id, 'success');
                 addToLog(`✅ ${item.name}: Operations stable. Proceeding downstream.`, "success");
-                
-                // Propagate to next step
                 setTimeout(() => runSimulationStep(index + 1), 1500);
             }
-        }, 1000); // Small delay to simulate "processing" at the node
+        }, 1000);
     };
 
     const handleDisruption = (item, index) => {
-        // 4. Determine Severity of Disruption
-        // We roll another die to see how bad it is.
-        // Higher base risk also increases the chance of *severe* consequences.
-        
-        const severityRoll = Math.random() + (item.risk * 0.05); // Bias towards severity if high risk
+        const severityRoll = Math.random() + (item.risk * 0.05);
         
         if (severityRoll > 0.85) {
-            // === CRITICAL FAILURE (STOPPAGE) ===
             updateNodeStatus(item.id, 'error');
             addToLog(`⛔ CRITICAL STOPPAGE at ${item.name}. Supply chain halted.`, "danger");
             
-            // Mark downstream as blocked
             for (let i = index + 1; i < selectedPath.length; i++) {
                 updateNodeStatus(selectedPath[i].id, 'blocked');
             }
@@ -116,30 +144,25 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             setSimulationStatus('failed');
 
         } else if (severityRoll > 0.5) {
-            // === MAJOR DELAY / CAPACITY LOSS ===
             updateNodeStatus(item.id, 'warning');
             addToLog(`⚠️ Capacity reduced at ${item.name} due to labor shortages. Moving forward with delays.`, "warning");
-            
-            // Proceed, but slower
             setTimeout(() => runSimulationStep(index + 1), 3000);
 
         } else {
-            // === MINOR DELAY ===
             updateNodeStatus(item.id, 'warning');
             addToLog(`⏱️ Minor weather delays at ${item.name}. Schedule adjusted.`, "neutral");
-            
-            // Proceed normally
             setTimeout(() => runSimulationStep(index + 1), 2000);
         }
     };
 
     const startSimulation = () => {
-        if (isSimulating) return;
+        if (isSimulating && simulationStatus === 'running') return;
         setIsSimulating(true);
         setSimulationStatus('running');
         setSimulationLog([]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
+        setMetrics({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
         setMetricsHistory([]);
         setIsMetricsExpanded(false);
         addToLog("🚀 Initiating Supply Chain Simulation...", "neutral");
@@ -150,14 +173,14 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     };
 
     const addToLog = (text, type) => {
-        setSimulationLog(prev => [...prev, { text, type, id: Date.now() }]);
+        setSimulationLog(prev => [...prev, { text, type, id: Date.now() + Math.random() }]);
     };
 
     const updateNodeStatus = (id, status) => {
         setNodeStatuses(prev => ({ ...prev, [id]: status }));
     };
 
-    // --- THREE.JS SETUP (Standard Globe) ---
+    // --- THREE.JS SETUP ---
     useEffect(() => {
         if (!mountRef.current) return;
 
@@ -194,7 +217,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         globe.add(arcGroup);
         arcGroupRef.current = arcGroup;
 
-        // Starfield
         const starGeometry = new THREE.BufferGeometry();
         const starVertices = [];
         for (let i = 0; i < 2000; i++) {
@@ -257,25 +279,23 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         };
     }, []);
 
-    // --- EFFECT: Visuals (Markers & Arcs) ---
+    // --- EFFECT: Visuals ---
     useEffect(() => {
         if (!markersGroupRef.current || !arcGroupRef.current) return;
 
         const markersGroup = markersGroupRef.current;
         const arcGroup = arcGroupRef.current;
 
-        // Clear existing
         while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
         while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
 
         const getStatusColor = (status, baseRisk) => {
-            if (status === 'active') return 0xffffff; // White pulse
-            if (status === 'success') return 0x22c55e; // Green
-            if (status === 'warning') return 0xf59e0b; // Orange
-            if (status === 'error') return 0xef4444; // Red
-            if (status === 'blocked') return 0x334155; // Dark Grey (Slate 700)
+            if (status === 'active') return 0xffffff;
+            if (status === 'success') return 0x22c55e;
+            if (status === 'warning') return 0xf59e0b;
+            if (status === 'error') return 0xef4444;
+            if (status === 'blocked') return 0x334155;
             
-            // Default (Pending)
             if (baseRisk >= 8) return 0x7f1d1d;
             if (baseRisk >= 5) return 0x7c2d12;
             return 0x14532d;
@@ -288,7 +308,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             if (item.locations && item.locations[0]) {
                 const pos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
 
-                // --- MARKER ---
                 const color = getStatusColor(status, item.risk);
                 
                 const markerGeo = new THREE.SphereGeometry(isActive ? 0.06 : 0.04, 16, 16);
@@ -300,7 +319,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 const marker = new THREE.Mesh(markerGeo, markerMat);
                 marker.position.copy(pos);
                 
-                // Pulse Effect for Active Node
                 if (isActive) {
                     const glowGeo = new THREE.SphereGeometry(0.08, 16, 16);
                     const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
@@ -311,23 +329,17 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
 
                 markersGroup.add(marker);
 
-                // --- ARC ---
                 if (index > 0) {
                     const prevItem = selectedPath[index - 1];
                     const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
                     
-                    // Arc Color Logic
-                    // If current is blocked, line is dark. If current is reached, line is blue.
-                    let lineColor = 0x334155; // Default dark
+                    let lineColor = 0x334155;
                     let lineOpacity = 0.2;
 
                     if (status === 'active' || status === 'success' || status === 'warning' || status === 'error') {
-                        lineColor = 0x3b82f6; // Blue
+                        lineColor = 0x3b82f6;
                         lineOpacity = 1.0;
                     }
-                    
-                    // If previous node FAILED, this line shouldn't really exist or should be red? 
-                    // For now, let's keep it simple: line exists if we are calculating this node.
                     
                     const arc = createArcLine(prevPos, pos, new THREE.Color(lineColor), 0.3);
                     arc.material.opacity = lineOpacity;
@@ -342,6 +354,16 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     return (
         <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
             <div ref={mountRef} className="w-full h-full" />
+
+            {/* --- TOP LEFT --- */}
+            <div className="absolute top-6 left-6 z-[2000] pointer-events-none">
+                <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                    Impact Analysis
+                </h1>
+                <p className="text-blue-200/60 text-sm font-medium mt-1">
+                    Simulating probability-based supply chain disruptions.
+                </p>
+            </div>
 
             {/* --- CONTROLS --- */}
             <div className="absolute top-6 right-6 z-[2000] flex flex-col items-end gap-4 pointer-events-auto">
@@ -382,7 +404,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                         </div>
                         <div className="overflow-y-auto p-3 space-y-3 flex-1">
                             {simulationLog.map((log) => (
-                                <div key={log.id} className={`text-sm p-2 rounded border-l-2 animate-in fade-in slide-in-from-right-4 duration-500 ${
+                                <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${
                                     log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' :
                                     log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' :
                                     log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' :
@@ -397,7 +419,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 )}
             </div>
 
-            {/* --- VISUALIZER --- */}
+            {/* --- BREADCRUMBS --- */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[2000] w-auto max-w-[90%] pointer-events-auto">
                 <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-3 rounded-2xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
                     {selectedPath.map((item, index) => {
@@ -423,7 +445,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                                     ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}
                                 `}>
                                     <span className="text-xl">{status === 'blocked' ? '🔒' : item.emoji}</span>
-                                    {/* Status Icon Overlay */}
                                     {status === 'error' && (
                                         <div className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5 border border-slate-900">
                                             <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -441,8 +462,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 </div>
             </div>
 
-            {/* --- BOTTOM RIGHT: METRICS STATUS --- */}
-            {(isSimulating || Object.keys(simulatedRisks).length > 0) && (
+            {/* --- METRICS --- */}
+            {(isSimulating || metricsHistory.length > 0) && (
                 <div className="absolute bottom-8 left-6 z-[2000] pointer-events-auto">
                     <div 
                         className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${
@@ -496,7 +517,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                {/* Summary Row */}
                                 <div className="grid grid-cols-4 gap-3">
                                     <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
                                         <div className="text-gray-400 text-xs mb-1">💰 Cost</div>
@@ -524,221 +544,117 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                                     </div>
                                 </div>
 
-                                {/* Cost Chart */}
-                                <div>
-                                    <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                        <span>💰</span> Cost Progression
-                                    </div>
-                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                        <svg width="100%" height="120" viewBox="0 0 520 120">
-                                            {/* Grid lines */}
-                                            {[0, 1, 2, 3, 4].map(i => (
-                                                <line
-                                                    key={i}
-                                                    x1="40"
-                                                    y1={20 + i * 20}
-                                                    x2="500"
-                                                    y2={20 + i * 20}
-                                                    stroke="#334155"
-                                                    strokeWidth="0.5"
-                                                    opacity="0.3"
-                                                />
-                                            ))}
-                                            
-                                            {/* Line */}
-                                            {metricsHistory.length > 1 && (
-                                                <polyline
-                                                    points={metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                {metricsHistory.length > 0 && (
+                                    <>
+                                        <div>
+                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                                <span>💰</span> Cost Progression
+                                            </div>
+                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                                <svg width="100%" height="120" viewBox="0 0 520 120">
+                                                    {[0, 1, 2, 3, 4].map(i => (
+                                                        <line key={i} x1="40" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />
+                                                    ))}
+                                                    {metricsHistory.length > 1 && (
+                                                        <polyline
+                                                            points={metricsHistory.map((point, i) => {
+                                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                                const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
+                                                                const y = 100 - (point.totalCost / (maxCost || 1)) * 80;
+                                                                return `${x},${y}`;
+                                                            }).join(' ')}
+                                                            fill="none"
+                                                            stroke="#10b981"
+                                                            strokeWidth="2"
+                                                        />
+                                                    )}
+                                                    {metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
                                                         const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
-                                                        const y = 100 - (point.totalCost / maxCost) * 80;
-                                                        return `${x},${y}`;
-                                                    }).join(' ')}
-                                                    fill="none"
-                                                    stroke="#10b981"
-                                                    strokeWidth="2"
-                                                />
-                                            )}
-                                            
-                                            {/* Points */}
-                                            {metricsHistory.map((point, i) => {
-                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                const maxCost = Math.max(...metricsHistory.map(p => p.totalCost));
-                                                const y = 100 - (point.totalCost / maxCost) * 80;
-                                                return (
-                                                    <circle
-                                                        key={i}
-                                                        cx={x}
-                                                        cy={y}
-                                                        r="4"
-                                                        fill="#10b981"
-                                                    />
-                                                );
-                                            })}
-                                            
-                                            {/* Labels */}
-                                            {metricsHistory.map((point, i) => {
-                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                return (
-                                                    <text
-                                                        key={i}
-                                                        x={x}
-                                                        y="115"
-                                                        fontSize="10"
-                                                        fill="#94a3b8"
-                                                        textAnchor="middle"
-                                                    >
-                                                        {point.step}
-                                                    </text>
-                                                );
-                                            })}
-                                        </svg>
-                                    </div>
-                                </div>
+                                                        const y = 100 - (point.totalCost / (maxCost || 1)) * 80;
+                                                        return <circle key={i} cx={x} cy={y} r="4" fill="#10b981" />;
+                                                    })}
+                                                    {metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
+                                                        return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
+                                                    })}
+                                                </svg>
+                                            </div>
+                                        </div>
 
-                                {/* Distance Chart */}
-                                <div>
-                                    <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                        <span>🌍</span> Distance Progression
-                                    </div>
-                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                        <svg width="100%" height="120" viewBox="0 0 520 120">
-                                            {/* Grid lines */}
-                                            {[0, 1, 2, 3, 4].map(i => (
-                                                <line
-                                                    key={i}
-                                                    x1="40"
-                                                    y1={20 + i * 20}
-                                                    x2="500"
-                                                    y2={20 + i * 20}
-                                                    stroke="#334155"
-                                                    strokeWidth="0.5"
-                                                    opacity="0.3"
-                                                />
-                                            ))}
-                                            
-                                            {/* Line */}
-                                            {metricsHistory.length > 1 && (
-                                                <polyline
-                                                    points={metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                        <div>
+                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                                <span>🌍</span> Distance Progression
+                                            </div>
+                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                                <svg width="100%" height="120" viewBox="0 0 520 120">
+                                                    {[0, 1, 2, 3, 4].map(i => (
+                                                        <line key={i} x1="40" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />
+                                                    ))}
+                                                    {metricsHistory.length > 1 && (
+                                                        <polyline
+                                                            points={metricsHistory.map((point, i) => {
+                                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                                const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
+                                                                const y = 100 - (point.totalDistance / (maxDist || 1)) * 80;
+                                                                return `${x},${y}`;
+                                                            }).join(' ')}
+                                                            fill="none"
+                                                            stroke="#a855f7"
+                                                            strokeWidth="2"
+                                                        />
+                                                    )}
+                                                    {metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
                                                         const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
-                                                        const y = 100 - (point.totalDistance / maxDist) * 80;
-                                                        return `${x},${y}`;
-                                                    }).join(' ')}
-                                                    fill="none"
-                                                    stroke="#a855f7"
-                                                    strokeWidth="2"
-                                                />
-                                            )}
-                                            
-                                            {/* Points */}
-                                            {metricsHistory.map((point, i) => {
-                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                const maxDist = Math.max(...metricsHistory.map(p => p.totalDistance));
-                                                const y = 100 - (point.totalDistance / maxDist) * 80;
-                                                return (
-                                                    <circle
-                                                        key={i}
-                                                        cx={x}
-                                                        cy={y}
-                                                        r="4"
-                                                        fill="#a855f7"
-                                                    />
-                                                );
-                                            })}
-                                            
-                                            {/* Labels */}
-                                            {metricsHistory.map((point, i) => {
-                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                return (
-                                                    <text
-                                                        key={i}
-                                                        x={x}
-                                                        y="115"
-                                                        fontSize="10"
-                                                        fill="#94a3b8"
-                                                        textAnchor="middle"
-                                                    >
-                                                        {point.step}
-                                                    </text>
-                                                );
-                                            })}
-                                        </svg>
-                                    </div>
-                                </div>
+                                                        const y = 100 - (point.totalDistance / (maxDist || 1)) * 80;
+                                                        return <circle key={i} cx={x} cy={y} r="4" fill="#a855f7" />;
+                                                    })}
+                                                    {metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
+                                                        return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
+                                                    })}
+                                                </svg>
+                                            </div>
+                                        </div>
 
-                                {/* Carbon Chart */}
-                                <div>
-                                    <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                        <span>🌱</span> Carbon Emissions Progression
-                                    </div>
-                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                        <svg width="100%" height="120" viewBox="0 0 520 120">
-                                            {/* Grid lines */}
-                                            {[0, 1, 2, 3, 4].map(i => (
-                                                <line
-                                                    key={i}
-                                                    x1="40"
-                                                    y1={20 + i * 20}
-                                                    x2="500"
-                                                    y2={20 + i * 20}
-                                                    stroke="#334155"
-                                                    strokeWidth="0.5"
-                                                    opacity="0.3"
-                                                />
-                                            ))}
-                                            
-                                            {/* Line */}
-                                            {metricsHistory.length > 1 && (
-                                                <polyline
-                                                    points={metricsHistory.map((point, i) => {
-                                                        const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                        <div>
+                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                                <span>🌱</span> Carbon Emissions Progression
+                                            </div>
+                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                                <svg width="100%" height="120" viewBox="0 0 520 120">
+                                                    {[0, 1, 2, 3, 4].map(i => (
+                                                        <line key={i} x1="40" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />
+                                                    ))}
+                                                    {metricsHistory.length > 1 && (
+                                                        <polyline
+                                                            points={metricsHistory.map((point, i) => {
+                                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
+                                                                const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
+                                                                const y = 100 - (point.totalCarbon / (maxCarbon || 1)) * 80;
+                                                                return `${x},${y}`;
+                                                            }).join(' ')}
+                                                            fill="none"
+                                                            stroke="#fb923c"
+                                                            strokeWidth="2"
+                                                        />
+                                                    )}
+                                                    {metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
                                                         const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
-                                                        const y = 100 - (point.totalCarbon / maxCarbon) * 80;
-                                                        return `${x},${y}`;
-                                                    }).join(' ')}
-                                                    fill="none"
-                                                    stroke="#fb923c"
-                                                    strokeWidth="2"
-                                                />
-                                            )}
-                                            
-                                            {/* Points */}
-                                            {metricsHistory.map((point, i) => {
-                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                const maxCarbon = Math.max(...metricsHistory.map(p => p.totalCarbon));
-                                                const y = 100 - (point.totalCarbon / maxCarbon) * 80;
-                                                return (
-                                                    <circle
-                                                        key={i}
-                                                        cx={x}
-                                                        cy={y}
-                                                        r="4"
-                                                        fill="#fb923c"
-                                                    />
-                                                );
-                                            })}
-                                            
-                                            {/* Labels */}
-                                            {metricsHistory.map((point, i) => {
-                                                const x = 40 + (i / (metricsHistory.length - 1)) * 460;
-                                                return (
-                                                    <text
-                                                        key={i}
-                                                        x={x}
-                                                        y="115"
-                                                        fontSize="10"
-                                                        fill="#94a3b8"
-                                                        textAnchor="middle"
-                                                    >
-                                                        {point.step}
-                                                    </text>
-                                                );
-                                            })}
-                                        </svg>
-                                    </div>
-                                </div>
+                                                        const y = 100 - (point.totalCarbon / (maxCarbon || 1)) * 80;
+                                                        return <circle key={i} cx={x} cy={y} r="4" fill="#fb923c" />;
+                                                    })}
+                                                    {metricsHistory.map((point, i) => {
+                                                        const x = 40 + (i / Math.max(1, metricsHistory.length - 1)) * 460;
+                                                        return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
+                                                    })}
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
