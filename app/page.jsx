@@ -128,7 +128,7 @@ const GPUGlobe = () => {
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
-    // Controls
+    // --- CONTROLS (Updated for Orientation) ---
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -136,12 +136,23 @@ const GPUGlobe = () => {
 
     const handleMouseMove = (e) => {
       if (!isDraggingRef.current) return;
+      
       const deltaX = e.clientX - previousMouseRef.current.x;
       const deltaY = e.clientY - previousMouseRef.current.y;
-      globe.rotation.y += deltaX * 0.005;
+      
+      // 1. Rotate vertically (tilt)
       globe.rotation.x += deltaY * 0.005;
+      
+      // 2. Rotate horizontally (spin)
+      // FIX: If globe is upside down (Math.cos < 0), invert the horizontal rotation direction
+      // so dragging right always moves the surface right visually.
+      const upFactor = Math.cos(globe.rotation.x) > 0 ? 1 : -1;
+      globe.rotation.y += deltaX * 0.005 * upFactor;
+      
+      // Sync markers group
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
+      
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -177,12 +188,10 @@ const GPUGlobe = () => {
         const facingCamera = meshNormal.dot(vecToCamera);
         
         // --- SMOOTH FADE CALCULATION ---
-        // Range 0.2 to -0.2: Fade from 1.0 to 0.0
         let alpha = 0;
         if (facingCamera > 0.2) {
             alpha = 1;
         } else if (facingCamera > -0.2) {
-            // Normalize -0.2...0.2 range to 0...1
             alpha = (facingCamera + 0.2) / 0.4;
         }
         
@@ -208,7 +217,7 @@ const GPUGlobe = () => {
             x: idealX,
             y: idealY,
             z: labelScreenPos.z,
-            opacity: alpha // Store opacity
+            opacity: alpha 
           });
         } else {
           labelEl.style.display = 'none';
@@ -243,11 +252,8 @@ const GPUGlobe = () => {
         labelStyle.display = 'block';
         labelStyle.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
         labelStyle.zIndex = Math.floor((1 - l.z) * 1000);
-        
-        // Apply smooth fading
         labelStyle.opacity = l.opacity;
         
-        // Lines fade out slightly faster to keep text readable longer
         lineStyle.display = 'block';
         lineStyle.opacity = l.opacity * 0.6; 
 
@@ -333,7 +339,7 @@ const GPUGlobe = () => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* HUD Box */}
+      {/* HUD Box - Z-INDEX SET TO 2000 */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -508,6 +514,7 @@ const GPUGlobe = () => {
             </div>
             )}
             
+            {/* DIRECT NAVIGATION BUTTON */}
             {selectedItem.next && selectedItem.next.length > 0 && (
               <button
                 onClick={() => handleDrillDown(selectedItem)}
@@ -520,7 +527,7 @@ const GPUGlobe = () => {
         </div>
       )}
 
-       {/* Instructions */}
+       {/* Instructions - Z-INDEX SET TO 2000 */}
        <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
         <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
         <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
