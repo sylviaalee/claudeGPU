@@ -137,6 +137,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [metrics, setMetrics] = useState(metricsRef.current);
     const [metricsHistory, setMetricsHistory] = useState([]);
     const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
+    const [activeMetricTab, setActiveMetricTab] = useState('overall');
 
     // --- REFS ---
     const sceneRef = useRef(null);
@@ -696,72 +697,209 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             {/* UI - Metrics Dashboard */}
             {(isSimulating || metricsHistory.length > 0) && (
                 <div className="absolute bottom-8 left-6 z-10 pointer-events-auto">
-                    <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 cursor-pointer hover:border-slate-500 ${isMetricsExpanded ? 'p-6 w-[600px]' : 'p-4 w-72'}`} onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}>
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-white font-bold text-sm flex items-center gap-2"><span>📊</span> Supply Chain Metrics</h3>
-                            <button className="text-gray-400 hover:text-white text-xs">{isMetricsExpanded ? '⬇ Collapse' : '⬆ Expand'}</button>
-                        </div>
-
+                    <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 ${isMetricsExpanded ? 'p-0 w-[600px]' : 'p-4 w-72 cursor-pointer hover:border-slate-500'}`} onClick={isMetricsExpanded ? undefined : () => setIsMetricsExpanded(true)}>
                         {!isMetricsExpanded ? (
-                            <div className="space-y-2.5">
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>💰</span> Total Cost</span><span className="text-emerald-400 font-bold text-sm">${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>📉</span> Yield Loss</span><span className="text-red-400 font-bold text-sm">{metrics.totalYieldLoss.toLocaleString()} units</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>⏱️</span> Total Time</span><span className="text-blue-400 font-bold text-sm">{metrics.totalTime.toFixed(1)} days</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg</span></div>
-                            </div>
+                            <>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-white font-bold text-sm flex items-center gap-2"><span>📊</span> Supply Chain Metrics</h3>
+                                    <button className="text-gray-400 hover:text-white text-xs">⬆ Expand</button>
+                                </div>
+                                <div className="space-y-2.5">
+                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>💰</span> Total Cost</span><span className="text-emerald-400 font-bold text-sm">${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>📉</span> Yield Loss</span><span className="text-red-400 font-bold text-sm">{metrics.totalYieldLoss.toLocaleString()} units</span></div>
+                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>⏱️</span> Total Time</span><span className="text-blue-400 font-bold text-sm">{metrics.totalTime.toFixed(1)} days</span></div>
+                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg</span></div>
+                                </div>
+                            </>
                         ) : (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-4 gap-3">
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">💰 Cost</div><div className="text-emerald-400 font-bold text-lg">${(metrics.totalCost / 1000).toFixed(1)}k</div></div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">📉 Yield Loss</div><div className="text-red-400 font-bold text-lg">{metrics.totalYieldLoss.toLocaleString()}</div></div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">⏱️ Time</div><div className="text-blue-400 font-bold text-lg">{metrics.totalTime.toFixed(1)}d</div></div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">🌱 Carbon</div><div className="text-orange-400 font-bold text-lg">{(metrics.totalCarbon / 1000).toFixed(1)}t</div></div>
+                            <>
+                                {/* Header with Close Button */}
+                                <div className="flex items-center justify-between p-4 border-b border-slate-700">
+                                    <h3 className="text-white font-bold text-sm flex items-center gap-2"><span>📊</span> Supply Chain Metrics</h3>
+                                    <button onClick={() => setIsMetricsExpanded(false)} className="text-gray-400 hover:text-white text-xs">⬇ Collapse</button>
                                 </div>
 
-                                {metricsHistory.length > 0 && ['cost', 'distance', 'carbon'].map((type, idx) => {
-                                    const dataKey = type === 'cost' ? 'totalCost' : type === 'distance' ? 'totalDistance' : 'totalCarbon';
-                                    const color = type === 'cost' ? '#10b981' : type === 'distance' ? '#a855f7' : '#fb923c';
-                                    const icon = type === 'cost' ? '💰' : type === 'distance' ? '🌍' : '🌱';
-                                    const title = type === 'cost' ? 'Cost' : type === 'distance' ? 'Distance' : 'Carbon';
-                                    const maxVal = Math.max(...metricsHistory.map(p => p[dataKey]));
-                                    
-                                    return (
-                                        <div key={type}>
-                                            <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2"><span>{icon}</span> {title} Progression</div>
-                                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 relative">
-                                                <svg width="100%" height="120" viewBox="0 0 520 120" className="overflow-visible">
-                                                    {[0, 1, 2, 3, 4].map(i => <line key={i} x1="60" y1={20 + i * 20} x2="500" y2={20 + i * 20} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
-                                                    
-                                                    <line x1="60" y1="20" x2="60" y2="100" stroke="#475569" strokeWidth="1" />
-                                                    <text x="55" y="25" fontSize="9" fill="#64748b" textAnchor="end">{formatYAxis(maxVal, type)}</text>
-                                                    <text x="55" y="60" fontSize="9" fill="#64748b" textAnchor="end">{formatYAxis(maxVal / 2, type)}</text>
-                                                    <text x="55" y="100" fontSize="9" fill="#64748b" textAnchor="end">0</text>
+                                {/* Tab Navigation */}
+                                <div className="flex border-b border-slate-700 bg-slate-900/30">
+                                    {[
+                                        { id: 'overall', label: 'Overall', icon: '📊' },
+                                        { id: 'cost', label: 'Cost', icon: '💰' },
+                                        { id: 'time', label: 'Time', icon: '⏱️' },
+                                        { id: 'distance', label: 'Distance', icon: '🌍' },
+                                        { id: 'carbon', label: 'Carbon', icon: '🌱' }
+                                    ].map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={(e) => { e.stopPropagation(); setActiveMetricTab(tab.id); }}
+                                            className={`flex-1 py-3 px-2 text-xs font-semibold transition-all ${
+                                                activeMetricTab === tab.id
+                                                    ? 'text-blue-400 border-b-2 border-blue-400 bg-slate-800/50'
+                                                    : 'text-gray-400 hover:text-gray-300 hover:bg-slate-800/30'
+                                            }`}
+                                        >
+                                            <span className="mr-1">{tab.icon}</span>
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
 
-                                                    {metricsHistory.length > 1 && (
-                                                        <polyline
-                                                            points={metricsHistory.map((point, i) => {
-                                                                const x = 60 + (i / (metricsHistory.length - 1)) * 440;
-                                                                const y = 100 - (point[dataKey] / (maxVal || 1)) * 80;
-                                                                return `${x},${y}`;
-                                                            }).join(' ')}
-                                                            fill="none" stroke={color} strokeWidth="2"
-                                                        />
-                                                    )}
-                                                    {metricsHistory.map((point, i) => {
-                                                        const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
-                                                        const y = 100 - (point[dataKey] / (maxVal || 1)) * 80;
-                                                        return <circle key={i} cx={x} cy={y} r="4" fill={color} />;
-                                                    })}
-                                                    {metricsHistory.map((point, i) => {
-                                                        const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
-                                                        return <text key={i} x={x} y="115" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
-                                                    })}
-                                                </svg>
+                                {/* Tab Content */}
+                                <div className="p-6 max-h-[500px] overflow-y-auto">
+                                    {activeMetricTab === 'overall' && (
+                                        <div className="space-y-6">
+                                            <div className="grid grid-cols-4 gap-3">
+                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                                    <div className="text-gray-400 text-xs mb-1">💰 Cost</div>
+                                                    <div className="text-emerald-400 font-bold text-lg">${(metrics.totalCost / 1000).toFixed(1)}k</div>
+                                                </div>
+                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                                    <div className="text-gray-400 text-xs mb-1">⏱️ Time</div>
+                                                    <div className="text-blue-400 font-bold text-lg">{metrics.totalTime.toFixed(1)}d</div>
+                                                </div>
+                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                                    <div className="text-gray-400 text-xs mb-1">🌍 Distance</div>
+                                                    <div className="text-purple-400 font-bold text-lg">{(metrics.totalDistance / 1000).toFixed(0)}k</div>
+                                                </div>
+                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                                    <div className="text-gray-400 text-xs mb-1">🌱 Carbon</div>
+                                                    <div className="text-orange-400 font-bold text-lg">{(metrics.totalCarbon / 1000).toFixed(1)}t</div>
+                                                </div>
                                             </div>
+                                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                                <div className="text-gray-400 text-xs mb-1">📉 Yield Loss</div>
+                                                <div className="text-red-400 font-bold text-lg">{metrics.totalYieldLoss.toLocaleString()} units</div>
+                                            </div>
+
+                                            {metricsHistory.length > 0 && (
+                                                <div>
+                                                    <div className="text-gray-300 text-xs font-semibold mb-2">All Metrics Overview</div>
+                                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                                                        <svg width="100%" height="150" viewBox="0 0 520 150" className="overflow-visible">
+                                                            {[0, 1, 2, 3, 4].map(i => <line key={i} x1="60" y1={25 + i * 25} x2="500" y2={25 + i * 25} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
+                                                            
+                                                            {['cost', 'time', 'carbon'].map((type, idx) => {
+                                                                const dataKey = type === 'cost' ? 'totalCost' : type === 'time' ? 'totalTime' : 'totalCarbon';
+                                                                const color = type === 'cost' ? '#10b981' : type === 'time' ? '#3b82f6' : '#fb923c';
+                                                                const maxVal = Math.max(...metricsHistory.map(p => p[dataKey]));
+                                                                
+                                                                return (
+                                                                    <g key={type}>
+                                                                        {metricsHistory.length > 1 && (
+                                                                            <polyline
+                                                                                points={metricsHistory.map((point, i) => {
+                                                                                    const x = 60 + (i / (metricsHistory.length - 1)) * 440;
+                                                                                    const y = 125 - (point[dataKey] / (maxVal || 1)) * 100;
+                                                                                    return `${x},${y}`;
+                                                                                }).join(' ')}
+                                                                                fill="none" stroke={color} strokeWidth="2" opacity="0.7"
+                                                                            />
+                                                                        )}
+                                                                    </g>
+                                                                );
+                                                            })}
+                                                            
+                                                            {metricsHistory.map((point, i) => {
+                                                                const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
+                                                                return <text key={i} x={x} y="145" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
+                                                            })}
+                                                        </svg>
+                                                        <div className="flex justify-center gap-4 mt-3 text-xs">
+                                                            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-emerald-500"></div><span className="text-gray-400">Cost</span></div>
+                                                            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-blue-500"></div><span className="text-gray-400">Time</span></div>
+                                                            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-orange-500"></div><span className="text-gray-400">Carbon</span></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                    )}
+
+                                    {['cost', 'time', 'distance', 'carbon'].map(type => {
+                                        if (activeMetricTab !== type) return null;
+                                        
+                                        const dataKey = type === 'cost' ? 'totalCost' : type === 'time' ? 'totalTime' : type === 'distance' ? 'totalDistance' : 'totalCarbon';
+                                        const color = type === 'cost' ? '#10b981' : type === 'time' ? '#3b82f6' : type === 'distance' ? '#a855f7' : '#fb923c';
+                                        const icon = type === 'cost' ? '💰' : type === 'time' ? '⏱️' : type === 'distance' ? '🌍' : '🌱';
+                                        const title = type === 'cost' ? 'Cost' : type === 'time' ? 'Time' : type === 'distance' ? 'Distance' : 'Carbon';
+                                        const unit = type === 'cost' ? 'dollars': type === 'time' ? 'days' : type === 'distance' ? 'km' : 'kg CO₂';
+                                        const currentValue = metrics[dataKey];
+                                        const formattedValue = type === 'cost' ? `${(currentValue / 1000).toFixed(1)}k` : 
+                                                              type === 'time' ? `${currentValue.toFixed(1)}d` :
+                                                              type === 'distance' ? `${(currentValue / 1000).toFixed(0)}k km` :
+                                                              `${(currentValue / 1000).toFixed(1)}t`;
+                                        
+                                        const maxVal = metricsHistory.length > 0 ? Math.max(...metricsHistory.map(p => p[dataKey])) : 0;
+                                        
+                                        return (
+                                            <div key={type} className="space-y-6">
+                                                <div className="bg-slate-900/50 p-6 rounded-lg border border-slate-700 text-center">
+                                                    <div className="text-gray-400 text-sm mb-2">Total {title}</div>
+                                                    <div style={{color}} className="font-bold text-4xl">{formattedValue}</div>
+                                                </div>
+
+                                                {metricsHistory.length > 0 && (
+                                                    <div>
+                                                        <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
+                                                            <span>{icon}</span> {title} Progression
+                                                        </div>
+                                                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 relative">
+                                                            <svg width="100%" height="200" viewBox="0 0 520 200" className="overflow-visible">
+                                                                {[0, 1, 2, 3, 4, 5].map(i => <line key={i} x1="60" y1={30 + i * 30} x2="500" y2={30 + i * 30} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
+                                                                
+                                                                <line x1="60" y1="30" x2="60" y2="180" stroke="#475569" strokeWidth="1" />
+                                                                <text x="55" y="35" fontSize="10" fill="#64748b" textAnchor="end">{formatYAxis(maxVal, type)}</text>
+                                                                <text x="55" y="105" fontSize="10" fill="#64748b" textAnchor="end">{formatYAxis(maxVal / 2, type)}</text>
+                                                                <text x="55" y="180" fontSize="10" fill="#64748b" textAnchor="end">0</text>
+
+                                                                {metricsHistory.length > 1 && (
+                                                                    <polyline
+                                                                        points={metricsHistory.map((point, i) => {
+                                                                            const x = 60 + (i / (metricsHistory.length - 1)) * 440;
+                                                                            const y = 180 - (point[dataKey] / (maxVal || 1)) * 150;
+                                                                            return `${x},${y}`;
+                                                                        }).join(' ')}
+                                                                        fill="none" stroke={color} strokeWidth="3"
+                                                                    />
+                                                                )}
+                                                                {metricsHistory.map((point, i) => {
+                                                                    const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
+                                                                    const y = 180 - (point[dataKey] / (maxVal || 1)) * 150;
+                                                                    return <circle key={i} cx={x} cy={y} r="5" fill={color} />;
+                                                                })}
+                                                                {metricsHistory.map((point, i) => {
+                                                                    const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
+                                                                    return <text key={i} x={x} y="195" fontSize="11" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
+                                                                })}
+                                                            </svg>
+                                                        </div>
+
+                                                        {/* Step-by-step breakdown */}
+                                                        <div className="mt-4">
+                                                            <div className="text-gray-300 text-xs font-semibold mb-2">Step-by-Step Breakdown</div>
+                                                            <div className="bg-slate-900/50 rounded-lg border border-slate-700 overflow-hidden">
+                                                                {metricsHistory.map((point, i) => (
+                                                                    <div key={i} className="flex justify-between items-center p-3 border-b border-slate-700 last:border-b-0 hover:bg-slate-800/50 transition-colors">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-gray-500 font-mono text-xs">Step {point.step}</span>
+                                                                            <span className="text-gray-300 text-sm">{point.name}</span>
+                                                                        </div>
+                                                                        <span style={{color}} className="font-bold text-sm">
+                                                                            {type === 'cost' ? `${(point[dataKey] / 1000).toFixed(1)}k` : 
+                                                                             type === 'time' ? `${point[dataKey].toFixed(1)}d` :
+                                                                             type === 'distance' ? `${(point[dataKey] / 1000).toFixed(0)}k` :
+                                                                             `${(point[dataKey] / 1000).toFixed(1)}t`}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>
