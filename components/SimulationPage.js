@@ -56,14 +56,11 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
     const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
     
     // 4. Animation Setup
-    // Calculate total indices: segments * radial * 6 (2 tris per face * 3 verts per tri)
     const totalIndices = tubularSegments * radialSegments * 6;
 
     if (isAnimated) {
-        // Start with 0 vertices drawn (invisible)
         geometry.setDrawRange(0, 0); 
     } else {
-        // Draw full line immediately
         geometry.setDrawRange(0, totalIndices);
     }
 
@@ -75,7 +72,6 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
 
     const mesh = new THREE.Mesh(geometry, material);
     
-    // Store metadata for the animation loop
     mesh.userData = { 
         totalIndices: totalIndices,
         currentCount: 0 
@@ -117,9 +113,9 @@ const METHOD_CARBON_FACTOR = {
 // --- MOCK DATA ---
 const MOCK_PATH = [
     { id: 'root', name: 'Nvidia HQ', emoji: '🏭', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 2 },
-    { id: 'fab', name: 'TSMC Foundry', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5 },
-    { id: 'assembly', name: 'Foxconn Assembly', emoji: '🔧', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4 },
-    { id: 'dist', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3 }
+    { id: 'fab', name: 'TSMC Foundry', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5, shipping: { cost: '$5000', time: '2-3 days', method: 'Secure Air Freight' } },
+    { id: 'assembly', name: 'Foxconn Assembly', emoji: '🔧', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4, shipping: { cost: '$1200', time: '1 day', method: 'Secure Trucking' } },
+    { id: 'dist', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3, shipping: { cost: '$8500', time: '15-20 days', method: 'Ocean Freight' } }
 ];
 
 const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
@@ -133,6 +129,9 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [simulationLog, setSimulationLog] = useState([]); 
     const [nodeStatuses, setNodeStatuses] = useState({});
     
+    // ** NEW STATE: GPU Count Input **
+    const [gpuCount, setGpuCount] = useState(1000); 
+
     const metricsRef = useRef({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
     const [metrics, setMetrics] = useState(metricsRef.current);
     const [metricsHistory, setMetricsHistory] = useState([]);
@@ -148,7 +147,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     
     const drawnLinesRef = useRef(new Set()); 
     const drawnMarkersRef = useRef(new Set());
-    const animatingObjectsRef = useRef([]); // Holds active lines being drawn
+    const animatingObjectsRef = useRef([]); 
     
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
@@ -177,17 +176,26 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         let penaltyCost = 0;
         let penaltyTime = 0;
 
+        // ** LOGIC UPDATE: Scale factors based on GPU count **
+        // Assuming mock data baseline is for 1,000 units
+        const volumeScalingFactor = Math.max(1, gpuCount / 1000);
+
         if (index > 0) {
             const prevItem = selectedPath[index - 1];
             const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
             
-            distance = prevPos.distanceTo(currPos) * 5000;
+            distance = prevPos.distanceTo(currPos) * 5000; // rough km conversion
             const shipping = item.shipping || {};
-            legCost = parseCost(shipping.cost);
+            
+            // Calculate Base Logistics Cost scaled by volume
+            legCost = parseCost(shipping.cost) * volumeScalingFactor;
+            
             legTime = parseTimeDays(shipping.time);
+            
             const methodFactor = METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
-            legCarbon = distance * methodFactor;
+            // Carbon scales linearly with weight/volume
+            legCarbon = (distance * methodFactor) * volumeScalingFactor;
 
             const failureChance = item.risk * 0.05; 
             const roll = Math.random();
@@ -198,6 +206,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     disruptionType = 'CRITICAL';
                 } else if (severity > 0.5) {
                     disruptionType = 'LOSS';
+                    // Disruption cost also scales with volume (more goods lost)
                     penaltyCost = legCost * 0.6;
                     penaltyTime = 2;
                 } else {
@@ -260,7 +269,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
                 setSimulationLog(prev => [...prev, { 
                     step: index, 
-                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD'})})`, 
+                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits: 0})})`, 
                     type: "warning", 
                     id: Date.now() 
                 }]);
@@ -286,13 +295,13 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             }
         }, 1000);
 
-    }, [selectedPath]);
+    }, [selectedPath, gpuCount]); // Added gpuCount dependency
 
     const startSimulation = useCallback(() => {
         if (isSimulating && simulationStatus === 'running') return;
         setIsSimulating(true);
         setSimulationStatus('running');
-        setSimulationLog([{ text: "🚀 Initiating Supply Chain Simulation...", type: "neutral", id: Date.now() }]);
+        setSimulationLog([{ text: `🚀 Initiating Supply Chain Simulation for ${gpuCount.toLocaleString()} units...`, type: "neutral", id: Date.now() }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
         metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 };
@@ -305,7 +314,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         
         setIsMetricsExpanded(false);
         setTimeout(() => { runSimulationStep(0); }, 1000);
-    }, [isSimulating, simulationStatus, runSimulationStep]);
+    }, [isSimulating, simulationStatus, runSimulationStep, gpuCount]);
 
     // --- THREE.JS SETUP ---
     useEffect(() => {
@@ -394,33 +403,22 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
             if (stars) stars.rotation.y += 0.0002;
             
-            // --- DRAWING ANIMATION LOGIC ---
             if (animatingObjectsRef.current.length > 0) {
-                // Iterate backwards to allow safe splicing
                 for (let i = animatingObjectsRef.current.length - 1; i >= 0; i--) {
                     const mesh = animatingObjectsRef.current[i];
-                    
                     if (mesh && mesh.geometry) {
                         const totalIndices = mesh.userData.totalIndices;
-                        
-                        // "Speed" is how many vertices we reveal per frame. 
-                        // 150 gives a snappy, high-tech feel. Lower to 50 for slow travel.
                         const speed = 150; 
-                        
-                        // Increment current count
                         mesh.userData.currentCount += speed;
-                        
                         if (mesh.userData.currentCount < totalIndices) {
                             mesh.geometry.setDrawRange(0, mesh.userData.currentCount);
                         } else {
-                            // Animation finished, ensure it's fully drawn and remove from queue
                             mesh.geometry.setDrawRange(0, totalIndices);
                             animatingObjectsRef.current.splice(i, 1); 
                         }
                     }
                 }
             }
-
             if (rendererRef.current && sceneRef.current && cameraRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         animate();
@@ -450,7 +448,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         const markersGroup = markersGroupRef.current;
         const arcGroup = arcGroupRef.current;
         
-        // RESET
         if (currentStepIndex === -1) {
             while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
             while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
@@ -518,7 +515,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     let lineOpacity = 0.2;
                     let animateThisLine = false;
 
-                    // Only animate the line connecting to the CURRENT active step
                     if (index === currentStepIndex + 1) {
                         lineColor = 0x64748b; 
                         lineOpacity = 0.5;
@@ -527,7 +523,6 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                         lineOpacity = 1.0;
                         animateThisLine = true; 
                     } else {
-                        // Completed lines are green
                         lineColor = 0x22c55e; 
                         lineOpacity = 0.6;
                     }
@@ -570,7 +565,30 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             {/* UI - Right Controls */}
             <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto">
                 <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-80">
-                    <h2 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
+                    <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
+                    
+                    {/* ** NEW UI: GPU Volume Slider ** */}
+                    <div className="mb-6 bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                        <label className="flex justify-between items-center text-gray-400 text-xs uppercase font-bold mb-2">
+                            <span>Order Volume</span>
+                            <span className="text-blue-400 font-mono text-sm">{gpuCount.toLocaleString()} GPUs</span>
+                        </label>
+                        <input
+                            type="range"
+                            min="1000"
+                            max="100000"
+                            step="1000"
+                            value={gpuCount}
+                            disabled={isSimulating}
+                            onChange={(e) => setGpuCount(Number(e.target.value))}
+                            className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isSimulating ? 'bg-slate-700' : 'bg-slate-600 accent-blue-500 hover:accent-blue-400'}`}
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+                            <span>1k</span>
+                            <span>100k</span>
+                        </div>
+                    </div>
+
                     <p className="text-gray-400 text-sm mb-4">Simulating probability of failure at each node based on risk thresholds.</p>
                     <button onClick={startSimulation} disabled={isSimulating && simulationStatus === 'running'} className={`w-full py-3 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${isSimulating && simulationStatus === 'running' ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600' : simulationStatus === 'failed' ? 'bg-red-600 hover:bg-red-500 text-white border border-red-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:scale-[1.02]'}`}>
                         {simulationStatus === 'running' ? <><span className="animate-spin">⚙️</span> Running...</> : simulationStatus === 'failed' ? <>↻ Retry Simulation</> : <>▶️ Run Simulation</>}
@@ -629,7 +647,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                                 <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>💰</span> Total Cost</span><span className="text-emerald-400 font-bold text-sm">${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></div>
                                 <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>⏱️</span> Total Time</span><span className="text-blue-400 font-bold text-sm">{metrics.totalTime.toFixed(1)} days</span></div>
                                 <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌍</span> Distance</span><span className="text-purple-400 font-bold text-sm">{metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toFixed(1)} kg CO₂</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg CO₂</span></div>
                             </div>
                         ) : (
                             <div className="space-y-6">
