@@ -133,36 +133,41 @@ const GPUGlobe = ({ onSimulate }) => {
 
   // Auto-select path with different strategies
   const handleAutoSelect = (strategy = 'first') => {
-    const path = [];
-    let currentLevel = data.gpus || [];
+    const path = [...breadcrumb]; // Start with existing breadcrumb selections
     
-    // Start with first GPU (or optimized selection)
-    if (currentLevel.length === 0) return;
-    
-    let currentItem;
-    if (strategy === 'first') {
-      currentItem = currentLevel[0];
-    } else if (strategy === 'cost') {
-      currentItem = currentLevel.reduce((min, item) => {
-        const minCost = parseFloat(min.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
-        const itemCost = parseFloat(item.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
-        return itemCost < minCost ? item : min;
-      });
-    } else if (strategy === 'time') {
-      currentItem = currentLevel.reduce((min, item) => {
-        const minTime = parseFloat(min.shipping?.time?.match(/\d+/)?.[0] || Infinity);
-        const itemTime = parseFloat(item.shipping?.time?.match(/\d+/)?.[0] || Infinity);
-        return itemTime < minTime ? item : min;
-      });
-    } else if (strategy === 'risk') {
-      currentItem = currentLevel.reduce((min, item) => 
-        (item.risk < min.risk) ? item : min
-      );
-    } else if (strategy === 'random') {
-      currentItem = currentLevel[Math.floor(Math.random() * currentLevel.length)];
+    // If breadcrumb is empty, start from GPUs
+    if (path.length === 0) {
+      let currentLevel = data.gpus || [];
+      if (currentLevel.length === 0) return;
+      
+      let currentItem;
+      if (strategy === 'first') {
+        currentItem = currentLevel[0];
+      } else if (strategy === 'cost') {
+        currentItem = currentLevel.reduce((min, item) => {
+          const minCost = parseFloat(min.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
+          const itemCost = parseFloat(item.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
+          return itemCost < minCost ? item : min;
+        });
+      } else if (strategy === 'time') {
+        currentItem = currentLevel.reduce((min, item) => {
+          const minTime = parseFloat(min.shipping?.time?.match(/\d+/)?.[0] || Infinity);
+          const itemTime = parseFloat(item.shipping?.time?.match(/\d+/)?.[0] || Infinity);
+          return itemTime < minTime ? item : min;
+        });
+      } else if (strategy === 'risk') {
+        currentItem = currentLevel.reduce((min, item) => 
+          (item.risk < min.risk) ? item : min
+        );
+      } else if (strategy === 'random') {
+        currentItem = currentLevel[Math.floor(Math.random() * currentLevel.length)];
+      }
+      
+      path.push({ ...currentItem, emoji: currentItem.image });
     }
     
-    path.push({ ...currentItem, emoji: currentItem.image });
+    // Continue from the last item in breadcrumb (or the newly selected GPU)
+    let currentItem = path[path.length - 1];
     
     // Keep drilling down until no more next items
     while (currentItem && currentItem.next && currentItem.next.length > 0) {
