@@ -522,7 +522,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     let lineOpacity = 0.2;
                     let animateThisLine = false;
 
-                    if (index === currentStepIndex + 1) {
+                    if (simulationIndex === currentStepIndex + 1) {
                         lineColor = 0x64748b; 
                         lineOpacity = 0.5;
                     } else if (simulationIndex === currentStepIndex) {
