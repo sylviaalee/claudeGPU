@@ -48,6 +48,8 @@ const GPUGlobe = ({ onSimulate }) => {
   const mountRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]); 
+  // New state for dropdown
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   const data = supplyChainData;
 
@@ -226,7 +228,8 @@ const GPUGlobe = ({ onSimulate }) => {
       path.push({ ...currentItem, emoji: currentItem.image });
     }
     
-    // Simulate with the complete path
+    // Close dropdown and simulate
+    setIsDropdownOpen(false);
     onSimulate(path);
   };
 
@@ -537,51 +540,7 @@ const GPUGlobe = ({ onSimulate }) => {
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* Auto-Select Buttons */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-[2000]">
-        <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-3 rounded-xl shadow-2xl">
-          <div className="text-white text-xs font-semibold mb-2 text-center">AUTO-GENERATE SUPPLY CHAIN</div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleAutoSelect('cost')}
-              className="bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-green-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-              title="Minimize total shipping cost"
-            >
-              <span className="text-lg">💰</span>
-              <span className="text-sm">Lowest Cost</span>
-            </button>
-            
-            <button
-              onClick={() => handleAutoSelect('time')}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-blue-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-              title="Minimize total shipping time"
-            >
-              <span className="text-lg">⚡</span>
-              <span className="text-sm">Fastest Time</span>
-            </button>
-            
-            <button
-              onClick={() => handleAutoSelect('risk')}
-              className="bg-yellow-600 hover:bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-yellow-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-              title="Minimize supply chain risk"
-            >
-              <span className="text-lg">🛡️</span>
-              <span className="text-sm">Lowest Risk</span>
-            </button>
-            
-            <button
-              onClick={() => handleAutoSelect('random')}
-              className="bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg border border-purple-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-              title="Randomly select supply chain"
-            >
-              <span className="text-lg">🎲</span>
-              <span className="text-sm">Random</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* HUD Box */}
+      {/* HUD Box (Global Market) with Dropdown Integrated */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -602,11 +561,12 @@ const GPUGlobe = ({ onSimulate }) => {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        {/* Back and Reset Buttons */}
+        <div className="flex gap-2 mb-3">
           <button
             onClick={handleGoBack}
             disabled={breadcrumb.length === 0}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
               breadcrumb.length === 0
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-700'
                 : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-500 hover:border-slate-400 shadow-lg'
@@ -618,7 +578,7 @@ const GPUGlobe = ({ onSimulate }) => {
           <button
             onClick={handleReset}
             disabled={breadcrumb.length === 0}
-            className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               breadcrumb.length === 0
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-700'
                 : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg border border-blue-500 hover:border-blue-400'
@@ -626,6 +586,34 @@ const GPUGlobe = ({ onSimulate }) => {
           >
             Reset
           </button>
+        </div>
+
+        {/* Dropdown for Auto-Complete */}
+        <div className="relative">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full bg-slate-700 hover:bg-slate-600 text-blue-300 font-semibold py-2.5 px-4 rounded-lg border border-slate-600 hover:border-slate-500 transition-all flex items-center justify-between text-sm"
+          >
+            <span className="flex items-center gap-2">✨ Auto-Complete Path</span>
+            <span className={`text-xs transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden z-50">
+                <button onClick={() => handleAutoSelect('cost')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-700/50">
+                    <span className="text-base">💰</span> Lowest Cost
+                </button>
+                <button onClick={() => handleAutoSelect('time')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-700/50">
+                    <span className="text-base">⚡</span> Fastest Time
+                </button>
+                <button onClick={() => handleAutoSelect('risk')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-700/50">
+                    <span className="text-base">🛡️</span> Lowest Risk
+                </button>
+                <button onClick={() => handleAutoSelect('random')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2">
+                    <span className="text-base">🎲</span> Random Path
+                </button>
+            </div>
+          )}
         </div>
       </div>
 
