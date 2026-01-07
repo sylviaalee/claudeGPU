@@ -5,29 +5,43 @@ import * as THREE from 'three';
 // Assuming supplyChainData is an external data structure
 import { supplyChainData } from '../data/supplyChainData'; 
 
-// *** UTILITY: Simple Arc Line Generator ***
-const createArcLine = (startVector, endVector, color, height = 0.5) => {
-    const midVector = startVector.clone().add(endVector).divideScalar(2);
+// *** UTILITY: Animated Arc Line Generator ***
+const createArcLine = (startVector, endVector, color, opacity = 0.8) => {
     const distance = startVector.distanceTo(endVector);
-    const arcHeight = Math.sqrt(distance) * height; 
-    const midPoint = midVector.normalize().multiplyScalar(1.3 + arcHeight); 
+    
+    // 1. Calculate Apex
+    let midVector = startVector.clone().add(endVector);
+    // Handle antipodal points (opposite sides of globe)
+    if (midVector.lengthSq() < 0.01) {
+        const axis = new THREE.Vector3(0, 1, 0); 
+        if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
+            axis.set(0, 0, 1);
+        }
+        midVector.crossVectors(startVector, axis);
+    }
+    
+    const arcHeight = 1.3 + (distance * 0.5); 
+    const midPoint = midVector.normalize().multiplyScalar(arcHeight);
 
+    // 2. Create the Curve
     const curve = new THREE.QuadraticBezierCurve3(
         startVector,
         midPoint,
         endVector
     );
 
-    const points = curve.getPoints(50); 
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ 
+    // 3. TubeGeometry for better visual quality
+    const tubularSegments = 64; 
+    const radialSegments = 8;
+    const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
+
+    const material = new THREE.MeshBasicMaterial({ 
         color: color, 
-        linewidth: 2, 
         transparent: true, 
-        opacity: 0.8 
+        opacity: opacity 
     });
 
-    return new THREE.Line(geometry, material);
+    return new THREE.Mesh(geometry, material);
 };
 
 const GPUGlobe = ({ onSimulate }) => {
