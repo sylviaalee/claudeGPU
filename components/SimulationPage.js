@@ -50,7 +50,6 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
     );
 
     // 3. TubeGeometry 
-    // High segment count needed for smooth "growth" animation
     const tubularSegments = 128; 
     const radialSegments = 8;
     const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
@@ -111,11 +110,12 @@ const METHOD_CARBON_FACTOR = {
 };
 
 // --- MOCK DATA ---
+// Added 'type' fields to identify the Fab vs Assembly steps
 const MOCK_PATH = [
-    { id: 'root', name: 'Nvidia HQ', emoji: '🏭', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 2 },
-    { id: 'fab', name: 'TSMC Foundry', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5, shipping: { cost: '$5000', time: '2-3 days', method: 'Secure Air Freight' } },
-    { id: 'assembly', name: 'Foxconn Assembly', emoji: '🔧', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4, shipping: { cost: '$1200', time: '1 day', method: 'Secure Trucking' } },
-    { id: 'dist', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3, shipping: { cost: '$8500', time: '15-20 days', method: 'Ocean Freight' } }
+    { id: 'root', type: 'HQ', name: 'Nvidia HQ', emoji: '🏭', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 2 },
+    { id: 'fab', type: 'FAB', name: 'TSMC Foundry', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5, shipping: { cost: '$5000', time: '2-3 days', method: 'Secure Air Freight' } },
+    { id: 'assembly', type: 'ASSEMBLY', name: 'Foxconn Assembly', emoji: '🔧', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4, shipping: { cost: '$1200', time: '1 day', method: 'Secure Trucking' } },
+    { id: 'dist', type: 'DISTRIBUTION', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3, shipping: { cost: '$8500', time: '15-20 days', method: 'Ocean Freight' } }
 ];
 
 const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
@@ -129,10 +129,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [simulationLog, setSimulationLog] = useState([]); 
     const [nodeStatuses, setNodeStatuses] = useState({});
     
-    // ** NEW STATE: GPU Count Input **
+    // ** STATE: GPU Count & Live Volume **
     const [gpuCount, setGpuCount] = useState(1000); 
+    const [livePayload, setLivePayload] = useState(1000); // Tracks actual units surviving through the chain
 
-    const metricsRef = useRef({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 });
+    const metricsRef = useRef({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0, totalYieldLoss: 0 });
     const [metrics, setMetrics] = useState(metricsRef.current);
     const [metricsHistory, setMetricsHistory] = useState([]);
     const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
@@ -156,19 +157,19 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const isMountedRef = useRef(true);
 
     // --- LOGIC: SIMULATION ENGINE ---
-    const runSimulationStep = useCallback((index) => {
+    // Now accepts currentPayload to track volume changes between steps
+    const runSimulationStep = useCallback((index, currentPayload) => {
         if (index >= selectedPath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
-            setSimulationLog(prev => [...prev, { text: "✅ Supply Chain Successfully Completed!", type: "success", id: Date.now() + Math.random() }]);
+            setSimulationLog(prev => [...prev, { text: `✅ Supply Chain Completed. Delivered: ${currentPayload.toLocaleString()} units.`, type: "success", id: Date.now() + Math.random() }]);
             return;
         }
 
-        // Traverse in reverse order (right to left on breadcrumbs)
-        const reverseIndex = selectedPath.length - 1 - index;
-        const item = selectedPath[reverseIndex];
+        const item = selectedPath[index];
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
+        setLivePayload(currentPayload); // Update UI to show current units
 
         let distance = 0;
         let legCost = 0;
@@ -177,56 +178,87 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         let disruptionType = null;
         let penaltyCost = 0;
         let penaltyTime = 0;
+        let stepPayload = currentPayload;
+        let yieldLossCost = 0;
 
-        // ** LOGIC UPDATE: Scale factors based on GPU count **
-        // Assuming mock data baseline is for 1,000 units
-        const volumeScalingFactor = Math.max(1, gpuCount / 1000);
+        // ** LOGIC: Volume Scaling **
+        // Calculate costs based on the ACTUAL payload moving to this step, not the original order
+        const volumeScalingFactor = Math.max(1, currentPayload / 1000);
+
+        // --- SPECIAL LOGIC: WAFER YIELD AT FAB ---
+        if (item.type === 'FAB') {
+            // Random yield efficiency between 65% and 85% for high-end nodes
+            const baseYield = 0.75; 
+            const variance = (Math.random() * 0.2) - 0.1; // +/- 10%
+            const actualYield = Math.max(0.1, Math.min(0.99, baseYield + variance));
+            
+            const primeUnits = Math.floor(currentPayload * actualYield);
+            const binnedUnits = currentPayload - primeUnits;
+            
+            // We lose the value of the binned units (simplified cost model: $500 per lost chip die)
+            yieldLossCost = binnedUnits * 500;
+            
+            // Update payload for the rest of the journey
+            stepPayload = primeUnits;
+            
+            setTimeout(() => {
+                setSimulationLog(prev => [...prev, { 
+                    step: index, 
+                    text: `📉 Yield Report: ${(actualYield * 100).toFixed(1)}% efficiency. ${binnedUnits.toLocaleString()} units binned/defective.`, 
+                    type: "warning", 
+                    id: Date.now() 
+                }]);
+            }, 500);
+        }
 
         if (index > 0) {
-            const prevItem = selectedPath[selectedPath.length - index];
+            const prevItem = selectedPath[index - 1];
             const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
             
-            distance = prevPos.distanceTo(currPos) * 5000; // rough km conversion
+            distance = prevPos.distanceTo(currPos) * 5000;
             const shipping = item.shipping || {};
             
-            // Calculate Base Logistics Cost scaled by volume
+            // Logistics Cost & Carbon scale with the CURRENT payload
             legCost = parseCost(shipping.cost) * volumeScalingFactor;
-            
             legTime = parseTimeDays(shipping.time);
-            
             const methodFactor = METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
-            // Carbon scales linearly with weight/volume
             legCarbon = (distance * methodFactor) * volumeScalingFactor;
 
-            const failureChance = item.risk * 0.05; 
+            // ** LOGIC: Risk Probability Scaling **
+            const volumeRiskPenalty = Math.max(0, (currentPayload - 1000) / 5000) * 0.5;
+            const effectiveRisk = Math.min(18, item.risk + volumeRiskPenalty);
+            const failureChance = effectiveRisk * 0.05; 
+            
             const roll = Math.random();
 
             if (roll < failureChance) {
                 const severity = Math.random();
-                if (severity > 0.85) {
+                const criticalThreshold = 0.85 - (volumeRiskPenalty * 0.02); 
+
+                if (severity > criticalThreshold) {
                     disruptionType = 'CRITICAL';
                 } else if (severity > 0.5) {
                     disruptionType = 'LOSS';
-                    // Disruption cost also scales with volume (more goods lost)
                     penaltyCost = legCost * 0.6;
-                    penaltyTime = 2;
+                    penaltyTime = 2 + (volumeRiskPenalty * 0.2); 
                 } else {
                     disruptionType = 'DELAY';
-                    penaltyTime = Math.ceil(Math.random() * 4) + 1;
+                    penaltyTime = Math.ceil(Math.random() * 4) + 1 + Math.floor(volumeRiskPenalty * 0.5);
                 }
             }
         }
 
         const prev = metricsRef.current;
-        const appliedCost = disruptionType !== 'CRITICAL' ? (legCost + penaltyCost) : legCost;
+        const appliedCost = disruptionType !== 'CRITICAL' ? (legCost + penaltyCost + yieldLossCost) : legCost;
         const appliedTime = disruptionType !== 'CRITICAL' ? (legTime + penaltyTime) : legTime;
 
         const newMetrics = {
             totalCost: prev.totalCost + appliedCost,
             totalTime: prev.totalTime + appliedTime,
             totalDistance: prev.totalDistance + distance,
-            totalCarbon: prev.totalCarbon + legCarbon
+            totalCarbon: prev.totalCarbon + legCarbon,
+            totalYieldLoss: prev.totalYieldLoss + (item.type === 'FAB' ? (currentPayload - stepPayload) : 0)
         };
 
         metricsRef.current = newMetrics;
@@ -252,8 +284,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 setNodeStatuses(prev => {
                     const newStatuses = { ...prev, [item.id]: 'error' };
                     for (let i = index + 1; i < selectedPath.length; i++) {
-                        const blockIndex = selectedPath.length - 1 - i;
-                        newStatuses[selectedPath[blockIndex].id] = 'blocked';
+                        newStatuses[selectedPath[i].id] = 'blocked';
                     }
                     return newStatuses;
                 });
@@ -272,42 +303,47 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
                 setSimulationLog(prev => [...prev, { 
                     step: index, 
-                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits: 0})})`, 
+                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0})})`, 
                     type: "warning", 
                     id: Date.now() 
                 }]);
-                setTimeout(() => runSimulationStep(index + 1), 2500);
+                // On LOSS, we might reset payload or delay. Here we just delay.
+                setTimeout(() => runSimulationStep(index + 1, stepPayload), 2500);
             } else if (disruptionType === 'DELAY') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
                 setSimulationLog(prev => [...prev, { 
                     step: index, 
-                    text: `⏱️ Delay at ${item.name} (+${penaltyTime}d).`, 
+                    text: `⏱️ Capacity Delay at ${item.name} (+${penaltyTime.toFixed(1)}d).`, 
                     type: "warning", 
                     id: Date.now() 
                 }]);
-                setTimeout(() => runSimulationStep(index + 1), 2000);
+                setTimeout(() => runSimulationStep(index + 1, stepPayload), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
-                setSimulationLog(prev => [...prev, { 
-                    step: index, 
-                    text: `✅ ${item.name}: Operations stable.`, 
-                    type: "success", 
-                    id: Date.now() 
-                }]);
-                setTimeout(() => runSimulationStep(index + 1), 1500);
+                if(item.type !== 'FAB') {
+                     setSimulationLog(prev => [...prev, { 
+                        step: index, 
+                        text: `✅ ${item.name}: Operations stable.`, 
+                        type: "success", 
+                        id: Date.now() 
+                    }]);
+                }
+                // Pass the (possibly reduced) payload to the next step
+                setTimeout(() => runSimulationStep(index + 1, stepPayload), 1500);
             }
         }, 1000);
 
-    }, [selectedPath, gpuCount]); // Added gpuCount dependency
+    }, [selectedPath]); // gpuCount removed from dependency as it is passed as argument
 
     const startSimulation = useCallback(() => {
         if (isSimulating && simulationStatus === 'running') return;
         setIsSimulating(true);
         setSimulationStatus('running');
+        setLivePayload(gpuCount);
         setSimulationLog([{ text: `🚀 Initiating Supply Chain Simulation for ${gpuCount.toLocaleString()} units...`, type: "neutral", id: Date.now() }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
-        metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0 };
+        metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0, totalYieldLoss: 0 };
         setMetrics(metricsRef.current);
         setMetricsHistory([]);
         
@@ -316,7 +352,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         animatingObjectsRef.current = [];
         
         setIsMetricsExpanded(false);
-        setTimeout(() => { runSimulationStep(0); }, 1000);
+        // Pass initial gpuCount as the first payload
+        setTimeout(() => { runSimulationStep(0, gpuCount); }, 1000);
     }, [isSimulating, simulationStatus, runSimulationStep, gpuCount]);
 
     // --- THREE.JS SETUP ---
@@ -437,12 +474,10 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setSceneReady(true);
 
         return () => {
-            isMountedRef.current = false;
             if (rendererRef.current?.domElement && mountRef.current?.contains(rendererRef.current.domElement)) {
                 mountRef.current.removeChild(rendererRef.current.domElement);
             }
             if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
-            window.removeEventListener('resize', handleResize);
         };
     }, []);
 
@@ -470,14 +505,12 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             return 0x334155; 
         };
 
-        selectedPath.forEach((item, breadcrumbIndex) => {
-            // Convert breadcrumb index to simulation step index
-            const simulationIndex = selectedPath.length - 1 - breadcrumbIndex;
-            const isVisible = simulationIndex <= currentStepIndex + 1 || currentStepIndex === -1; 
+        selectedPath.forEach((item, index) => {
+            const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
             if (!isVisible) return; 
 
             // --- MARKERS ---
-            const markerId = `marker-${breadcrumbIndex}`;
+            const markerId = `marker-${index}`;
             const status = nodeStatuses[item.id] || 'pending';
             
             if (!drawnMarkersRef.current.has(markerId) && item.locations && item.locations[0]) {
@@ -510,11 +543,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             }
 
             // --- LINES (ARCS) ---
-            if (breadcrumbIndex > 0 && simulationIndex <= currentStepIndex + 1) {
-                const legId = `line-${breadcrumbIndex}`;
+            if (index > 0 && index <= currentStepIndex + 1) {
+                const legId = `line-${index}`;
                 
                 if (!drawnLinesRef.current.has(legId)) {
-                    const prevItem = selectedPath[breadcrumbIndex - 1];
+                    const prevItem = selectedPath[index - 1];
                     const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.32);
                     const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
                     
@@ -522,10 +555,10 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     let lineOpacity = 0.2;
                     let animateThisLine = false;
 
-                    if (simulationIndex === currentStepIndex + 1) {
+                    if (index === currentStepIndex + 1) {
                         lineColor = 0x64748b; 
                         lineOpacity = 0.5;
-                    } else if (simulationIndex === currentStepIndex) {
+                    } else if (index === currentStepIndex) {
                         lineColor = 0x3b82f6; 
                         lineOpacity = 1.0;
                         animateThisLine = true; 
@@ -547,17 +580,21 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     const existingArc = arcGroup.children.find(child => child.userData.id === legId);
                     if (existingArc) {
                         let targetColor = 0x334155;
-                        if (simulationIndex < currentStepIndex) targetColor = 0x22c55e; 
-                        else if (simulationIndex === currentStepIndex) targetColor = 0x3b82f6; 
+                        if (index < currentStepIndex) targetColor = 0x22c55e; 
+                        else if (index === currentStepIndex) targetColor = 0x3b82f6; 
                         
                         existingArc.material.color.setHex(targetColor);
-                        existingArc.material.opacity = (simulationIndex === currentStepIndex) ? 1.0 : 0.6;
+                        existingArc.material.opacity = (index === currentStepIndex) ? 1.0 : 0.6;
                     }
                 }
             }
         });
 
     }, [selectedPath, nodeStatuses, currentStepIndex, sceneReady]);
+
+    // -- UI HELPERS --
+    const currentRiskLevel = gpuCount < 10000 ? "Low" : gpuCount < 50000 ? "Medium" : "High";
+    const riskColor = currentRiskLevel === "Low" ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/10" : currentRiskLevel === "Medium" ? "text-yellow-400 border-yellow-500/50 bg-yellow-500/10" : "text-red-400 border-red-500/50 bg-red-500/10";
 
     return (
         <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
@@ -574,12 +611,28 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-80">
                     <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
                     
-                    {/* ** NEW UI: GPU Volume Slider ** */}
+                    {/* GPU Volume Slider */}
                     <div className="mb-6 bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                        <label className="flex justify-between items-center text-gray-400 text-xs uppercase font-bold mb-2">
-                            <span>Order Volume</span>
-                            <span className="text-blue-400 font-mono text-sm">{gpuCount.toLocaleString()} GPUs</span>
-                        </label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-gray-400 text-xs uppercase font-bold">
+                                Order Volume
+                            </label>
+                            <span className={`text-[10px] font-bold border px-2 py-0.5 rounded ${riskColor}`}>
+                                {currentRiskLevel} Risk
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-end mb-2">
+                             <div className="flex flex-col">
+                                 <span className="text-blue-400 font-mono text-xl font-bold">{gpuCount.toLocaleString()}</span>
+                                 <span className="text-gray-500 text-[10px]">ordered</span>
+                             </div>
+                             {isSimulating && (
+                                <div className="flex flex-col items-end animate-pulse">
+                                    <span className="text-emerald-400 font-mono text-xl font-bold">{livePayload.toLocaleString()}</span>
+                                    <span className="text-emerald-500/60 text-[10px]">live quantity</span>
+                                </div>
+                             )}
+                        </div>
                         <input
                             type="range"
                             min="1000"
@@ -590,18 +643,18 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                             onChange={(e) => setGpuCount(Number(e.target.value))}
                             className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isSimulating ? 'bg-slate-700' : 'bg-slate-600 accent-blue-500 hover:accent-blue-400'}`}
                         />
-                        <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+                         <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
                             <span>1k</span>
                             <span>100k</span>
                         </div>
                     </div>
 
-                    <p className="text-gray-400 text-sm mb-4">Simulating probability of failure at each node based on risk thresholds.</p>
+                    <p className="text-gray-400 text-sm mb-4">Simulating yield rates, binning, and volumetric risk.</p>
                     <button onClick={startSimulation} disabled={isSimulating && simulationStatus === 'running'} className={`w-full py-3 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${isSimulating && simulationStatus === 'running' ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600' : simulationStatus === 'failed' ? 'bg-red-600 hover:bg-red-500 text-white border border-red-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:scale-[1.02]'}`}>
                         {simulationStatus === 'running' ? <><span className="animate-spin">⚙️</span> Running...</> : simulationStatus === 'failed' ? <>↻ Retry Simulation</> : <>▶️ Run Simulation</>}
                     </button>
                 </div>
-                <div className="bg-slate-900/90 backdrop-blur border border-slate-700 p-0 rounded-xl shadow-2xl w-80 max-h-96 overflow-hidden flex flex-col">
+                <div className="bg-slate-900/90 backdrop-blur border border-slate-700 p-0 rounded-xl shadow-2xl w-80 max-h-80 overflow-hidden flex flex-col">
                     <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">Live Status</div>
                     <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-[100px]">
                         {simulationLog.length === 0 ? <div className="text-gray-500 text-sm italic">No events yet...</div> : simulationLog.map((log) => (
@@ -617,7 +670,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
 
             {/* UI - Bottom Path Steps */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[90%] pointer-events-auto">
-                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-4 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
+                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
                     {selectedPath.map((item, index) => {
                          const status = nodeStatuses[item.id] || 'pending';
                          let borderClass = 'border-slate-600';
@@ -652,16 +705,16 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                         {!isMetricsExpanded ? (
                             <div className="space-y-2.5">
                                 <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>💰</span> Total Cost</span><span className="text-emerald-400 font-bold text-sm">${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>📉</span> Yield Loss</span><span className="text-red-400 font-bold text-sm">{metrics.totalYieldLoss.toLocaleString()} units</span></div>
                                 <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>⏱️</span> Total Time</span><span className="text-blue-400 font-bold text-sm">{metrics.totalTime.toFixed(1)} days</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌍</span> Distance</span><span className="text-purple-400 font-bold text-sm">{metrics.totalDistance.toLocaleString('en-US', { maximumFractionDigits: 0 })} km</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg CO₂</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg</span></div>
                             </div>
                         ) : (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-4 gap-3">
                                     <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">💰 Cost</div><div className="text-emerald-400 font-bold text-lg">${(metrics.totalCost / 1000).toFixed(1)}k</div></div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">📉 Yield Loss</div><div className="text-red-400 font-bold text-lg">{metrics.totalYieldLoss.toLocaleString()}</div></div>
                                     <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">⏱️ Time</div><div className="text-blue-400 font-bold text-lg">{metrics.totalTime.toFixed(1)}d</div></div>
-                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">🌍 Distance</div><div className="text-purple-400 font-bold text-lg">{(metrics.totalDistance / 1000).toFixed(1)}k km</div></div>
                                     <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="text-gray-400 text-xs mb-1">🌱 Carbon</div><div className="text-orange-400 font-bold text-lg">{(metrics.totalCarbon / 1000).toFixed(1)}t</div></div>
                                 </div>
 
