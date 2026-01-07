@@ -164,7 +164,9 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             return;
         }
 
-        const item = selectedPath[index];
+        // Traverse in reverse order (right to left on breadcrumbs)
+        const reverseIndex = selectedPath.length - 1 - index;
+        const item = selectedPath[reverseIndex];
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
 
@@ -181,7 +183,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         const volumeScalingFactor = Math.max(1, gpuCount / 1000);
 
         if (index > 0) {
-            const prevItem = selectedPath[index - 1];
+            const prevItem = selectedPath[selectedPath.length - index];
             const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
             
@@ -250,7 +252,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                 setNodeStatuses(prev => {
                     const newStatuses = { ...prev, [item.id]: 'error' };
                     for (let i = index + 1; i < selectedPath.length; i++) {
-                        newStatuses[selectedPath[i].id] = 'blocked';
+                        const blockIndex = selectedPath.length - 1 - i;
+                        newStatuses[selectedPath[blockIndex].id] = 'blocked';
                     }
                     return newStatuses;
                 });
@@ -434,10 +437,12 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         setSceneReady(true);
 
         return () => {
+            isMountedRef.current = false;
             if (rendererRef.current?.domElement && mountRef.current?.contains(rendererRef.current.domElement)) {
                 mountRef.current.removeChild(rendererRef.current.domElement);
             }
             if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
+            window.removeEventListener('resize', handleResize);
         };
     }, []);
 
@@ -465,12 +470,14 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             return 0x334155; 
         };
 
-        selectedPath.forEach((item, index) => {
-            const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
+        selectedPath.forEach((item, breadcrumbIndex) => {
+            // Convert breadcrumb index to simulation step index
+            const simulationIndex = selectedPath.length - 1 - breadcrumbIndex;
+            const isVisible = simulationIndex <= currentStepIndex + 1 || currentStepIndex === -1; 
             if (!isVisible) return; 
 
             // --- MARKERS ---
-            const markerId = `marker-${index}`;
+            const markerId = `marker-${breadcrumbIndex}`;
             const status = nodeStatuses[item.id] || 'pending';
             
             if (!drawnMarkersRef.current.has(markerId) && item.locations && item.locations[0]) {
@@ -503,11 +510,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             }
 
             // --- LINES (ARCS) ---
-            if (index > 0 && index <= currentStepIndex + 1) {
-                const legId = `line-${index}`;
+            if (breadcrumbIndex > 0 && simulationIndex <= currentStepIndex + 1) {
+                const legId = `line-${breadcrumbIndex}`;
                 
                 if (!drawnLinesRef.current.has(legId)) {
-                    const prevItem = selectedPath[index - 1];
+                    const prevItem = selectedPath[breadcrumbIndex - 1];
                     const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.32);
                     const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
                     
@@ -518,7 +525,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     if (index === currentStepIndex + 1) {
                         lineColor = 0x64748b; 
                         lineOpacity = 0.5;
-                    } else if (index === currentStepIndex) {
+                    } else if (simulationIndex === currentStepIndex) {
                         lineColor = 0x3b82f6; 
                         lineOpacity = 1.0;
                         animateThisLine = true; 
@@ -540,11 +547,11 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     const existingArc = arcGroup.children.find(child => child.userData.id === legId);
                     if (existingArc) {
                         let targetColor = 0x334155;
-                        if (index < currentStepIndex) targetColor = 0x22c55e; 
-                        else if (index === currentStepIndex) targetColor = 0x3b82f6; 
+                        if (simulationIndex < currentStepIndex) targetColor = 0x22c55e; 
+                        else if (simulationIndex === currentStepIndex) targetColor = 0x3b82f6; 
                         
                         existingArc.material.color.setHex(targetColor);
-                        existingArc.material.opacity = (index === currentStepIndex) ? 1.0 : 0.6;
+                        existingArc.material.opacity = (simulationIndex === currentStepIndex) ? 1.0 : 0.6;
                     }
                 }
             }
