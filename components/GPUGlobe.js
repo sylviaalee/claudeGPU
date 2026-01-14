@@ -148,10 +148,14 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
 
   // Auto-select function
   const handleAutoSelect = (strategy = 'first') => {
-    const selections = {};
+    // Start with existing selections
+    const selections = { ...vendorSelections };
     
     levelInfo.stages.forEach(stage => {
       stage.components.forEach(component => {
+        // Skip if already selected
+        if (selections[component.id]) return;
+        
         const vendors = supplyChainData[component.id] || [];
         if (vendors.length === 0) return;
         
@@ -173,6 +177,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
     });
     
     setIsDropdownOpen(false);
+    setVendorSelections(selections);
     onSimulate(selections);
   };
 
