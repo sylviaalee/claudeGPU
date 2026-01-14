@@ -2,16 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-// Assuming supplyChainData is an external data structure
-import { supplyChainData } from '../data/supplyChainData'; 
+import { supplyChainData } from '../data/supplyChainData';
 
 // *** UTILITY: Animated Arc Line Generator ***
 const createArcLine = (startVector, endVector, color, opacity = 0.8) => {
     const distance = startVector.distanceTo(endVector);
     
-    // 1. Calculate Apex
-    let midVector = startVector.clone().add(endVector);
-    // Handle antipodal points (opposite sides of globe)
+    const midVector = startVector.clone().add(endVector);
     if (midVector.lengthSq() < 0.01) {
         const axis = new THREE.Vector3(0, 1, 0); 
         if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
@@ -23,37 +20,24 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8) => {
     const arcHeight = 1.3 + (distance * 0.5); 
     const midPoint = midVector.normalize().multiplyScalar(arcHeight);
 
-    // 2. Create the Curve
-    const curve = new THREE.QuadraticBezierCurve3(
-        startVector,
-        midPoint,
-        endVector
-    );
-
-    // 3. TubeGeometry for better visual quality
+    const curve = new THREE.QuadraticBezierCurve3(startVector, midPoint, endVector);
     const tubularSegments = 64; 
     const radialSegments = 8;
     const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
-
-    const material = new THREE.MeshBasicMaterial({ 
-        color: color, 
-        transparent: true, 
-        opacity: opacity 
-    });
+    const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
 
     return new THREE.Mesh(geometry, material);
 };
 
-const GPUGlobe = ({ onSimulate }) => {
+const GPUGlobe = ({ levelInfo, onSimulate }) => {
   const mountRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [breadcrumb, setBreadcrumb] = useState([]); 
-  // New state for dropdown
+  const [vendorSelections, setVendorSelections] = useState({});
+  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  const [currentComponentIndex, setCurrentComponentIndex] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
-  const data = supplyChainData;
-
-  // Refs
+  // Refs for Three.js
   const labelElementsRef = useRef([]);
   const lineElementsRef = useRef([]);
   const sceneRef = useRef(null);
@@ -61,46 +45,74 @@ const GPUGlobe = ({ onSimulate }) => {
   const rendererRef = useRef(null);
   const globeRef = useRef(null);
   const markersGroupRef = useRef(null);
-  const breadcrumbGroupRef = useRef(null);
+  const trailGroupRef = useRef(null);
   const markersDataRef = useRef([]);
   const isDraggingRef = useRef(false);
   const previousMouseRef = useRef({ x: 0, y: 0 });
   const frameIdRef = useRef(null);
 
-  // --- DATA PROCESSING ---
-  const getCurrentItems = () => {
-    const isValid = (item) => item && item.locations && item.locations[0] && typeof item.locations[0].lat === 'number';
-    if (!data) return [];
-
-    let items = [];
-    if (breadcrumb.length === 0) {
-      items = (data.gpus || []).filter(isValid).map(item => ({ ...item, category: 'gpus', isRoot: true }));
-    } else {
-      const lastSelection = breadcrumb[breadcrumb.length - 1];
-      const nextIds = lastSelection.next || [];
-      const categories = Object.keys(data).filter(k => k !== 'gpus'); 
-      for (const category of categories) {
-        const categoryItems = data[category] || [];
-        const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
-        items = items.concat(matchingItems.filter(isValid).map(item => ({ ...item, category: category })));
-      }
-    }
-
-    return items.map((item, index) => {
-        const jitterX = (item.name.charCodeAt(0) % 10 - 5) * 0.05; 
-        const jitterY = (item.name.charCodeAt(1) % 10 - 5) * 0.05;
-        
-        return {
-            ...item,
-            lat: item.locations[0].lat + jitterY,
-            lon: item.locations[0].lng + jitterX,
-            location: item.locations[0].name,
-            emoji: item.image,
-        }
-    });
+  // Get current component we're selecting for
+  const getCurrentComponent = () => {
+    if (!levelInfo || !levelInfo.stages) return null;
+    const stage = levelInfo.stages[currentStageIndex];
+    if (!stage) return null;
+    return stage.components[currentComponentIndex];
   };
 
-  const currentItems = getCurrentItems();
+  // Get vendors for current component
+  const getCurrentVendors = () => {
+    const component = getCurrentComponent();
+    if (!component) return [];
+    
+    const vendors = supplyChainData[component.id] || [];
+    return vendors.map(vendor => ({
+      ...vendor,
+      componentId: component.id,
+      componentName: component.name
+    }));
+  };
+
+  const currentVendors = getCurrentVendors();
+  const currentComponent = getCurrentComponent();
+
+  // Location mapping for vendors (you'll need to add coordinates to your data)
+  const getVendorLocation = (vendor) => {
+    // Extract location from vendor name - you may need to enhance this
+    const locationMap = {
+      'Spruce Pine, NC': { lat: 35.9154, lng: -82.0646 },
+      'Tokyo, Japan': { lat: 35.6762, lng: 139.6503 },
+      'Kawasaki, Japan': { lat: 35.5308, lng: 139.7029 },
+      'Marlborough, MA': { lat: 42.3459, lng: -71.5523 },
+      'Kyoto, Japan': { lat: 35.0116, lng: 135.7681 },
+      'Osaka, Japan': { lat: 34.6937, lng: 135.5023 },
+      'Chandler, AZ': { lat: 33.3062, lng: -111.8413 },
+      'Pittsburgh, PA': { lat: 40.4406, lng: -79.9959 },
+      'Phoenix, AZ': { lat: 33.4484, lng: -112.0740 },
+      'Multiple Global': { lat: 51.5074, lng: -0.1278 },
+      'Vancouver, WA': { lat: 45.6387, lng: -122.6615 },
+      'Imari, Japan': { lat: 33.2642, lng: 129.8786 },
+      'Sherman, TX': { lat: 33.6357, lng: -96.6089 },
+      'Gumi, South Korea': { lat: 36.1136, lng: 128.3445 },
+      'Seoul, South Korea': { lat: 37.5665, lng: 126.9780 },
+      'Pyeongtaek, South Korea': { lat: 36.9922, lng: 127.1128 },
+      'Icheon, South Korea': { lat: 37.2720, lng: 127.4425 },
+      'Boise, ID': { lat: 43.6150, lng: -116.2023 },
+      'Hsinchu, Taiwan': { lat: 24.8138, lng: 120.9675 },
+      'Hwaseong, South Korea': { lat: 37.2071, lng: 126.8167 },
+      'Ogaki, Japan': { lat: 35.3609, lng: 136.6176 },
+      'Chennai, India': { lat: 13.0827, lng: 80.2707 },
+      'Taichung, Taiwan': { lat: 24.1477, lng: 120.6736 },
+      'Taipei, Taiwan': { lat: 25.0330, lng: 121.5654 },
+      'Taoyuan, Taiwan': { lat: 24.9936, lng: 121.3010 },
+      'Santa Ana, CA': { lat: 33.7455, lng: -117.8677 },
+      'Laconia, NH': { lat: 43.5279, lng: -71.4703 },
+      'Vienna, Austria': { lat: 48.2082, lng: 16.3738 },
+      'Shenzhen, China': { lat: 22.5431, lng: 114.0579 },
+      'Austin, TX': { lat: 30.2672, lng: -97.7431 }
+    };
+    
+    return locationMap[vendor.location] || { lat: 0, lng: 0 };
+  };
 
   const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -111,132 +123,82 @@ const GPUGlobe = ({ onSimulate }) => {
     return new THREE.Vector3(x, y, z);
   };
 
-  const getRiskLabel = (risk) => {
-    if (risk >= 8) return 'High';
-    if (risk >= 6) return 'Medium-High';
-    if (risk >= 4) return 'Medium';
-    return 'Low';
-  };
+  // Handle vendor selection
+  const handleSelectVendor = (vendor) => {
+    const newSelections = {
+      ...vendorSelections,
+      [currentComponent.id]: vendor
+    };
+    setVendorSelections(newSelections);
+    setSelectedItem(null);
 
-  // --- NAVIGATION ACTIONS ---
-  const handleDrillDown = (item) => {
-    if (item && item.next && item.next.length > 0) {
-      setBreadcrumb([...breadcrumb, item]);
-      setSelectedItem(null);
+    // Move to next component
+    const stage = levelInfo.stages[currentStageIndex];
+    if (currentComponentIndex < stage.components.length - 1) {
+      setCurrentComponentIndex(currentComponentIndex + 1);
+    } else if (currentStageIndex < levelInfo.stages.length - 1) {
+      setCurrentStageIndex(currentStageIndex + 1);
+      setCurrentComponentIndex(0);
+    } else {
+      // All components selected, ready to simulate
+      onSimulate(newSelections);
     }
   };
 
-  const handleGoBack = () => {
-    if (breadcrumb.length > 0) {
-      setBreadcrumb(breadcrumb.slice(0, -1));
-      setSelectedItem(null);
-    }
-  };
-  
-  const handleNavigateTo = (index) => {
-    if (index < breadcrumb.length) {
-      setBreadcrumb(breadcrumb.slice(0, index + 1));
-      setSelectedItem(null);
-    } else if (index === -1) {
-      handleReset();
-    }
+  // Auto-select function
+  const handleAutoSelect = (strategy = 'first') => {
+    const selections = {};
+    
+    levelInfo.stages.forEach(stage => {
+      stage.components.forEach(component => {
+        const vendors = supplyChainData[component.id] || [];
+        if (vendors.length === 0) return;
+        
+        let selectedVendor;
+        if (strategy === 'first') {
+          selectedVendor = vendors[0];
+        } else if (strategy === 'cost') {
+          selectedVendor = vendors.reduce((min, v) => v.cost < min.cost ? v : min);
+        } else if (strategy === 'time') {
+          selectedVendor = vendors.reduce((min, v) => v.leadTime < min.leadTime ? v : min);
+        } else if (strategy === 'risk') {
+          selectedVendor = vendors.reduce((min, v) => v.risk < min.risk ? v : min);
+        } else if (strategy === 'random') {
+          selectedVendor = vendors[Math.floor(Math.random() * vendors.length)];
+        }
+        
+        selections[component.id] = selectedVendor;
+      });
+    });
+    
+    setIsDropdownOpen(false);
+    onSimulate(selections);
   };
 
+  // Reset to beginning
   const handleReset = () => {
-    setBreadcrumb([]);
+    setVendorSelections({});
+    setCurrentStageIndex(0);
+    setCurrentComponentIndex(0);
     setSelectedItem(null);
   };
 
-  // Auto-select path with different strategies
-  const handleAutoSelect = (strategy = 'first') => {
-    const path = [...breadcrumb]; // Start with existing breadcrumb selections
-    
-    // If breadcrumb is empty, start from GPUs
-    if (path.length === 0) {
-      let currentLevel = data.gpus || [];
-      if (currentLevel.length === 0) return;
-      
-      let currentItem;
-      if (strategy === 'first') {
-        currentItem = currentLevel[0];
-      } else if (strategy === 'cost') {
-        currentItem = currentLevel.reduce((min, item) => {
-          const minCost = parseFloat(min.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
-          const itemCost = parseFloat(item.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
-          return itemCost < minCost ? item : min;
-        });
-      } else if (strategy === 'time') {
-        currentItem = currentLevel.reduce((min, item) => {
-          const minTime = parseFloat(min.shipping?.time?.match(/\d+/)?.[0] || Infinity);
-          const itemTime = parseFloat(item.shipping?.time?.match(/\d+/)?.[0] || Infinity);
-          return itemTime < minTime ? item : min;
-        });
-      } else if (strategy === 'risk') {
-        currentItem = currentLevel.reduce((min, item) => 
-          (item.risk < min.risk) ? item : min
-        );
-      } else if (strategy === 'random') {
-        currentItem = currentLevel[Math.floor(Math.random() * currentLevel.length)];
-      }
-      
-      path.push({ ...currentItem, emoji: currentItem.image });
+  // Go back one component
+  const handleGoBack = () => {
+    if (currentComponentIndex > 0) {
+      setCurrentComponentIndex(currentComponentIndex - 1);
+    } else if (currentStageIndex > 0) {
+      setCurrentStageIndex(currentStageIndex - 1);
+      const prevStage = levelInfo.stages[currentStageIndex - 1];
+      setCurrentComponentIndex(prevStage.components.length - 1);
     }
-    
-    // Continue from the last item in breadcrumb (or the newly selected GPU)
-    let currentItem = path[path.length - 1];
-    
-    // Keep drilling down until no more next items
-    while (currentItem && currentItem.next && currentItem.next.length > 0) {
-      const nextIds = currentItem.next;
-      const categories = Object.keys(data).filter(k => k !== 'gpus');
-      
-      // Find all matching items in any category
-      let candidates = [];
-      for (const category of categories) {
-        const categoryItems = data[category] || [];
-        const matchingItems = categoryItems.filter(item => nextIds.includes(item.id));
-        candidates = candidates.concat(matchingItems);
-      }
-      
-      if (candidates.length === 0) break;
-      
-      // Select based on strategy
-      let selectedItem;
-      if (strategy === 'first') {
-        selectedItem = candidates[0];
-      } else if (strategy === 'cost') {
-        selectedItem = candidates.reduce((min, item) => {
-          const minCost = parseFloat(min.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
-          const itemCost = parseFloat(item.shipping?.cost?.replace(/[^0-9.]/g, '') || Infinity);
-          return itemCost < minCost ? item : min;
-        });
-      } else if (strategy === 'time') {
-        selectedItem = candidates.reduce((min, item) => {
-          const minTime = parseFloat(min.shipping?.time?.match(/\d+/)?.[0] || Infinity);
-          const itemTime = parseFloat(item.shipping?.time?.match(/\d+/)?.[0] || Infinity);
-          return itemTime < minTime ? item : min;
-        });
-      } else if (strategy === 'risk') {
-        selectedItem = candidates.reduce((min, item) => 
-          (item.risk < min.risk) ? item : min
-        );
-      } else if (strategy === 'random') {
-        selectedItem = candidates[Math.floor(Math.random() * candidates.length)];
-      }
-      
-      currentItem = selectedItem;
-      path.push({ ...currentItem, emoji: currentItem.image });
-    }
-    
-    // Close dropdown and simulate
-    setIsDropdownOpen(false);
-    onSimulate(path);
+    setSelectedItem(null);
   };
 
+  // Three.js setup
   useEffect(() => {
     if (!mountRef.current) return;
 
-    // --- THREE.js Initialization ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a1a);
     sceneRef.current = scene;
@@ -256,7 +218,7 @@ const GPUGlobe = ({ onSimulate }) => {
     pointLight.position.set(5, 3, 5);
     scene.add(pointLight);
 
-    // --- STARFIELD ---
+    // Starfield
     const starGeometry = new THREE.BufferGeometry();
     const starCount = 3000;
     const starVertices = [];
@@ -271,12 +233,7 @@ const GPUGlobe = ({ onSimulate }) => {
     }
     
     starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    const starMaterial = new THREE.PointsMaterial({ 
-        color: 0xffffff, 
-        size: 0.05, 
-        transparent: true, 
-        opacity: 0.6 
-    });
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.6 });
     const stars = new THREE.Points(starGeometry, starMaterial);
     scene.add(stars);
 
@@ -291,11 +248,10 @@ const GPUGlobe = ({ onSimulate }) => {
     scene.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
-    const breadcrumbGroup = new THREE.Group();
-    scene.add(breadcrumbGroup);
-    breadcrumbGroupRef.current = breadcrumbGroup;
+    const trailGroup = new THREE.Group();
+    scene.add(trailGroup);
+    trailGroupRef.current = trailGroup;
 
-    // Controls
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -307,15 +263,13 @@ const GPUGlobe = ({ onSimulate }) => {
       const deltaY = e.clientY - previousMouseRef.current.y;
       
       globe.rotation.x += deltaY * 0.005;
-      
       const upFactor = Math.cos(globe.rotation.x) > 0 ? 1 : -1;
       globe.rotation.y += deltaX * 0.005 * upFactor;
       
       markersGroup.rotation.y = globe.rotation.y;
       markersGroup.rotation.x = globe.rotation.x;
-      
-      breadcrumbGroup.rotation.y = globe.rotation.y;
-      breadcrumbGroup.rotation.x = globe.rotation.x;
+      trailGroup.rotation.y = globe.rotation.y;
+      trailGroup.rotation.x = globe.rotation.x;
       
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -326,7 +280,6 @@ const GPUGlobe = ({ onSimulate }) => {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // --- LABEL UPDATE LOGIC ---
     const updateLabels = () => {
       scene.updateMatrixWorld();
       
@@ -345,16 +298,9 @@ const GPUGlobe = ({ onSimulate }) => {
         markerData.marker.getWorldPosition(markerWorldPos);
         const meshNormal = markerWorldPos.clone().normalize();
         const vecToCamera = camera.position.clone().sub(markerWorldPos).normalize();
-        
         const facingCamera = meshNormal.dot(vecToCamera);
         
-        let alpha = 0;
-        if (facingCamera > 0.2) {
-            alpha = 1;
-        } else if (facingCamera > -0.2) {
-            alpha = (facingCamera + 0.2) / 0.4;
-        }
-        
+        let alpha = facingCamera > 0.2 ? 1 : (facingCamera > -0.2 ? (facingCamera + 0.2) / 0.4 : 0);
         const isVisible = alpha > 0.01;
 
         if (isVisible) {
@@ -369,15 +315,9 @@ const GPUGlobe = ({ onSimulate }) => {
           const idealY = -(labelScreenPos.y * heightHalf) + heightHalf;
 
           visibleLabels.push({
-            index,
-            element: labelEl,
-            lineElement: lineEl,
-            anchorX, 
-            anchorY,
-            x: idealX,
-            y: idealY,
-            z: labelScreenPos.z,
-            opacity: alpha 
+            index, element: labelEl, lineElement: lineEl,
+            anchorX, anchorY, x: idealX, y: idealY,
+            z: labelScreenPos.z, opacity: alpha 
           });
         } else {
           labelEl.style.display = 'none';
@@ -394,33 +334,28 @@ const GPUGlobe = ({ onSimulate }) => {
         const current = visibleLabels[i];
         for(let j = i + 1; j < visibleLabels.length; j++) {
             const next = visibleLabels[j];
-            if (Math.abs(current.x - next.x) < BOX_WIDTH) {
-                if (next.y < current.y + BOX_HEIGHT) {
-                    next.y = current.y + BOX_HEIGHT + 5; 
-                }
+            if (Math.abs(current.x - next.x) < BOX_WIDTH && next.y < current.y + BOX_HEIGHT) {
+                next.y = current.y + BOX_HEIGHT + 5; 
             }
         }
       }
 
       visibleLabels.forEach(l => {
-        const labelStyle = l.element.style;
-        const lineStyle = l.lineElement.style;
-
-        labelStyle.display = 'block';
-        labelStyle.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
-        labelStyle.zIndex = Math.floor((1 - l.z) * 1000);
-        labelStyle.opacity = l.opacity;
+        l.element.style.display = 'block';
+        l.element.style.transform = `translate(-50%, -50%) translate(${l.x}px, ${l.y}px)`;
+        l.element.style.zIndex = Math.floor((1 - l.z) * 1000);
+        l.element.style.opacity = l.opacity;
         
-        lineStyle.display = 'block';
-        lineStyle.opacity = l.opacity * 0.6; 
+        l.lineElement.style.display = 'block';
+        l.lineElement.style.opacity = l.opacity * 0.6; 
 
         const dx = l.x - l.anchorX;
         const dy = l.y - l.anchorY;
         const length = Math.sqrt(dx*dx + dy*dy);
         const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-        lineStyle.width = `${length}px`;
-        lineStyle.transform = `translate(${l.anchorX}px, ${l.anchorY}px) rotate(${angle}deg)`;
+        l.lineElement.style.width = `${length}px`;
+        l.lineElement.style.transform = `translate(${l.anchorX}px, ${l.anchorY}px) rotate(${angle}deg)`;
       });
     };
 
@@ -430,9 +365,8 @@ const GPUGlobe = ({ onSimulate }) => {
       if (autoRotate && !isDraggingRef.current) {
         globe.rotation.y += 0.001;
         markersGroup.rotation.y = globe.rotation.y;
-        
         stars.rotation.y += 0.0002;
-        breadcrumbGroup.rotation.y = globe.rotation.y;
+        trailGroup.rotation.y = globe.rotation.y;
       }
       renderer.render(scene, camera);
       updateLabels();
@@ -462,7 +396,7 @@ const GPUGlobe = ({ onSimulate }) => {
     };
   }, []);
 
-  // Update CURRENT Markers
+  // Update markers for current vendors
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
@@ -476,326 +410,264 @@ const GPUGlobe = ({ onSimulate }) => {
         return 0x44ff44;
     };
 
-    currentItems.forEach((item) => {
-      if(typeof item.lat !== 'number' || typeof item.lon !== 'number') return;
-
-      const position = latLonToVector3(item.lat, item.lon, 1.3);
-      const color = getRiskColor(item.risk);
+    currentVendors.forEach((vendor) => {
+      const loc = getVendorLocation(vendor);
+      const position = latLonToVector3(loc.lat, loc.lng, 1.3);
+      const color = getRiskColor(vendor.risk);
       
       const markerGeometry = new THREE.SphereGeometry(0.04, 16, 16);
-      const markerMaterial = new THREE.MeshBasicMaterial({ color: color, emissive: color, emissiveIntensity: 0.5 });
+      const markerMaterial = new THREE.MeshBasicMaterial({ color, emissive: color, emissiveIntensity: 0.5 });
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       marker.position.copy(position);
       
       const lineEnd = position.clone().normalize().multiplyScalar(2.2);
-      
       markersGroup.add(marker);
       
-      markersDataRef.current.push({ item, marker, position: position.clone(), labelPosition: lineEnd });
+      markersDataRef.current.push({ 
+        item: vendor, 
+        marker, 
+        position: position.clone(), 
+        labelPosition: lineEnd 
+      });
     });
-  }, [currentItems]);
-  
-  // Update Breadcrumb Trail
-  useEffect(() => {
-    if (!breadcrumbGroupRef.current) return;
-    const breadcrumbGroup = breadcrumbGroupRef.current;
-    
-    while (breadcrumbGroup.children.length > 0) breadcrumbGroup.remove(breadcrumbGroup.children[0]);
-    
-    const trailColor = new THREE.Color(0x3366ff); 
-    const trailMarkerColor = new THREE.Color(0x77aaff); 
-    const radius = 1.3;
-    
-    breadcrumb.forEach((item, index) => {
-      if(item.locations && item.locations[0]) {
-        const { lat, lng } = item.locations[0];
-        const position = latLonToVector3(lat, lng, radius);
+  }, [currentVendors]);
 
-        const markerGeometry = new THREE.SphereGeometry(0.02, 16, 16);
-        const markerMaterial = new THREE.MeshBasicMaterial({ 
-            color: trailMarkerColor, 
-            transparent: true, 
-            opacity: 0.8
-        });
-        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-        marker.position.copy(position);
-        breadcrumbGroup.add(marker);
-
-        if (index > 0) {
-          const previousItem = breadcrumb[index - 1];
-          if (previousItem.locations && previousItem.locations[0]) {
-            const { lat: prevLat, lng: prevLng } = previousItem.locations[0];
-            const prevPosition = latLonToVector3(prevLat, prevLng, radius);
-            const arcLine = createArcLine(prevPosition, position, trailColor, 0.4); 
-            breadcrumbGroup.add(arcLine);
-          }
-        }
-      }
-    });
-
-  }, [breadcrumb]);
-
+  const totalComponents = levelInfo.stages.reduce((sum, stage) => sum + stage.components.length, 0);
+  const selectedCount = Object.keys(vendorSelections).length;
 
   return (
     <div className="relative w-full h-screen bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
       
-      {/* HUD Box (Global Market) with Dropdown Integrated */}
+      {/* HUD Box */}
       <div className="absolute top-4 right-4 bg-slate-800/95 backdrop-blur-md border border-slate-600 p-5 rounded-xl shadow-2xl w-80 pointer-events-auto z-[2000]">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Current Focus</h3>
+            <h3 className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Stage {currentStageIndex + 1}: {levelInfo.stages[currentStageIndex]?.name}</h3>
             <div className="text-white font-bold text-xl leading-tight">
-              {breadcrumb.length === 0 
-                ? <span className="text-blue-400">Global Market</span> 
-                : <span className="text-blue-400">{breadcrumb[breadcrumb.length - 1].name}</span>
-              }
+              <span className="text-blue-400">{currentComponent?.name}</span>
             </div>
             <div className="text-xs text-green-400 mt-1 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              {currentItems.length} Locations Active
+              {currentVendors.length} Vendors Available
             </div>
           </div>
           <div className="bg-slate-700/50 p-2 rounded-lg text-2xl">
-            {breadcrumb.length === 0 ? '🌍' : breadcrumb[breadcrumb.length - 1].emoji}
+            🏭
           </div>
         </div>
 
-        {/* Back and Reset Buttons */}
+        {/* Progress */}
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-gray-400 mb-1">
+            <span>Progress</span>
+            <span>{selectedCount}/{totalComponents} components</span>
+          </div>
+          <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${(selectedCount / totalComponents) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Buttons */}
         <div className="flex gap-2 mb-3">
           <button
             onClick={handleGoBack}
-            disabled={breadcrumb.length === 0}
+            disabled={selectedCount === 0}
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-              breadcrumb.length === 0
-                ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-700'
-                : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-500 hover:border-slate-400 shadow-lg'
+              selectedCount === 0
+                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-500'
             }`}
           >
-            <span>←</span> Back
+            ← Back
           </button>
           
           <button
             onClick={handleReset}
-            disabled={breadcrumb.length === 0}
+            disabled={selectedCount === 0}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              breadcrumb.length === 0
-                ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-700'
-                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg border border-blue-500 hover:border-blue-400'
+              selectedCount === 0
+                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'
             }`}
           >
             Reset
           </button>
         </div>
 
-        {/* Dropdown for Auto-Complete */}
+        {/* Auto-Complete Dropdown */}
         <div className="relative">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-full bg-slate-700 hover:bg-slate-600 text-blue-300 font-semibold py-2.5 px-4 rounded-lg border border-slate-600 hover:border-slate-500 transition-all flex items-center justify-between text-sm"
+            className="w-full bg-slate-700 hover:bg-slate-600 text-blue-300 font-semibold py-2.5 px-4 rounded-lg border border-slate-600 transition-all flex items-center justify-between text-sm"
           >
-            <span className="flex items-center gap-2">✨ Auto-Complete Path</span>
-            <span className={`text-xs transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+            <span className="flex items-center gap-2">✨ Auto-Complete</span>
+            <span className={`text-xs transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
           </button>
           
           {isDropdownOpen && (
             <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden z-50">
-                <button onClick={() => handleAutoSelect('cost')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-700/50">
-                    <span className="text-base">💰</span> Lowest Cost
+                <button onClick={() => handleAutoSelect('cost')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition-colors flex items-center gap-2 border-b border-slate-700/50">
+                    💰 Lowest Cost
                 </button>
-                <button onClick={() => handleAutoSelect('time')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-700/50">
-                    <span className="text-base">⚡</span> Fastest Time
+                <button onClick={() => handleAutoSelect('time')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition-colors flex items-center gap-2 border-b border-slate-700/50">
+                    ⚡ Fastest Time
                 </button>
-                <button onClick={() => handleAutoSelect('risk')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-700/50">
-                    <span className="text-base">🛡️</span> Lowest Risk
+                <button onClick={() => handleAutoSelect('risk')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition-colors flex items-center gap-2 border-b border-slate-700/50">
+                    🛡️ Lowest Risk
                 </button>
-                <button onClick={() => handleAutoSelect('random')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2">
-                    <span className="text-base">🎲</span> Random Path
+                <button onClick={() => handleAutoSelect('random')} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition-colors flex items-center gap-2">
+                    🎲 Random
                 </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* --- RENDER LINES AND LABELS --- */}
-      {currentItems.map((item, index) => {
-        const riskColor = item.risk >= 8 ? 'border-red-500' : 
-                         item.risk >= 6 ? 'border-orange-500' : 
-                         item.risk >= 4 ? 'border-yellow-500' : 'border-green-500';
+      {/* Vendor Labels */}
+      {currentVendors.map((vendor, index) => {
+        const riskColor = vendor.risk >= 8 ? 'border-red-500' : 
+                         vendor.risk >= 6 ? 'border-orange-500' : 
+                         vendor.risk >= 4 ? 'border-yellow-500' : 'border-green-500';
         
-        const lineColor = item.risk >= 8 ? '#ef4444' : 
-                         item.risk >= 6 ? '#f97316' : 
-                         item.risk >= 4 ? '#eab308' : '#22c55e';
+        const lineColor = vendor.risk >= 8 ? '#ef4444' : 
+                         vendor.risk >= 6 ? '#f97316' : 
+                         vendor.risk >= 4 ? '#eab308' : '#22c55e';
 
         return (
-          <React.Fragment key={item.id || index}>
+          <React.Fragment key={vendor.id || index}>
             <div
                 ref={(el) => (lineElementsRef.current[index] = el)}
                 className="absolute origin-left pointer-events-none transition-opacity duration-75"
-                style={{
-                    display: 'none',
-                    top: 0,
-                    left: 0,
-                    height: '1px',
-                    backgroundColor: lineColor,
-                }}
+                style={{ display: 'none', top: 0, left: 0, height: '1px', backgroundColor: lineColor }}
             />
 
             <div
                 ref={(el) => (labelElementsRef.current[index] = el)}
                 className="absolute pointer-events-auto cursor-pointer will-change-transform transition-opacity duration-75"
                 style={{ display: 'none', top: 0, left: 0 }}
-                onClick={() => setSelectedItem(item)}
+                onClick={() => setSelectedItem(vendor)}
             >
                 <div className={`w-48 bg-gradient-to-br from-slate-800 to-slate-900 border-2 ${riskColor} text-white px-3 py-2 rounded-lg shadow-xl hover:shadow-2xl hover:scale-110 transition-transform`}>
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl">{item.emoji}</span>
-                    <div className="overflow-hidden">
-                        <div className="text-xs font-bold text-white whitespace-nowrap truncate" title={item.name}>
-                            {item.name}
-                        </div>
-                        <div className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
-                            Risk: {item.risk ? item.risk.toFixed(1) : 'N/A'}
+                    <div className="flex items-center gap-3">
+                        <div className="overflow-hidden">
+                            <div className="text-xs font-bold text-white whitespace-nowrap truncate" title={vendor.name}>
+                                {vendor.name}
+                            </div>
+                            <div className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
+                                Risk: {vendor.risk.toFixed(1)}
+                            </div>
                         </div>
                     </div>
-                </div>
                 </div>
             </div>
           </React.Fragment>
         );
       })}
 
-      {/* Info Panel */}
+      {/* Vendor Info Panel */}
       {selectedItem && (
         <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none z-[3000]">
-          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto pointer-events-auto">
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">{selectedItem.emoji}</span>
-                <div>
-                  <h2 className="text-2xl font-bold text-white mb-1">{selectedItem.name}</h2>
-                  <p className="text-gray-400 text-sm">{selectedItem.location}</p>
-                </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1">{selectedItem.name}</h2>
+                <p className="text-gray-400 text-sm">{selectedItem.location}</p>
               </div>
-              <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white text-2xl leading-none">×</button>
+              <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white text-2xl">×</button>
             </div>
             
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-white font-semibold">Overall Risk Score</span>
-                <span className={`text-2xl font-bold ${
-                  selectedItem.risk >= 8 ? 'text-red-400' :
-                  selectedItem.risk >= 6 ? 'text-orange-400' :
-                  selectedItem.risk >= 4 ? 'text-yellow-400' : 'text-green-400'
-                }`}>{selectedItem.risk.toFixed(1)} / 10</span>
-              </div>
-              <div className="text-sm text-gray-300 mt-2">{getRiskLabel(selectedItem.risk)} Risk</div>
-            </div>
-
-            {selectedItem.shipping && (
-              <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-                <h3 className="text-lg font-semibold text-blue-400 mb-2">Shipping Details</h3>
-                <div className="grid grid-cols-3 gap-3 text-sm">
-                  <div><div className="text-gray-400">Time</div><div className="text-white font-medium">{selectedItem.shipping.time}</div></div>
-                  <div><div className="text-gray-400">Cost</div><div className="text-white font-medium">{selectedItem.shipping.cost}</div></div>
-                  <div><div className="text-gray-400">Method</div><div className="text-white font-medium">{selectedItem.shipping.method}</div></div>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-400">Risk</div>
+                  <div className={`text-lg font-bold ${
+                    selectedItem.risk >= 8 ? 'text-red-400' :
+                    selectedItem.risk >= 6 ? 'text-orange-400' :
+                    selectedItem.risk >= 4 ? 'text-yellow-400' : 'text-green-400'
+                  }`}>{selectedItem.risk.toFixed(1)}/10</div>
+                </div>
+                <div>
+                  <div className="text-gray-400">Cost</div>
+                  <div className="text-white font-medium">${selectedItem.cost}</div>
+                </div>
+                <div>
+                  <div className="text-gray-400">Lead Time</div>
+                  <div className="text-white font-medium">{selectedItem.leadTime} days</div>
                 </div>
               </div>
-            )}
-
-            {selectedItem.next && selectedItem.next.length > 0 ? (
-                <button
-                    onClick={() => handleDrillDown(selectedItem)}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mb-4"
-                >
-                    Explore Supply Chain → ({selectedItem.next.length} suppliers)
-                </button>
-            ) : (
-                <button
-                    onClick={() => onSimulate([...breadcrumb, selectedItem])}
-                    className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg border border-green-400 transition-transform hover:scale-105 active:scale-95 mb-4"
-                >
-                    ✅ Confirm & Simulate Path
-                </button>
-            )}
+            </div>
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-              <h3 className="text-lg font-semibold text-blue-400 mb-2">Risk Analysis</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.riskAnalysis}</p>
+              <h3 className="text-lg font-semibold text-blue-400 mb-2">Description</h3>
+              <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.description}</p>
             </div>
 
-             {selectedItem.riskScores && (
-            <div className="space-y-2 mb-4">
-              <h3 className="text-lg font-semibold text-blue-400 mb-2">Detailed Risk Breakdown</h3>
-              {Object.entries(selectedItem.riskScores)
-                .sort((a, b) => b[1] - a[1]) 
-                .map(([key, value]) => (
-                <div key={key} className="bg-slate-700 rounded-lg p-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white font-medium capitalize text-sm">
-                      {key.replace(/([A-Z])/g, ' $1').trim()}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 h-2 bg-slate-600 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${
-                            value >= 8 ? 'bg-red-500' :
-                            value >= 6 ? 'bg-orange-500' :
-                            value >= 4 ? 'bg-yellow-500' : 'bg-green-500'
-                          }`}
-                          style={{ width: `${value * 10}%` }}
-                        />
-                      </div>
-                      <span className={`text-sm font-semibold w-8 text-right ${
-                        value >= 8 ? 'text-red-400' :
-                        value >= 6 ? 'text-orange-400' :
-                        value >= 4 ? 'text-yellow-400' : 'text-green-400'
-                      }`}>
-                        {value}/10
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {selectedItem.pros && selectedItem.pros.length > 0 && (
+              <div className="mb-4 p-4 bg-slate-700 rounded-lg">
+                <h3 className="text-lg font-semibold text-green-400 mb-2">Advantages</h3>
+                <ul className="space-y-1">
+                  {selectedItem.pros.map((pro, i) => (
+                    <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
+                      <span className="text-green-400 mt-0.5">✓</span>
+                      <span>{pro}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
+
+            {selectedItem.cons && selectedItem.cons.length > 0 && (
+              <div className="mb-4 p-4 bg-slate-700 rounded-lg">
+                <h3 className="text-lg font-semibold text-red-400 mb-2">Disadvantages</h3>
+                <ul className="space-y-1">
+                  {selectedItem.cons.map((con, i) => (
+                    <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
+                      <span className="text-red-400 mt-0.5">✗</span>
+                      <span>{con}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button
+              onClick={() => handleSelectVendor(selectedItem)}
+              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg border border-green-400 transition-transform hover:scale-105 active:scale-95"
+            >
+              ✅ Select This Vendor
+            </button>
           </div>
         </div>
       )}
 
       {/* Instructions */}
       <div className="absolute top-4 left-4 bg-slate-800 bg-opacity-90 text-white px-4 py-3 rounded-lg text-sm max-w-xs pointer-events-none shadow-lg z-[2000]">
-        <p className="font-semibold mb-1">🌍 GPU Supply Chain Explorer</p>
-        <p className="text-gray-300 mb-2">Drag to rotate • Click markers for details</p>
-        {breadcrumb.length > 0 && (
-          <p className="text-blue-300 mt-2">Blue dots/lines show the path you explored.</p>
-        )}
+        <p className="font-semibold mb-1">🏭 Supply Chain Builder</p>
+        <p className="text-gray-300 mb-2">Select vendors for each component</p>
+        <p className="text-blue-300">Click markers to view vendor details</p>
       </div>
 
-      {/* --- Breadcrumb Bar at the bottom --- */}
-      {breadcrumb.length > 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] w-auto max-w-full pointer-events-auto">
-            <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1">
-            {breadcrumb.map((item, index) => (
-                <React.Fragment key={item.id}>
-                {index > 0 && <span className="text-gray-500">/</span>}
-                <button
-                    onClick={() => handleNavigateTo(index)}
-                    className={`flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                    index === breadcrumb.length - 1
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-400 hover:text-white hover:bg-slate-700'
-                    }`}
-                >
-                    <span className="mr-2">{item.emoji}</span>
-                    {item.name}
-                </button>
-                </React.Fragment>
-            ))}
+      {/* Selection Progress Bar */}
+      {selectedCount > 0 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] pointer-events-auto">
+          <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-3 rounded-xl shadow-2xl min-w-[300px]">
+            <div className="text-center text-white text-sm font-semibold mb-2">
+              Selected Vendors: {selectedCount}/{totalComponents}
             </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {Object.entries(vendorSelections).map(([componentId, vendor]) => (
+                <div key={componentId} className="bg-slate-700 px-2 py-1 rounded text-xs text-gray-300">
+                  {vendor.name.split(' ')[0]}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
-      
     </div>
   );
 };

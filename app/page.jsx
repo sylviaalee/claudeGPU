@@ -4,33 +4,47 @@ import React, { useState } from 'react';
 import GPUGlobe from '../components/GPUGlobe'; 
 import SimulationPage from '../components/SimulationPage';
 
+// Import the level info structure
+import { levelInfo } from '../data/levelInfo';
+
 export default function Home() {
   const [view, setView] = useState('selection'); // 'selection' or 'simulation'
-  const [confirmedPath, setConfirmedPath] = useState([]);
-
+  const [vendorSelections, setVendorSelections] = useState({});
+  
   // This function is passed into GPUGlobe. 
-  // It gets called when the user clicks the "Simulate" button inside GPUGlobe.
-  const handleSimulate = (path) => {
-    setConfirmedPath(path);
+  // It gets called when the user completes their vendor selections.
+  // selections should be an object mapping component IDs to chosen vendors:
+  // {
+  //   "quartz_gpu": { id: "silicon-raw", name: "Spruce Pine Quartz", risk: 8.9, cost: 100, ... },
+  //   "gpu_die": { id: "tsmc", name: "TSMC (4nm/5nm)", risk: 8.7, cost: 1000, ... },
+  //   ...
+  // }
+  const handleSimulate = (selections) => {
+    console.log('Vendor selections:', selections);
+    setVendorSelections(selections);
     setView('simulation');
   };
-
+  
   // Function to go back to selection
   const handleBackToSelection = () => {
     setView('selection');
-    setConfirmedPath([]); // Optional: clear the path when going back
+    setVendorSelections({}); // Clear the selections when going back
   };
-
+  
   return (
     <main className="w-full h-screen bg-slate-900 overflow-hidden">
       {view === 'selection' ? (
-        /* 1. We pass the handleSimulate function down to GPUGlobe */
-        <GPUGlobe onSimulate={handleSimulate} />
+        /* Pass levelInfo and handleSimulate to GPUGlobe */
+        <GPUGlobe 
+          levelInfo={levelInfo[0]} 
+          onSimulate={handleSimulate} 
+        />
       ) : (
-        /* 2. Once selected, we switch to SimulationPage and pass the data */
+        /* Pass both levelInfo and vendorSelections to SimulationPage */
         <SimulationPage 
-          selectedPath={confirmedPath} 
-          onRestart={handleBackToSelection} // ADD THIS LINE
+          levelInfo={levelInfo[0]}
+          vendorSelections={vendorSelections} 
+          onRestart={handleBackToSelection}
         />
       )}
     </main>
