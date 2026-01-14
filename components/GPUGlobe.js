@@ -669,7 +669,10 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
           </div>
         </div>
       )}
-      <MiniSupplyChainDiagram />
+      <MiniSupplyChainDiagram 
+        vendorSelections={vendorSelections}
+        currentComponent={currentComponent}
+      />
     </div>
   );
 };
