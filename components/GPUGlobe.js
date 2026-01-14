@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 // Assuming supplyChainData is an external data structure
 import { supplyChainData } from '../data/supplyChainData'; 
+import MiniSupplyChainDiagram from './MiniSupplyChainDiagram';
 
 // *** UTILITY: Animated Arc Line Generator ***
 const createArcLine = (startVector, endVector, color, opacity = 0.8) => {
@@ -795,7 +796,7 @@ const GPUGlobe = ({ onSimulate }) => {
             </div>
         </div>
       )}
-      
+      <MiniSupplyChainDiagram />
     </div>
   );
 };
