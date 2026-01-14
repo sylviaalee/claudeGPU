@@ -14,40 +14,39 @@ const CRITICAL_REASONS = [
     "Compliance Violation Seizure"
 ];
 
-// --- STRICT ORDERING SEQUENCE ---
-// This ensures the simulation runs leaves-first -> root (matching your diagram)
+// --- STRICT ORDERING SEQUENCE WITH PARENT LINKS ---
 const SIMULATION_SEQUENCE = [
-    // Branch 1: GPU Die
-    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'photoresist', name: 'Photoresist Production', type: 'PROCESSING', risk: 3 },
-    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3 },
-    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu' },
+    // Branch 1: GPU Die -> Feeds into Packaging
+    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'photoresist' },
+    { id: 'photoresist', name: 'Photoresist', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
+    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_gpu' },
+    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
+    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu', parentId: 'packaging_merge' },
 
-    // Branch 2: Memory (HBM)
-    { id: 'quartz_memory', name: 'Raw Quartz (Mem)', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'silicon_wafers_memory', name: 'Wafer Prep', type: 'PROCESSING', risk: 3 },
-    { id: 'dram_cells', name: 'DRAM Cell Fab', type: 'FAB', risk: 5 },
-    { id: 'hbm3e', name: 'HBM3e Stack', type: 'ASSEMBLY', risk: 6, isVendor: true, matchKey: 'hbm' },
+    // Branch 2: Memory (HBM) -> Feeds into Packaging
+    { id: 'quartz_memory', name: 'Raw Quartz (Mem)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_memory' },
+    { id: 'silicon_wafers_memory', name: 'Wafer Prep', type: 'PROCESSING', risk: 3, parentId: 'dram_cells' },
+    { id: 'dram_cells', name: 'DRAM Cell Fab', type: 'FAB', risk: 5, parentId: 'hbm3e' },
+    { id: 'hbm3e', name: 'HBM3e Stack', type: 'ASSEMBLY', risk: 6, isVendor: true, matchKey: 'hbm', parentId: 'packaging_merge' },
 
-    // Branch 3: Substrate
-    { id: 'polymers_abf', name: 'Polymers', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'abf_film', name: 'ABF Film', type: 'PROCESSING', risk: 4 },
-    { id: 'copper_resin', name: 'Copper/Resin', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'copper_clad_laminates', name: 'Laminates', type: 'PROCESSING', risk: 3 },
-    { id: 'substrate_abf', name: 'ABF Substrate', type: 'ASSEMBLY', risk: 5, isVendor: true, matchKey: 'substrate' },
+    // Branch 3: Substrate -> Feeds into Packaging
+    { id: 'polymers_abf', name: 'Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'abf_film' },
+    { id: 'abf_film', name: 'ABF Film', type: 'PROCESSING', risk: 4, parentId: 'substrate_abf' },
+    { id: 'copper_resin', name: 'Copper/Resin', type: 'RAW_MATERIAL', risk: 2, parentId: 'copper_clad_laminates' },
+    { id: 'copper_clad_laminates', name: 'Laminates', type: 'PROCESSING', risk: 3, parentId: 'substrate_abf' },
+    { id: 'substrate_abf', name: 'ABF Substrate', type: 'ASSEMBLY', risk: 5, isVendor: true, matchKey: 'substrate', parentId: 'packaging_merge' },
 
-    // Merge: Packaging
-    { id: 'packaging_merge', name: '2.5D Packaging (CoWoS)', type: 'ASSEMBLY', risk: 8, isVendor: true, matchKey: 'packaging' },
+    // Merge 1: Packaging -> Feeds into Final Assembly
+    { id: 'packaging_merge', name: '2.5D Packaging', type: 'ASSEMBLY', risk: 8, isVendor: true, matchKey: 'packaging', parentId: 'final_assembly' },
 
-    // Branch 4: Other Components
-    { id: 'pcb_motherboard', name: 'PCB Motherboard', type: 'COMPONENT', risk: 3, isVendor: true, matchKey: 'pcb' },
-    { id: 'aluminium_copper', name: 'Aluminium/Copper', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'coolers_heat_sinks', name: 'Thermal Solution', type: 'COMPONENT', risk: 2, isVendor: true, matchKey: 'cooler' },
+    // Branch 4: Other Components -> Feeds into Final Assembly
+    { id: 'pcb_motherboard', name: 'PCB Motherboard', type: 'COMPONENT', risk: 3, isVendor: true, matchKey: 'pcb', parentId: 'final_assembly' },
+    { id: 'aluminium_copper', name: 'Aluminium/Copper', type: 'RAW_MATERIAL', risk: 2, parentId: 'coolers_heat_sinks' },
+    { id: 'coolers_heat_sinks', name: 'Thermal Solution', type: 'COMPONENT', risk: 2, isVendor: true, matchKey: 'cooler', parentId: 'final_assembly' },
 
     // Final Root
-    { id: 'final_assembly', name: 'Final Assembly', type: 'MANUFACTURING', risk: 4, isVendor: true, matchKey: 'assembly' },
-    { id: 'dist', name: 'Global Distribution', type: 'DISTRIBUTION', risk: 1, isVendor: true, matchKey: 'dist' }
+    { id: 'final_assembly', name: 'Final Assembly', type: 'MANUFACTURING', risk: 4, isVendor: true, matchKey: 'assembly', parentId: 'dist' },
+    { id: 'dist', name: 'Global Distribution', type: 'DISTRIBUTION', risk: 1, isVendor: true, matchKey: 'dist', parentId: null }
 ];
 
 // --- COMPONENT: Mini Supply Chain Diagram ---
@@ -321,8 +320,6 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
             } 
             // 2. Or if it is a raw material/processing step (implied dependencies)
             else {
-                // Always add the raw material steps to make the diagram look complete
-                // In a real app, you might check if the parent component exists first
                 shouldAdd = true;
                 // Assign a Mock Location for raw materials based on step name
                 if (step.id.includes('quartz')) mockLocation = LOCATION_MAP['Spruce Pine, NC'];
@@ -337,6 +334,7 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                 
                 path.push({
                     id: step.id,
+                    parentId: step.parentId, // Pass the parent ID through to the active path
                     type: step.type,
                     name: selectedVendor ? selectedVendor.name : step.name,
                     emoji: selectedVendor ? '🏭' : (step.type === 'RAW_MATERIAL' ? '⛏️' : '⚙️'),
@@ -385,6 +383,10 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
     const frameIdRef = useRef(null);
     const isMountedRef = useRef(true);
 
+    // Add refs for rotation animation
+    const targetRotationRef = useRef(new THREE.Quaternion());
+    const currentRotationRef = useRef(new THREE.Quaternion());
+
     // --- LOGIC: SIMULATION ENGINE ---
     const runSimulationStep = useCallback((index, currentPayload) => {
         if (index >= activePath.length) {
@@ -398,6 +400,31 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
         setLivePayload(currentPayload); 
+
+        // --- CAMERA ROTATION LOGIC (FIXED) ---
+        // Uses Double-Quaternion approach to ensure centered Latitude and Longitude
+        if (item.locations && item.locations[0]) {
+            const { lat, lng } = item.locations[0];
+            const latRad = lat * (Math.PI / 180);
+            const lngRad = lng * (Math.PI / 180);
+
+            // 1. Create a Quaternion for Longitude Rotation (Spinning World Y)
+            // Offset by -Math.PI/2 puts Prime Meridian at Z+ (Front)
+            const qLon = new THREE.Quaternion();
+            qLon.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -lngRad - Math.PI / 2);
+
+            // 2. Create a Quaternion for Latitude Rotation (Tilting World X)
+            // Positive Latitude tilts the North Pole towards the viewer (X axis rotation)
+            const qLat = new THREE.Quaternion();
+            qLat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), latRad);
+
+            // 3. Combine: Apply Longitude spin first, THEN Latitude tilt
+            // In Quaternion multiplication order qLat * qLon applies qLon then qLat
+            // This ensures the X-axis tilt happens on the global axis, not a spun local axis
+            const targetQ = new THREE.Quaternion().multiplyQuaternions(qLat, qLon);
+            
+            targetRotationRef.current.copy(targetQ);
+        }
 
         let distance = 0;
         let legCost = 0;
@@ -424,12 +451,17 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
             }, 500);
         }
 
-        if (index > 0) {
-            const prevItem = activePath[index - 1];
-            const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
+        // Calculate metrics relative to parent node (if it exists)
+        let parentItem = null;
+        if (item.parentId) {
+            parentItem = activePath.find(p => p.id === item.parentId);
+        }
+
+        if (parentItem) {
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
+            const parentPos = latLonToVector3(parentItem.locations[0].lat, parentItem.locations[0].lng, 1.3);
             
-            distance = prevPos.distanceTo(currPos) * 5000;
+            distance = currPos.distanceTo(parentPos) * 5000;
             const shipping = item.shipping || {};
             
             legCost = parseCost(shipping.cost) * volumeScalingFactor;
@@ -568,8 +600,16 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
             if (!isDraggingRef.current || !globeRef.current) return;
             const dx = e.clientX - previousMouseRef.current.x;
             const dy = e.clientY - previousMouseRef.current.y;
+            
+            // Manual rotation updates the globe immediately
             globeRef.current.rotation.x += dy * 0.005;
             globeRef.current.rotation.y += dx * 0.005;
+            
+            // Sync current rotation ref so animation doesn't jump
+            currentRotationRef.current.setFromEuler(globeRef.current.rotation);
+            // Also update target so it stays where user dragged it
+            targetRotationRef.current.copy(currentRotationRef.current);
+            
             previousMouseRef.current = { x: e.clientX, y: e.clientY };
         };
         const handleMouseUp = () => { isDraggingRef.current = false; };
@@ -578,9 +618,22 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
         
+        // Initialize rotation refs
+        currentRotationRef.current.setFromEuler(globe.rotation);
+        targetRotationRef.current.copy(currentRotationRef.current);
+
         const animate = () => {
             frameIdRef.current = requestAnimationFrame(animate);
-            if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
+            
+            if (globeRef.current) {
+                if (!isDraggingRef.current) {
+                    // Smoothly interpolate current rotation towards target rotation
+                    // Use spherical linear interpolation (slerp) for smooth rotation
+                    currentRotationRef.current.slerp(targetRotationRef.current, 0.05); // 0.05 is the smoothing factor
+                    globeRef.current.setRotationFromQuaternion(currentRotationRef.current);
+                }
+            }
+            
             if (animatingObjectsRef.current.length > 0) {
                 for (let i = animatingObjectsRef.current.length - 1; i >= 0; i--) {
                     const mesh = animatingObjectsRef.current[i];
@@ -619,10 +672,13 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
             return 0x334155; 
         };
 
+        // VISUALIZATION LOGIC: TREE STRUCTURE
         activePath.forEach((item, index) => {
+            // Only draw if this step has been reached or is currently active
             if (index > currentStepIndex + 1 && currentStepIndex !== -1) return;
 
-            const markerId = `marker-${index}`;
+            // 1. Draw Marker for current item
+            const markerId = `marker-${item.id}`;
             const status = nodeStatuses[item.id] || 'pending';
             
             if (!drawnMarkersRef.current.has(markerId) && item.locations && item.locations[0]) {
@@ -643,18 +699,36 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                 if (existing) existing.material.color.setHex(getStatusColor(status));
             }
 
-            if (index > 0 && index <= currentStepIndex + 1) {
-                const legId = `line-${index}`;
-                if (!drawnLinesRef.current.has(legId)) {
-                    const prev = latLonToVector3(activePath[index-1].locations[0].lat, activePath[index-1].locations[0].lng, 1.32);
-                    const curr = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
-                    const isCurrLeg = index === currentStepIndex + 1 || index === currentStepIndex;
-                    const color = isCurrLeg ? 0x3b82f6 : 0x22c55e;
-                    const arc = createArcLine(prev, curr, new THREE.Color(color), isCurrLeg ? 1 : 0.6, isCurrLeg);
-                    arc.userData = { id: legId };
-                    arcs.add(arc);
-                    drawnLinesRef.current.add(legId);
-                    if (isCurrLeg) animatingObjectsRef.current.push(arc);
+            // 2. Draw Line to PARENT (if parent exists and active/completed)
+            if (item.parentId && (index <= currentStepIndex + 1)) {
+                const parentItem = activePath.find(p => p.id === item.parentId);
+                
+                // Only draw if we found the parent in the active simulation path
+                if (parentItem) {
+                    const legId = `line-${item.id}-to-${parentItem.id}`;
+                    
+                    if (!drawnLinesRef.current.has(legId)) {
+                        const startPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
+                        const endPos = latLonToVector3(parentItem.locations[0].lat, parentItem.locations[0].lng, 1.32);
+                        
+                        // Check if this specific leg is the one currently being animated
+                        const isCurrLeg = index === currentStepIndex; 
+                        
+                        const color = isCurrLeg ? 0x3b82f6 : 0x22c55e;
+                        const arc = createArcLine(startPos, endPos, new THREE.Color(color), isCurrLeg ? 1 : 0.6, isCurrLeg);
+                        arc.userData = { id: legId };
+                        arcs.add(arc);
+                        drawnLinesRef.current.add(legId);
+                        
+                        if (isCurrLeg) animatingObjectsRef.current.push(arc);
+                    } else {
+                         // Update color if completed
+                         const existingArc = arcs.children.find(c => c.userData.id === legId);
+                         if (existingArc && index < currentStepIndex) {
+                             existingArc.material.color.setHex(0x22c55e); // Turn green when done
+                             existingArc.material.opacity = 0.6;
+                         }
+                    }
                 }
             }
         });
