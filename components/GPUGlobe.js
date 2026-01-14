@@ -652,6 +652,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         <p className="text-blue-300">Click markers to view vendor details</p>
       </div>
 
+<<<<<<< HEAD
       {/* Selection Progress Bar */}
       {selectedCount > 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] pointer-events-auto">
@@ -673,6 +674,10 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         vendorSelections={vendorSelections}
         currentComponent={currentComponent}
       />
+=======
+      
+      <MiniSupplyChainDiagram />
+>>>>>>> a0916962367ba13406873f0db5d0b54f0755d54b
     </div>
   );
 };
