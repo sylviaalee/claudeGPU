@@ -652,8 +652,32 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         <p className="text-blue-300">Click markers to view vendor details</p>
       </div>
 
+<<<<<<< HEAD
+      {/* Selection Progress Bar */}
+      {selectedCount > 0 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[2000] pointer-events-auto">
+          <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 p-3 rounded-xl shadow-2xl min-w-[300px]">
+            <div className="text-center text-white text-sm font-semibold mb-2">
+              Selected Vendors: {selectedCount}/{totalComponents}
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {Object.entries(vendorSelections).map(([componentId, vendor]) => (
+                <div key={componentId} className="bg-slate-700 px-2 py-1 rounded text-xs text-gray-300">
+                  {vendor.name.split(' ')[0]}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <MiniSupplyChainDiagram 
+        vendorSelections={vendorSelections}
+        currentComponent={currentComponent}
+      />
+=======
       
       <MiniSupplyChainDiagram />
+>>>>>>> a0916962367ba13406873f0db5d0b54f0755d54b
     </div>
   );
 };
