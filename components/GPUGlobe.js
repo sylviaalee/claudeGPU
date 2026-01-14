@@ -581,10 +581,11 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
               <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white text-2xl">×</button>
             </div>
             
+            {/* Key Metrics */}
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <div className="text-gray-400">Risk</div>
+                  <div className="text-gray-400">Risk Score</div>
                   <div className={`text-lg font-bold ${
                     selectedItem.risk >= 8 ? 'text-red-400' :
                     selectedItem.risk >= 6 ? 'text-orange-400' :
@@ -599,48 +600,84 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
                   <div className="text-gray-400">Lead Time</div>
                   <div className="text-white font-medium">{selectedItem.leadTime} days</div>
                 </div>
+                <div>
+                  <div className="text-gray-400">Quality</div>
+                  <div className="text-white font-medium">{selectedItem.quality}%</div>
+                </div>
               </div>
             </div>
 
-            <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-              <h3 className="text-lg font-semibold text-blue-400 mb-2">Description</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.description}</p>
+            {/* Select Button */}
+            <div className="mb-4">
+              <button
+                onClick={() => handleSelectVendor(selectedItem)}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg border border-blue-400 transition-transform hover:scale-105 active:scale-95"
+              >
+                Select This Vendor
+              </button>
             </div>
-
-            {selectedItem.pros && selectedItem.pros.length > 0 && (
+            {/* Shipping Info */}
+            {selectedItem.shipping && (
               <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-                <h3 className="text-lg font-semibold text-green-400 mb-2">Advantages</h3>
-                <ul className="space-y-1">
-                  {selectedItem.pros.map((pro, i) => (
-                    <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
-                      <span className="text-green-400 mt-0.5">✓</span>
-                      <span>{pro}</span>
-                    </li>
-                  ))}
-                </ul>
+                <h3 className="text-lg font-semibold text-purple-400 mb-2">Shipping Details</h3>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-gray-400">Transit Time</div>
+                    <div className="text-white">{selectedItem.shipping.time}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-400">Shipping Cost</div>
+                    <div className="text-white">{selectedItem.shipping.cost}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-400">Method</div>
+                    <div className="text-white">{selectedItem.shipping.method}</div>
+                  </div>
+                </div>
               </div>
             )}
 
-            {selectedItem.cons && selectedItem.cons.length > 0 && (
+            {/* Detailed Risk Breakdown */}
+            {selectedItem.riskScores && (
               <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-                <h3 className="text-lg font-semibold text-red-400 mb-2">Disadvantages</h3>
-                <ul className="space-y-1">
-                  {selectedItem.cons.map((con, i) => (
-                    <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
-                      <span className="text-red-400 mt-0.5">✗</span>
-                      <span>{con}</span>
-                    </li>
+                <h3 className="text-lg font-semibold text-orange-400 mb-3">📊 Risk Factor Breakdown</h3>
+                <div className="space-y-2">
+                  {Object.entries({
+                    'Financial Stability': selectedItem.riskScores.financial,
+                    'Reliability': selectedItem.riskScores.reliability,
+                    'ESG': selectedItem.riskScores.esg,
+                    'Cybersecurity': selectedItem.riskScores.cyber,
+                    'Geopolitical': selectedItem.riskScores.geopolitical,
+                    'Trade Policy': selectedItem.riskScores.trade,
+                    'Weather/Natural Disasters': selectedItem.riskScores.weather,
+                    'Criticality': selectedItem.riskScores.criticality,
+                    'Substitutability': selectedItem.riskScores.substitutability,
+                    'Obsolescence': selectedItem.riskScores.obsolescence,
+                    'Logistics': selectedItem.riskScores.logistics,
+                    'Concentration': selectedItem.riskScores.concentration,
+                    'BOM Impact': selectedItem.riskScores.bom
+                  }).sort((a, b) => b[1] - a[1]).map(([label, score]) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-gray-300 text-sm">{label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-32 h-2 bg-slate-600 rounded-full overflow-hidden">
+                          <div className={`h-full ${score >= 7 ? 'bg-red-500' : score >= 4 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${score * 10}%`}}></div>
+                        </div>
+                        <span className="text-white text-sm font-medium w-8">{score}/10</span>
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
 
-            <button
-              onClick={() => handleSelectVendor(selectedItem)}
-              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg border border-green-400 transition-transform hover:scale-105 active:scale-95"
-            >
-              ✅ Select This Vendor
-            </button>
+            {/* Risk Analysis */}
+            {selectedItem.riskAnalysis && (
+              <div className="mb-4 p-4 bg-slate-700 rounded-lg border-l-4 border-orange-500">
+                <h3 className="text-lg font-semibold text-orange-400 mb-2">⚠️ Risk Analysis</h3>
+                <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.riskAnalysis}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
