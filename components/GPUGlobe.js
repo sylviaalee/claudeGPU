@@ -403,11 +403,18 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
   }, []);
 
   // Update markers for current vendors
+  // Update markers for current vendors AND draw arc lines for selected vendors
   useEffect(() => {
-    if (!markersGroupRef.current) return;
+    if (!markersGroupRef.current || !trailGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
+    const trailGroup = trailGroupRef.current;
+    
+    // Clear existing markers
     while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
     markersDataRef.current = [];
+
+    // Clear existing arc lines
+    while (trailGroup.children.length > 0) trailGroup.remove(trailGroup.children[0]);
 
     const getRiskColor = (risk) => {
         if (risk >= 8) return 0xff3333;
@@ -416,6 +423,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         return 0x44ff44;
     };
 
+    // Add markers for current vendors
     currentVendors.forEach((vendor) => {
       const loc = getVendorLocation(vendor);
       const position = latLonToVector3(loc.lat, loc.lng, 1.3);
@@ -435,8 +443,80 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         position: position.clone(), 
         labelPosition: lineEnd 
       });
+
+      // Draw arc lines connecting selected vendors based on supply chain hierarchy
+    if (Object.keys(vendorSelections).length > 0) {
+      // For each stage and component, find its parent and draw arc
+      levelInfo.stages.forEach((stage, stageIndex) => {
+        stage.components.forEach((component) => {
+          const selectedVendor = vendorSelections[component.id];
+          if (!selectedVendor) return;
+          
+          // Find parent component(s) from parentIds
+          if (component.parentIds && component.parentIds.length > 0) {
+            component.parentIds.forEach(parentId => {
+              const parentVendor = vendorSelections[parentId];
+              if (!parentVendor) return;
+              
+              // Draw arc from parent to current
+              const parentLoc = getVendorLocation(parentVendor);
+              const currentLoc = getVendorLocation(selectedVendor);
+              
+              const startPos = latLonToVector3(parentLoc.lat, parentLoc.lng, 1.3);
+              const endPos = latLonToVector3(currentLoc.lat, currentLoc.lng, 1.3);
+              
+              // Create arc line with color based on average risk
+              const avgRisk = (parentVendor.risk + selectedVendor.risk) / 2;
+              const arcColor = getRiskColor(avgRisk);
+              
+              const arcLine = createArcLine(startPos, endPos, arcColor, 0.6);
+              trailGroup.add(arcLine);
+            });
+          }
+        });
+      });
+    }
+
     });
-  }, [currentVendors]);
+
+    // Draw arc lines connecting selected vendors from previous stages to current stage
+    if (Object.keys(vendorSelections).length > 0) {
+      const selectedVendorsList = [];
+      
+      // Build ordered list of selected vendors
+      levelInfo.stages.forEach(stage => {
+        stage.components.forEach(component => {
+          const selected = vendorSelections[component.id];
+          if (selected) {
+            selectedVendorsList.push({
+              ...selected,
+              componentId: component.id,
+              componentName: component.name
+            });
+          }
+        });
+      });
+
+      // Create arc lines between consecutive selected vendors
+      for (let i = 0; i < selectedVendorsList.length - 1; i++) {
+        const startVendor = selectedVendorsList[i];
+        const endVendor = selectedVendorsList[i + 1];
+        
+        const startLoc = getVendorLocation(startVendor);
+        const endLoc = getVendorLocation(endVendor);
+        
+        const startPos = latLonToVector3(startLoc.lat, startLoc.lng, 1.3);
+        const endPos = latLonToVector3(endLoc.lat, endLoc.lng, 1.3);
+        
+        // Create arc line with color based on average risk
+        const avgRisk = (startVendor.risk + endVendor.risk) / 2;
+        const arcColor = getRiskColor(avgRisk);
+        
+        const arcLine = createArcLine(startPos, endPos, arcColor, 0.6);
+        trailGroup.add(arcLine);
+      }
+    }
+  }, [currentVendors, vendorSelections, levelInfo]);
 
   const totalComponents = levelInfo.stages.reduce((sum, stage) => sum + stage.components.length, 0);
   const selectedCount = Object.keys(vendorSelections).length;
