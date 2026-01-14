@@ -14,6 +14,189 @@ const CRITICAL_REASONS = [
     "Compliance Violation Seizure"
 ];
 
+// --- NEW COMPONENT: Mini Supply Chain Diagram ---
+// This matches the structure and visual style you requested
+const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) => {
+    // 1. Define the tree structure (Hardcoded IDs to match your supply chain logic)
+    const tree = {
+        name: "final assembly and testing",
+        id: "final_assembly",
+        children: [
+            {
+                name: "2.5D advanced packaging merge",
+                id: "packaging_merge",
+                children: [
+                    {
+                        name: "hbm3e (memory)",
+                        id: "hbm3e",
+                        children: [
+                            {
+                                name: "dram cells",
+                                id: "dram_cells",
+                                children: [
+                                    {
+                                        name: "silicon wafers",
+                                        id: "silicon_wafers_memory",
+                                        children: [
+                                            { name: "high purity quartz", id: "quartz_memory" }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        name: "the substrate (abf)",
+                        id: "substrate_abf",
+                        children: [
+                            {
+                                name: "abf film",
+                                id: "abf_film",
+                                children: [
+                                    { name: "base polymers/solvents", id: "polymers_abf" }
+                                ]
+                            },
+                            {
+                                name: "copper clad laminates",
+                                id: "copper_clad_laminates",
+                                children: [
+                                    { name: "copper and resin", id: "copper_resin" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        name: "gpu die",
+                        id: "gpu_die",
+                        children: [
+                            {
+                                name: "photoresist",
+                                id: "photoresist",
+                                children: [
+                                    { name: "base polymers/solvents", id: "polymers_photoresist" }
+                                ]
+                            },
+                            {
+                                name: "silicon wafers",
+                                id: "silicon_wafers_gpu",
+                                children: [
+                                    { name: "high purity quartz", id: "quartz_gpu" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            { name: "pcb/motherboard", id: "pcb_motherboard" },
+            {
+                name: "coolers/heat sinks",
+                id: "coolers_heat_sinks",
+                children: [
+                    { name: "aluminium/copper", id: "aluminium_copper" }
+                ]
+            }
+        ]
+    };
+
+    // Helper: Find if a node ID is currently active in the simulation
+    const getCurrentStepId = () => {
+        if (!activePath || currentStepIndex < 0 || currentStepIndex >= activePath.length) return null;
+        return activePath[currentStepIndex].id;
+    };
+
+    const currentId = getCurrentStepId();
+
+    // Recursive component to render nodes
+    const TreeNode = ({ node, level = 0 }) => {
+        const hasChildren = node.children && node.children.length > 0;
+        
+        // Check Status
+        const status = nodeStatuses[node.id] || 'pending';
+        const isCurrent = node.id === currentId;
+        const isCompleted = status === 'success';
+        const isError = status === 'error' || status === 'blocked';
+        const isWarning = status === 'warning';
+
+        // Determine styling
+        let nodeClass = "bg-gradient-to-br from-slate-700 to-slate-800 border border-blue-500/30 text-blue-200/50";
+        let textClass = "text-blue-200/50";
+        let borderClass = "border-blue-500/30";
+
+        if (isCurrent) {
+            // Active Step: Pulse Blue
+            nodeClass = "bg-gradient-to-br from-blue-600 to-blue-700 border-2 border-blue-400 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105 z-10";
+            textClass = "text-white font-bold";
+        } else if (isError) {
+            // Error: Red
+            nodeClass = "bg-gradient-to-br from-red-900 to-red-800 border border-red-500 text-red-100";
+            textClass = "text-red-100";
+            borderClass = "border-red-500";
+        } else if (isWarning) {
+            // Warning: Orange
+            nodeClass = "bg-gradient-to-br from-amber-900 to-amber-800 border border-amber-500 text-amber-100";
+        } else if (isCompleted) {
+            // Completed: Green/Blue mix
+            nodeClass = "bg-gradient-to-br from-emerald-900 to-slate-800 border border-emerald-500/50 text-emerald-100";
+            textClass = "text-emerald-100";
+            borderClass = "border-emerald-500/50";
+        }
+
+        return (
+            <div className="flex flex-col items-center">
+                {/* Node box */}
+                <div className={`${nodeClass} px-2 py-1 rounded text-[7px] text-center mb-1 whitespace-nowrap max-w-[80px] overflow-hidden text-ellipsis shadow-lg transition-all duration-300 relative`}>
+                    <span className={textClass}>{node.name}</span>
+                    {isCompleted && !isCurrent && <span className="ml-1 text-emerald-400">✓</span>}
+                    {isCurrent && <span className="ml-1 text-white">●</span>}
+                    {isError && <span className="ml-1 text-red-400">✕</span>}
+                </div>
+
+                {/* Children container */}
+                {hasChildren && (
+                    <>
+                        {/* Vertical line down */}
+                        <div className={`w-px h-2 ${isCurrent || isCompleted ? 'bg-blue-400/70' : 'bg-blue-400/20'}`}></div>
+
+                        {/* Horizontal container for children */}
+                        <div className="flex items-start gap-1 relative">
+                            {/* Horizontal line across children */}
+                            {node.children.length > 1 && (
+                                <div className={`absolute top-0 left-0 right-0 h-px ${isCurrent || isCompleted ? 'bg-blue-400/50' : 'bg-blue-400/20'}`} style={{
+                                    width: 'calc(100% - 2px)',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)'
+                                }}></div>
+                            )}
+
+                            {node.children.map((child, idx) => (
+                                <div key={idx} className="flex flex-col items-center">
+                                    {/* Vertical line to child */}
+                                    <div className={`w-px h-2 ${isCurrent || isCompleted ? 'bg-blue-400/70' : 'bg-blue-400/20'}`}></div>
+                                    <TreeNode node={child} level={level + 1} />
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <div className="fixed bottom-4 right-4 bg-slate-900/95 backdrop-blur-md border-2 border-blue-500/30 p-4 rounded-xl shadow-2xl overflow-y-auto max-h-[400px] w-auto max-w-[600px] z-[1500] pointer-events-auto transition-all duration-500">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-700">
+                <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                    <span>🕸️</span> Supply Chain Map
+                </div>
+                {currentId && <div className="text-[9px] text-blue-300">Active: {currentId}</div>}
+            </div>
+            <div className="w-full flex justify-center transform scale-90 origin-top">
+                <TreeNode node={tree} />
+            </div>
+        </div>
+    );
+};
+
 // --- UTILITY: Geolocation Math ---
 const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -27,10 +210,7 @@ const latLonToVector3 = (lat, lon, radius) => {
 // --- UTILITY: Animated Arc Generator ---
 const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated = false) => {
     const distance = startVector.distanceTo(endVector);
-    
-    // 1. Calculate Apex
     let midVector = startVector.clone().add(endVector);
-    // Handle antipodal points (opposite sides of globe)
     if (midVector.lengthSq() < 0.01) {
         const axis = new THREE.Vector3(0, 1, 0); 
         if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
@@ -38,24 +218,11 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
         }
         midVector.crossVectors(startVector, axis);
     }
-    
     const arcHeight = 1.3 + (distance * 0.5); 
     const midPoint = midVector.normalize().multiplyScalar(arcHeight);
-
-    // 2. Create the Curve
-    const curve = new THREE.QuadraticBezierCurve3(
-        startVector,
-        midPoint,
-        endVector
-    );
-
-    // 3. TubeGeometry 
-    const tubularSegments = 128; 
-    const radialSegments = 8;
-    const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
-    
-    // 4. Animation Setup
-    const totalIndices = tubularSegments * radialSegments * 6;
+    const curve = new THREE.QuadraticBezierCurve3(startVector, midPoint, endVector);
+    const geometry = new THREE.TubeGeometry(curve, 128, 0.015, 8, false);
+    const totalIndices = 128 * 8 * 6;
 
     if (isAnimated) {
         geometry.setDrawRange(0, 0); 
@@ -63,23 +230,13 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
         geometry.setDrawRange(0, totalIndices);
     }
 
-    const material = new THREE.MeshBasicMaterial({ 
-        color: color, 
-        transparent: true, 
-        opacity: opacity 
-    });
-
+    const material = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
     const mesh = new THREE.Mesh(geometry, material);
-    
-    mesh.userData = { 
-        totalIndices: totalIndices,
-        currentCount: 0 
-    }; 
-    
+    mesh.userData = { totalIndices: totalIndices, currentCount: 0 }; 
     return mesh;
 };
 
-// --- HELPERS (Cost/Time Parsing) ---
+// --- HELPERS ---
 const parseCost = (costStr) => {
   if (!costStr || costStr === 'Internal Transfer') return 0;
   return Number(costStr.replace(/[^0-9.]/g, '')) || 0;
@@ -109,18 +266,116 @@ const METHOD_CARBON_FACTOR = {
   'Direct to Data Center': 0.1, 'Digital Transfer': 0.0
 };
 
-// --- MOCK DATA ---
-// Added 'type' fields to identify the Fab vs Assembly steps
+// --- MOCK DATA (Updated IDs to match MiniSupplyChainDiagram) ---
 const MOCK_PATH = [
-    { id: 'root', type: 'HQ', name: 'Nvidia HQ', emoji: '🏭', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 2 },
-    { id: 'fab', type: 'FAB', name: 'TSMC Foundry', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5, shipping: { cost: '$5000', time: '2-3 days', method: 'Secure Air Freight' } },
-    { id: 'assembly', type: 'ASSEMBLY', name: 'Foxconn Assembly', emoji: '🔧', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4, shipping: { cost: '$1200', time: '1 day', method: 'Secure Trucking' } },
-    { id: 'dist', type: 'DISTRIBUTION', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 51.9225, lng: 4.47917, name: 'Rotterdam, Netherlands' }], risk: 3, shipping: { cost: '$8500', time: '15-20 days', method: 'Ocean Freight' } }
+    { id: 'quartz_gpu', type: 'RAW_MATERIAL', name: 'Raw Quartz Mine', emoji: '⛏️', locations: [{ lat: 35.9154, lng: -82.0646, name: 'Spruce Pine, USA' }], risk: 2 },
+    { id: 'silicon_wafers_gpu', type: 'PROCESSING', name: 'Silicon Wafer Prep', emoji: '💿', locations: [{ lat: 35.6762, lng: 139.6503, name: 'Tokyo, Japan' }], risk: 3, shipping: { cost: '$1200', time: '5 days', method: 'Ocean Freight' } },
+    { id: 'gpu_die', type: 'FAB', name: 'TSMC Foundry (Fab)', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5, shipping: { cost: '$5000', time: '2-3 days', method: 'Secure Air Freight' } },
+    { id: 'packaging_merge', type: 'ASSEMBLY', name: 'CoWoS Packaging', emoji: '🔧', locations: [{ lat: 24.1477, lng: 120.6736, name: 'Taichung, Taiwan' }], risk: 5, shipping: { cost: '$800', time: '1 day', method: 'Secure Trucking' } },
+    { id: 'final_assembly', type: 'DISTRIBUTION', name: 'Final Assembly (Foxconn)', emoji: '🏭', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4, shipping: { cost: '$2500', time: '2 days', method: 'Secure Trucking' } },
+    { id: 'dist', type: 'DELIVERY', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 1, shipping: { cost: '$8500', time: '15-20 days', method: 'Ocean Freight' } }
 ];
 
-const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
+const LOCATION_MAP = {
+    'Spruce Pine, NC': { lat: 35.9154, lng: -82.0646 },
+    'Tokyo, Japan': { lat: 35.6762, lng: 139.6503 },
+    'Kawasaki, Japan': { lat: 35.5308, lng: 139.7029 },
+    'Marlborough, MA': { lat: 42.3459, lng: -71.5523 },
+    'Kyoto, Japan': { lat: 35.0116, lng: 135.7681 },
+    'Osaka, Japan': { lat: 34.6937, lng: 135.5023 },
+    'Chandler, AZ': { lat: 33.3062, lng: -111.8413 },
+    'Pittsburgh, PA': { lat: 40.4406, lng: -79.9959 },
+    'Phoenix, AZ': { lat: 33.4484, lng: -112.0740 },
+    'Multiple Global': { lat: 51.5074, lng: -0.1278 },
+    'Vancouver, WA': { lat: 45.6387, lng: -122.6615 },
+    'Imari, Japan': { lat: 33.2642, lng: 129.8786 },
+    'Sherman, TX': { lat: 33.6357, lng: -96.6089 },
+    'Gumi, South Korea': { lat: 36.1136, lng: 128.3445 },
+    'Seoul, South Korea': { lat: 37.5665, lng: 126.9780 },
+    'Pyeongtaek, South Korea': { lat: 36.9922, lng: 127.1128 },
+    'Icheon, South Korea': { lat: 37.2720, lng: 127.4425 },
+    'Boise, ID': { lat: 43.6150, lng: -116.2023 },
+    'Hsinchu, Taiwan': { lat: 24.8138, lng: 120.9675 },
+    'Hwaseong, South Korea': { lat: 37.2071, lng: 126.8167 },
+    'Ogaki, Japan': { lat: 35.3609, lng: 136.6176 },
+    'Chennai, India': { lat: 13.0827, lng: 80.2707 },
+    'Taichung, Taiwan': { lat: 24.1477, lng: 120.6736 },
+    'Taipei, Taiwan': { lat: 25.0330, lng: 121.5654 },
+    'Taoyuan, Taiwan': { lat: 24.9936, lng: 121.3010 },
+    'Santa Ana, CA': { lat: 33.7455, lng: -117.8677 },
+    'Laconia, NH': { lat: 43.5279, lng: -71.4703 },
+    'Vienna, Austria': { lat: 48.2082, lng: 16.3738 },
+    'Shenzhen, China': { lat: 22.5431, lng: 114.0579 },
+    'Austin, TX': { lat: 30.2672, lng: -97.7431 },
+    'Santa Clara, USA': { lat: 37.3688, lng: -122.0363 }
+};
+
+const SimulationPage = ({ selectedPath, vendorSelections, levelInfo }) => {
     const mountRef = useRef(null);
     const [sceneReady, setSceneReady] = useState(false);
+    
+    // Build path from vendor selections
+    const [builtPath, setBuiltPath] = useState([]);
+    
+    useEffect(() => {
+        if (!vendorSelections || Object.keys(vendorSelections).length === 0) {
+            if (!selectedPath || selectedPath.length === 0) {
+                setBuiltPath(MOCK_PATH);
+            }
+            return;
+        }
+        
+        // Build the path from vendor selections
+        const path = [];
+        
+        // 1. RAW MATERIALS (Approximate mapping for visualization)
+        path.push({
+            id: 'quartz_gpu',
+            type: 'RAW_MATERIAL',
+            name: 'Raw Material Extraction',
+            emoji: '⛏️',
+            locations: [LOCATION_MAP['Spruce Pine, NC']],
+            risk: 2
+        });
+
+        // Go through each stage and component in order
+        if (levelInfo && levelInfo.stages) {
+            levelInfo.stages.forEach((stage, stageIdx) => {
+                stage.components.forEach((component, compIdx) => {
+                    const vendor = vendorSelections[component.id];
+                    if (vendor) {
+                        const location = LOCATION_MAP[vendor.location] || { lat: 0, lng: 0 };
+                        
+                        // Map the component ID to the Tree ID if possible, otherwise use generated
+                        // This allows the Minimap to light up corresponding nodes
+                        let mappedId = vendor.id || `${component.id}`;
+                        if(component.id.includes('gpu')) mappedId = 'gpu_die';
+                        if(component.id.includes('hbm')) mappedId = 'hbm3e';
+                        if(component.id.includes('substrate')) mappedId = 'substrate_abf';
+                        if(component.id.includes('assembly')) mappedId = 'final_assembly';
+
+                        path.push({
+                            id: mappedId,
+                            type: stage.name.toUpperCase(),
+                            name: vendor.name,
+                            emoji: component.emoji || '🏭',
+                            locations: [{ ...location, name: vendor.location }],
+                            risk: vendor.risk,
+                            shipping: {
+                                cost: `${vendor.cost}`,
+                                time: `${vendor.leadTime} days`,
+                                method: vendor.shippingMethod || 'Standard Air Freight'
+                            }
+                        });
+                    }
+                });
+            });
+        }
+        
+        setBuiltPath(path);
+    }, [vendorSelections, levelInfo, selectedPath]);
+
+    const activePath = builtPath.length > 0 ? builtPath : (selectedPath || []);
     
     // --- STATE ---
     const [isSimulating, setIsSimulating] = useState(false);
@@ -128,10 +383,8 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const [simulationStatus, setSimulationStatus] = useState('idle');
     const [simulationLog, setSimulationLog] = useState([]); 
     const [nodeStatuses, setNodeStatuses] = useState({});
-    
-    // ** STATE: GPU Count & Live Volume **
     const [gpuCount, setGpuCount] = useState(1000); 
-    const [livePayload, setLivePayload] = useState(1000); // Tracks actual units surviving through the chain
+    const [livePayload, setLivePayload] = useState(1000); 
 
     const metricsRef = useRef({ totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0, totalYieldLoss: 0 });
     const [metrics, setMetrics] = useState(metricsRef.current);
@@ -146,11 +399,9 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const globeRef = useRef(null);
     const markersGroupRef = useRef(null);
     const arcGroupRef = useRef(null);
-    
     const drawnLinesRef = useRef(new Set()); 
     const drawnMarkersRef = useRef(new Set());
     const animatingObjectsRef = useRef([]); 
-    
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
     const frameIdRef = useRef(null);
@@ -158,19 +409,18 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
     const isMountedRef = useRef(true);
 
     // --- LOGIC: SIMULATION ENGINE ---
-    // Now accepts currentPayload to track volume changes between steps
     const runSimulationStep = useCallback((index, currentPayload) => {
-        if (index >= selectedPath.length) {
+        if (index >= activePath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
             setSimulationLog(prev => [...prev, { text: `✅ Supply Chain Completed. Delivered: ${currentPayload.toLocaleString()} units.`, type: "success", id: Date.now() + Math.random() }]);
             return;
         }
 
-        const item = selectedPath[index];
+        const item = activePath[index];
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
-        setLivePayload(currentPayload); // Update UI to show current units
+        setLivePayload(currentPayload); 
 
         let distance = 0;
         let legCost = 0;
@@ -182,61 +432,42 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         let stepPayload = currentPayload;
         let yieldLossCost = 0;
 
-        // ** LOGIC: Volume Scaling **
-        // Calculate costs based on the ACTUAL payload moving to this step, not the original order
         const volumeScalingFactor = Math.max(1, currentPayload / 1000);
 
-        // --- SPECIAL LOGIC: WAFER YIELD AT FAB ---
         if (item.type === 'FAB') {
-            // Random yield efficiency between 65% and 85% for high-end nodes
             const baseYield = 0.75; 
-            const variance = (Math.random() * 0.2) - 0.1; // +/- 10%
+            const variance = (Math.random() * 0.2) - 0.1; 
             const actualYield = Math.max(0.1, Math.min(0.99, baseYield + variance));
-            
             const primeUnits = Math.floor(currentPayload * actualYield);
             const binnedUnits = currentPayload - primeUnits;
-            
-            // We lose the value of the binned units (simplified cost model: $500 per lost chip die)
             yieldLossCost = binnedUnits * 500;
-            
-            // Update payload for the rest of the journey
             stepPayload = primeUnits;
-            
             setTimeout(() => {
-                setSimulationLog(prev => [...prev, { 
-                    step: index, 
-                    text: `📉 Yield Report: ${(actualYield * 100).toFixed(1)}% efficiency. ${binnedUnits.toLocaleString()} units binned/defective.`, 
-                    type: "warning", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `📉 Yield: ${(actualYield * 100).toFixed(1)}%. ${binnedUnits.toLocaleString()} binned.`, type: "warning", id: Date.now() }]);
             }, 500);
         }
 
         if (index > 0) {
-            const prevItem = selectedPath[index - 1];
+            const prevItem = activePath[index - 1];
             const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
             
             distance = prevPos.distanceTo(currPos) * 5000;
             const shipping = item.shipping || {};
             
-            // Logistics Cost & Carbon scale with the CURRENT payload
             legCost = parseCost(shipping.cost) * volumeScalingFactor;
             legTime = parseTimeDays(shipping.time);
             const methodFactor = METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
             legCarbon = (distance * methodFactor) * volumeScalingFactor;
 
-            // ** LOGIC: Risk Probability Scaling **
             const volumeRiskPenalty = Math.max(0, (currentPayload - 1000) / 5000) * 0.5;
             const effectiveRisk = Math.min(18, item.risk + volumeRiskPenalty);
             const failureChance = effectiveRisk * 0.05; 
-            
             const roll = Math.random();
 
             if (roll < failureChance) {
                 const severity = Math.random();
                 const criticalThreshold = 0.85 - (volumeRiskPenalty * 0.02); 
-
                 if (severity > criticalThreshold) {
                     disruptionType = 'CRITICAL';
                 } else if (severity > 0.5) {
@@ -245,7 +476,7 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
                     penaltyTime = 2 + (volumeRiskPenalty * 0.2); 
                 } else {
                     disruptionType = 'DELAY';
-                    penaltyTime = Math.ceil(Math.random() * 4) + 1 + Math.floor(volumeRiskPenalty * 0.5);
+                    penaltyTime = Math.ceil(Math.random() * 4) + 1;
                 }
             }
         }
@@ -261,22 +492,12 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             totalCarbon: prev.totalCarbon + legCarbon,
             totalYieldLoss: prev.totalYieldLoss + (item.type === 'FAB' ? (currentPayload - stepPayload) : 0)
         };
-
         metricsRef.current = newMetrics;
         setMetrics(newMetrics);
-
+        
         setMetricsHistory(history => {
-            if (history.length > 0 && history[history.length - 1].step === index) {
-                return history;
-            }
-            const newEntry = {
-                step: index,
-                name: item.name,
-                totalCost: newMetrics.totalCost,
-                totalTime: newMetrics.totalTime,
-                totalDistance: newMetrics.totalDistance,
-                totalCarbon: newMetrics.totalCarbon
-            };
+            if (history.length > 0 && history[history.length - 1].step === index) return history;
+            const newEntry = { step: index, name: item.name, totalCost: newMetrics.totalCost, totalTime: newMetrics.totalTime, totalDistance: newMetrics.totalDistance, totalCarbon: newMetrics.totalCarbon };
             return index === 0 ? [newEntry] : [...history, newEntry];
         });
 
@@ -284,76 +505,43 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
             if (disruptionType === 'CRITICAL') {
                 setNodeStatuses(prev => {
                     const newStatuses = { ...prev, [item.id]: 'error' };
-                    for (let i = index + 1; i < selectedPath.length; i++) {
-                        newStatuses[selectedPath[i].id] = 'blocked';
-                    }
+                    for (let i = index + 1; i < activePath.length; i++) newStatuses[activePath[i].id] = 'blocked';
                     return newStatuses;
                 });
-                
-                const reason = CRITICAL_REASONS[Math.floor(Math.random() * CRITICAL_REASONS.length)];
-                
-                setSimulationLog(prev => [...prev, { 
-                    step: index, 
-                    text: `⛔ CRITICAL STOPPAGE at ${item.name}: ${reason}`, 
-                    type: "danger", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `⛔ STOPPAGE at ${item.name}`, type: "danger", id: Date.now() }]);
                 setIsSimulating(false);
                 setSimulationStatus('failed');
             } else if (disruptionType === 'LOSS') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { 
-                    step: index, 
-                    text: `⚠️ Shipment damage at ${item.name}. Replacement ordered (+${penaltyCost.toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0})})`, 
-                    type: "warning", 
-                    id: Date.now() 
-                }]);
-                // On LOSS, we might reset payload or delay. Here we just delay.
+                setSimulationLog(prev => [...prev, { step: index, text: `⚠️ Shipment damage at ${item.name}`, type: "warning", id: Date.now() }]);
                 setTimeout(() => runSimulationStep(index + 1, stepPayload), 2500);
             } else if (disruptionType === 'DELAY') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { 
-                    step: index, 
-                    text: `⏱️ Capacity Delay at ${item.name} (+${penaltyTime.toFixed(1)}d).`, 
-                    type: "warning", 
-                    id: Date.now() 
-                }]);
+                setSimulationLog(prev => [...prev, { step: index, text: `⏱️ Delay at ${item.name}`, type: "warning", id: Date.now() }]);
                 setTimeout(() => runSimulationStep(index + 1, stepPayload), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
-                if(item.type !== 'FAB') {
-                     setSimulationLog(prev => [...prev, { 
-                        step: index, 
-                        text: `✅ ${item.name}: Operations stable.`, 
-                        type: "success", 
-                        id: Date.now() 
-                    }]);
-                }
-                // Pass the (possibly reduced) payload to the next step
                 setTimeout(() => runSimulationStep(index + 1, stepPayload), 1500);
             }
         }, 1000);
 
-    }, [selectedPath]); // gpuCount removed from dependency as it is passed as argument
+    }, [activePath]); 
 
     const startSimulation = useCallback(() => {
         if (isSimulating && simulationStatus === 'running') return;
         setIsSimulating(true);
         setSimulationStatus('running');
         setLivePayload(gpuCount);
-        setSimulationLog([{ text: `🚀 Initiating Supply Chain Simulation for ${gpuCount.toLocaleString()} units...`, type: "neutral", id: Date.now() }]);
+        setSimulationLog([{ text: `🚀 Starting Simulation...`, type: "neutral", id: Date.now() }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
         metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0, totalYieldLoss: 0 };
         setMetrics(metricsRef.current);
         setMetricsHistory([]);
-        
         drawnLinesRef.current.clear();
         drawnMarkersRef.current.clear();
         animatingObjectsRef.current = [];
-        
         setIsMetricsExpanded(false);
-        // Pass initial gpuCount as the first payload
         setTimeout(() => { runSimulationStep(0, gpuCount); }, 1000);
     }, [isSimulating, simulationStatus, runSimulationStep, gpuCount]);
 
@@ -365,235 +553,136 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a1a);
         sceneRef.current = scene;
-
         const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
         camera.position.z = 5.5;
         cameraRef.current = camera;
-
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
-
         scene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const pointLight = new THREE.PointLight(0xffffff, 0.8);
         pointLight.position.set(5, 3, 5);
         scene.add(pointLight);
-
-        const globeGeometry = new THREE.SphereGeometry(1.3, 64, 64);
-        const globeMaterial = new THREE.MeshPhongMaterial({ color: 0x2563eb, shininess: 20 });
-        const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+        const globe = new THREE.Mesh(new THREE.SphereGeometry(1.3, 64, 64), new THREE.MeshPhongMaterial({ color: 0x2563eb, shininess: 20 }));
         scene.add(globe);
         globeRef.current = globe;
-
         const markersGroup = new THREE.Group();
         globe.add(markersGroup);
         markersGroupRef.current = markersGroup;
-
         const arcGroup = new THREE.Group();
         globe.add(arcGroup);
         arcGroupRef.current = arcGroup;
+        const starGeo = new THREE.BufferGeometry();
+        const starVs = [];
+        for (let i = 0; i < 2000; i++) starVs.push((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100);
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVs, 3));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true })));
 
-        const starGeometry = new THREE.BufferGeometry();
-        const starVertices = [];
-        for (let i = 0; i < 2000; i++) starVertices.push((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100);
-        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.5, transparent: true }));
-        scene.add(stars);
-
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.crossOrigin = 'anonymous'; 
-        const textureSources = ['https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'];
-        let currentSource = 0;
-        const tryLoadTexture = () => {
-            if (currentSource >= textureSources.length) return;
-            textureLoader.load(textureSources[currentSource], (texture) => {
-                if (!isMountedRef.current) return;
-                if (globeRef.current && globeRef.current.material) {
-                    textureRef.current = texture;
-                    globeRef.current.material.color.setHex(0xffffff);
-                    globeRef.current.material.map = texture;
-                    globeRef.current.material.needsUpdate = true;
-                    if(rendererRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
-                } 
-            }, undefined, () => { currentSource++; tryLoadTexture(); });
-        };
-        tryLoadTexture();
+        const texLoader = new THREE.TextureLoader();
+        texLoader.crossOrigin = 'anonymous'; 
+        texLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg', (tex) => {
+             if (globeRef.current) { globeRef.current.material.map = tex; globeRef.current.material.color.setHex(0xffffff); globeRef.current.material.needsUpdate = true; }
+        });
 
         const handleMouseDown = (e) => { isDraggingRef.current = true; previousMouseRef.current = { x: e.clientX, y: e.clientY }; };
         const handleMouseMove = (e) => {
             if (!isDraggingRef.current || !globeRef.current) return;
-            const deltaX = e.clientX - previousMouseRef.current.x;
-            const deltaY = e.clientY - previousMouseRef.current.y;
-            globeRef.current.rotation.x += deltaY * 0.005;
-            globeRef.current.rotation.y += deltaX * 0.005;
+            const dx = e.clientX - previousMouseRef.current.x;
+            const dy = e.clientY - previousMouseRef.current.y;
+            globeRef.current.rotation.x += dy * 0.005;
+            globeRef.current.rotation.y += dx * 0.005;
             previousMouseRef.current = { x: e.clientX, y: e.clientY };
         };
         const handleMouseUp = () => { isDraggingRef.current = false; };
-
         const canvas = renderer.domElement;
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
-        canvas.addEventListener('mouseleave', handleMouseUp); 
-
-        // --- ANIMATION LOOP ---
+        
         const animate = () => {
             frameIdRef.current = requestAnimationFrame(animate);
             if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
-            if (stars) stars.rotation.y += 0.0002;
-            
             if (animatingObjectsRef.current.length > 0) {
                 for (let i = animatingObjectsRef.current.length - 1; i >= 0; i--) {
                     const mesh = animatingObjectsRef.current[i];
-                    if (mesh && mesh.geometry) {
-                        const totalIndices = mesh.userData.totalIndices;
-                        const speed = 150; 
-                        mesh.userData.currentCount += speed;
-                        if (mesh.userData.currentCount < totalIndices) {
-                            mesh.geometry.setDrawRange(0, mesh.userData.currentCount);
-                        } else {
-                            mesh.geometry.setDrawRange(0, totalIndices);
-                            animatingObjectsRef.current.splice(i, 1); 
-                        }
+                    if (mesh.userData.currentCount < mesh.userData.totalIndices) {
+                        mesh.userData.currentCount += 150;
+                        mesh.geometry.setDrawRange(0, mesh.userData.currentCount);
+                    } else {
+                        mesh.geometry.setDrawRange(0, mesh.userData.totalIndices);
+                        animatingObjectsRef.current.splice(i, 1);
                     }
                 }
             }
-            if (rendererRef.current && sceneRef.current && cameraRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
+            if (rendererRef.current) rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         animate();
-
-        const handleResize = () => {
-            if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
-            cameraRef.current.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-            cameraRef.current.updateProjectionMatrix();
-            rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-        };
-        window.addEventListener('resize', handleResize);
-
         setSceneReady(true);
-
-        return () => {
-            if (rendererRef.current?.domElement && mountRef.current?.contains(rendererRef.current.domElement)) {
-                mountRef.current.removeChild(rendererRef.current.domElement);
-            }
-            if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
-        };
+        return () => { if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current); };
     }, []);
 
     // --- VISUALS UPDATER ---
     useEffect(() => {
-        if (!sceneReady || !globeRef.current || !markersGroupRef.current || !arcGroupRef.current) return;
-
-        const markersGroup = markersGroupRef.current;
-        const arcGroup = arcGroupRef.current;
+        if (!sceneReady || !globeRef.current) return;
+        const markers = markersGroupRef.current;
+        const arcs = arcGroupRef.current;
         
         if (currentStepIndex === -1) {
-            while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
-            while (arcGroup.children.length > 0) arcGroup.remove(arcGroup.children[0]);
-            drawnLinesRef.current.clear();
-            drawnMarkersRef.current.clear();
-            animatingObjectsRef.current = [];
+            markers.clear(); arcs.clear();
+            drawnLinesRef.current.clear(); drawnMarkersRef.current.clear(); animatingObjectsRef.current = [];
         }
 
-        const getStatusColor = (status, baseRisk) => {
+        const getStatusColor = (status) => {
             if (status === 'active') return 0xffffff;
             if (status === 'success') return 0x22c55e;
             if (status === 'warning') return 0xf59e0b;
             if (status === 'error') return 0xef4444;
-            if (status === 'blocked') return 0x334155;
             return 0x334155; 
         };
 
-        selectedPath.forEach((item, index) => {
-            const isVisible = index <= currentStepIndex + 1 || currentStepIndex === -1; 
-            if (!isVisible) return; 
+        activePath.forEach((item, index) => {
+            if (index > currentStepIndex + 1 && currentStepIndex !== -1) return;
 
-            // --- MARKERS ---
             const markerId = `marker-${index}`;
             const status = nodeStatuses[item.id] || 'pending';
             
             if (!drawnMarkersRef.current.has(markerId) && item.locations && item.locations[0]) {
                 const pos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
-                const isActive = status === 'active';
-                const color = getStatusColor(status, item.risk);
-                
-                const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
-                const markerMat = new THREE.MeshBasicMaterial({ color: color, transparent: true });
-                const marker = new THREE.Mesh(markerGeo, markerMat);
+                const color = getStatusColor(status);
+                const marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshBasicMaterial({ color, transparent: true }));
                 marker.position.copy(pos);
                 marker.userData = { id: markerId };
-                
-                markersGroup.add(marker);
-                
-                if (isActive) {
-                    const glowGeo = new THREE.SphereGeometry(0.08, 16, 16);
-                    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
-                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                markers.add(marker);
+                if (status === 'active') {
+                    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
                     glow.position.copy(pos);
-                    glow.userData = { id: `${markerId}-glow` };
-                    markersGroup.add(glow);
+                    markers.add(glow);
                 }
                 drawnMarkersRef.current.add(markerId);
             } else {
-                const existingMarker = markersGroup.children.find(child => child.userData.id === markerId);
-                if (existingMarker) {
-                    existingMarker.material.color.setHex(getStatusColor(status, item.risk));
-                }
+                const existing = markers.children.find(c => c.userData.id === markerId);
+                if (existing) existing.material.color.setHex(getStatusColor(status));
             }
 
-            // --- LINES (ARCS) ---
             if (index > 0 && index <= currentStepIndex + 1) {
                 const legId = `line-${index}`;
-                
                 if (!drawnLinesRef.current.has(legId)) {
-                    const prevItem = selectedPath[index - 1];
-                    const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.32);
-                    const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
-                    
-                    let lineColor = 0x334155; 
-                    let lineOpacity = 0.2;
-                    let animateThisLine = false;
-
-                    if (index === currentStepIndex + 1) {
-                        lineColor = 0x64748b; 
-                        lineOpacity = 0.5;
-                    } else if (index === currentStepIndex) {
-                        lineColor = 0x3b82f6; 
-                        lineOpacity = 1.0;
-                        animateThisLine = true; 
-                    } else {
-                        lineColor = 0x22c55e; 
-                        lineOpacity = 0.6;
-                    }
-
-                    const arc = createArcLine(prevPos, currPos, new THREE.Color(lineColor), lineOpacity, animateThisLine);
-                    arc.userData = { ...arc.userData, id: legId };
-                    
-                    arcGroup.add(arc);
+                    const prev = latLonToVector3(activePath[index-1].locations[0].lat, activePath[index-1].locations[0].lng, 1.32);
+                    const curr = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
+                    const isCurrLeg = index === currentStepIndex + 1 || index === currentStepIndex;
+                    const color = isCurrLeg ? 0x3b82f6 : 0x22c55e;
+                    const arc = createArcLine(prev, curr, new THREE.Color(color), isCurrLeg ? 1 : 0.6, isCurrLeg);
+                    arc.userData = { id: legId };
+                    arcs.add(arc);
                     drawnLinesRef.current.add(legId);
-                    
-                    if (animateThisLine) {
-                        animatingObjectsRef.current.push(arc);
-                    }
-                } else {
-                    const existingArc = arcGroup.children.find(child => child.userData.id === legId);
-                    if (existingArc) {
-                        let targetColor = 0x334155;
-                        if (index < currentStepIndex) targetColor = 0x22c55e; 
-                        else if (index === currentStepIndex) targetColor = 0x3b82f6; 
-                        
-                        existingArc.material.color.setHex(targetColor);
-                        existingArc.material.opacity = (index === currentStepIndex) ? 1.0 : 0.6;
-                    }
+                    if (isCurrLeg) animatingObjectsRef.current.push(arc);
                 }
             }
         });
+    }, [activePath, nodeStatuses, currentStepIndex, sceneReady]);
 
-    }, [selectedPath, nodeStatuses, currentStepIndex, sceneReady]);
-
-    // -- UI HELPERS --
     const currentRiskLevel = gpuCount < 10000 ? "Low" : gpuCount < 50000 ? "Medium" : "High";
     const riskColor = currentRiskLevel === "Low" ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/10" : currentRiskLevel === "Medium" ? "text-yellow-400 border-yellow-500/50 bg-yellow-500/10" : "text-red-400 border-red-500/50 bg-red-500/10";
 
@@ -601,305 +690,100 @@ const SimulationPage = ({ selectedPath = MOCK_PATH }) => {
         <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
             <div ref={mountRef} className="absolute inset-0 w-full h-full" />
 
-            {/* UI - Header */}
+            {/* HEADER */}
             <div className="absolute top-6 left-6 z-10 pointer-events-none">
                 <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Impact Analysis</h1>
                 <p className="text-blue-200/60 text-sm font-medium mt-1">Simulating probability-based supply chain disruptions.</p>
             </div>
 
-            {/* UI - Right Controls */}
+            {/* CONTROLS */}
             <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto">
-                <div className="bg-slate-800/90 backdrop-blur border border-slate-600 p-4 rounded-xl shadow-2xl w-80">
-                    <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
-                    
-                    {/* GPU Volume Slider */}
-                    <div className="mb-6 bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-gray-400 text-xs uppercase font-bold">
-                                Order Volume
-                            </label>
-                            <span className={`text-[10px] font-bold border px-2 py-0.5 rounded ${riskColor}`}>
-                                {currentRiskLevel} Risk
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-end mb-2">
-                             <div className="flex flex-col">
-                                 <span className="text-blue-400 font-mono text-xl font-bold">{gpuCount.toLocaleString()}</span>
-                                 <span className="text-gray-500 text-[10px]">ordered</span>
-                             </div>
-                             {isSimulating && (
-                                <div className="flex flex-col items-end animate-pulse">
-                                    <span className="text-emerald-400 font-mono text-xl font-bold">{livePayload.toLocaleString()}</span>
-                                    <span className="text-emerald-500/60 text-[10px]">live quantity</span>
+                <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 ${isSimulating ? 'p-3 w-64' : 'p-4 w-80'}`}>
+                    {!isSimulating ? (
+                        <>
+                            <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><span>⚡</span> Supply Chain Simulation</h2>
+                            <div className="mb-6 bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-gray-400 text-xs uppercase font-bold">Order Volume</label>
+                                    <span className={`text-[10px] font-bold border px-2 py-0.5 rounded ${riskColor}`}>{currentRiskLevel} Risk</span>
                                 </div>
-                             )}
-                        </div>
-                        <input
-                            type="range"
-                            min="1000"
-                            max="100000"
-                            step="1000"
-                            value={gpuCount}
-                            disabled={isSimulating}
-                            onChange={(e) => setGpuCount(Number(e.target.value))}
-                            className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isSimulating ? 'bg-slate-700' : 'bg-slate-600 accent-blue-500 hover:accent-blue-400'}`}
-                        />
-                         <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
-                            <span>1k</span>
-                            <span>100k</span>
-                        </div>
-                    </div>
-
-                    <p className="text-gray-400 text-sm mb-4">Simulating yield rates, binning, and volumetric risk.</p>
-                    <button onClick={startSimulation} disabled={isSimulating && simulationStatus === 'running'} className={`w-full py-3 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${isSimulating && simulationStatus === 'running' ? 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600' : simulationStatus === 'failed' ? 'bg-red-600 hover:bg-red-500 text-white border border-red-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:scale-[1.02]'}`}>
-                        {simulationStatus === 'running' ? <><span className="animate-spin">⚙️</span> Running...</> : simulationStatus === 'failed' ? <>↻ Retry Simulation</> : <>▶️ Run Simulation</>}
-                    </button>
-                </div>
-                <div className="bg-slate-900/90 backdrop-blur border border-slate-700 p-0 rounded-xl shadow-2xl w-80 max-h-80 overflow-hidden flex flex-col">
-                    <div className="p-3 bg-slate-800 border-b border-slate-700 font-semibold text-gray-300 text-xs uppercase tracking-wide">Live Status</div>
-                    <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-[100px]">
-                        {simulationLog.length === 0 ? <div className="text-gray-500 text-sm italic">No events yet...</div> : simulationLog.map((log) => (
-                            <div key={log.id} className={`text-sm p-2 rounded border-l-2 ${log.type === 'danger' ? 'bg-red-900/20 border-red-500 text-red-200' : log.type === 'warning' ? 'bg-orange-900/20 border-orange-500 text-orange-200' : log.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-200' : 'bg-slate-800 border-slate-500 text-gray-300'}`}>
-                                {log.step !== undefined && <span className="font-mono font-bold text-xs opacity-50 mr-2 text-white bg-slate-700 px-1.5 py-0.5 rounded">Step {log.step}</span>}
-                                {log.text}
+                                <div className="flex flex-col mb-2">
+                                     <span className="text-blue-400 font-mono text-xl font-bold">{gpuCount.toLocaleString()}</span>
+                                     <span className="text-gray-500 text-[10px]">ordered</span>
+                                </div>
+                                <input type="range" min="1000" max="100000" step="1000" value={gpuCount} onChange={(e) => setGpuCount(Number(e.target.value))} className="w-full h-2 rounded-lg bg-slate-600 accent-blue-500" />
                             </div>
-                        ))}
-                        <div ref={(el) => el && el.scrollIntoView({ behavior: 'smooth' })} />
-                    </div>
+                            <button onClick={startSimulation} className="w-full py-3 rounded-lg font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500">▶️ Run Simulation</button>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center justify-between mb-3">
+                                <h2 className="text-white font-bold text-sm flex items-center gap-2"><span className="animate-spin">⚙️</span> <span>Running</span></h2>
+                                <span className={`text-[10px] font-bold border px-2 py-0.5 rounded ${riskColor}`}>{currentRiskLevel}</span>
+                            </div>
+                            <div className="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700 mb-3">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-emerald-400 font-mono text-2xl font-bold animate-pulse">{livePayload.toLocaleString()}</span>
+                                    <span className="text-emerald-500/60 text-[10px]">live units</span>
+                                </div>
+                            </div>
+                            <button onClick={startSimulation} disabled={simulationStatus === 'running'} className={`w-full py-2 rounded-lg font-bold text-xs ${simulationStatus === 'running' ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-red-600 text-white'}`}>{simulationStatus === 'running' ? '⚙️ Running...' : '↻ Retry'}</button>
+                        </>
+                    )}
                 </div>
             </div>
 
-            {/* UI - Bottom Path Steps */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[90%] pointer-events-auto">
+            {/* --- NEW MINIMAP COMPONENT INTEGRATION --- */}
+            <MiniSupplyChainDiagram 
+                activePath={activePath} 
+                currentStepIndex={currentStepIndex}
+                nodeStatuses={nodeStatuses}
+            />
+
+            {/* BOTTOM BAR (Simplified)
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[60%] pointer-events-auto">
                 <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
-                    {selectedPath.map((item, index) => {
+                    {activePath.map((item, index) => {
                          const status = nodeStatuses[item.id] || 'pending';
-                         let borderClass = 'border-slate-600';
-                         if(status === 'active') borderClass = 'border-white animate-pulse';
-                         if(status === 'success') borderClass = 'border-green-500';
-                         if(status === 'warning') borderClass = 'border-orange-500';
-                         if(status === 'error') borderClass = 'border-red-500';
-                         if(status === 'blocked') borderClass = 'border-slate-700 opacity-50';
+                         let borderClass = status === 'active' ? 'border-white animate-pulse' : status === 'success' ? 'border-green-500' : status === 'error' ? 'border-red-500' : 'border-slate-600';
                          return (
                             <React.Fragment key={item.id}>
-                                {index > 0 && <div className={`h-0.5 w-3 transition-colors duration-500 ${status === 'pending' || status === 'blocked' ? 'bg-slate-700' : 'bg-blue-500'}`} />}
-                                <div className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-xl border-2 transition-all duration-300 ${borderClass} ${status === 'active' ? 'bg-slate-700 scale-110 shadow-lg' : 'bg-slate-800'}`}>
-                                    <span className="text-m">{status === 'blocked' ? '🔒' : item.emoji}</span>
-                                    {status === 'error' && <div className="absolute -top-1.5 -right-1.5 bg-red-600 rounded-full p-0.5 border border-slate-900"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>}
-                                    {status === 'success' && <div className="absolute -top-1.5 -right-1.5 bg-green-600 rounded-full p-0.5 border border-slate-900"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>}
+                                {index > 0 && <div className={`h-0.5 w-3 ${status !== 'pending' ? 'bg-blue-500' : 'bg-slate-700'}`} />}
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-lg border ${borderClass} ${status === 'active' ? 'bg-slate-700' : 'bg-slate-800'}`}>
+                                    <span className="text-xs">{item.emoji}</span>
                                 </div>
                             </React.Fragment>
                          );
                     })}
                 </div>
-            </div>
+            </div> */}
 
-            {/* UI - Metrics Dashboard */}
-            {(isSimulating || metricsHistory.length > 0) && (
+            {/* METRICS DASHBOARD (Hidden while running for cleaner view, expands on click) */}
+            {(metricsHistory.length > 0) && (
                 <div className="absolute bottom-8 left-6 z-10 pointer-events-auto">
-                    <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 ${isMetricsExpanded ? 'p-0 w-[600px]' : 'p-4 w-72 cursor-pointer hover:border-slate-500'}`} onClick={isMetricsExpanded ? undefined : () => setIsMetricsExpanded(true)}>
+                    <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl ${isMetricsExpanded ? 'w-[500px]' : 'w-64 cursor-pointer p-4 hover:border-blue-400'}`} onClick={() => !isMetricsExpanded && setIsMetricsExpanded(true)}>
                         {!isMetricsExpanded ? (
-                            <>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-white font-bold text-sm flex items-center gap-2"><span>📊</span> Supply Chain Metrics</h3>
-                                    <button className="text-gray-400 hover:text-white text-xs">⬆ Expand</button>
-                                </div>
-                                <div className="space-y-2.5">
-                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>💰</span> Total Cost</span><span className="text-emerald-400 font-bold text-sm">${metrics.totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></div>
-                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>📉</span> Yield Loss</span><span className="text-red-400 font-bold text-sm">{metrics.totalYieldLoss.toLocaleString()} units</span></div>
-                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>⏱️</span> Total Time</span><span className="text-blue-400 font-bold text-sm">{metrics.totalTime.toFixed(1)} days</span></div>
-                                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm flex items-center gap-2"><span>🌱</span> Carbon</span><span className="text-orange-400 font-bold text-sm">{metrics.totalCarbon.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg</span></div>
-                                </div>
-                            </>
+                             <div className="flex justify-between items-center">
+                                <h3 className="text-white font-bold text-xs">📊 Metrics</h3>
+                                <div className="text-emerald-400 font-bold text-xs">${(metrics.totalCost/1000).toFixed(0)}k</div>
+                             </div>
                         ) : (
-                            <>
-                                {/* Header with Close Button */}
-                                <div className="flex items-center justify-between p-4 border-b border-slate-700">
-                                    <h3 className="text-white font-bold text-sm flex items-center gap-2"><span>📊</span> Supply Chain Metrics</h3>
-                                    <button onClick={() => setIsMetricsExpanded(false)} className="text-gray-400 hover:text-white text-xs">⬇ Collapse</button>
+                            <div className="p-4">
+                                <div className="flex justify-between mb-4 border-b border-slate-700 pb-2">
+                                    <h3 className="text-white font-bold">Metrics</h3>
+                                    <button onClick={(e) => { e.stopPropagation(); setIsMetricsExpanded(false); }} className="text-xs text-gray-400">Collapse</button>
                                 </div>
-
-                                {/* Tab Navigation */}
-                                <div className="flex border-b border-slate-700 bg-slate-900/30">
-                                    {[
-                                        { id: 'overall', label: 'Overall', icon: '📊' },
-                                        { id: 'cost', label: 'Cost', icon: '💰' },
-                                        { id: 'time', label: 'Time', icon: '⏱️' },
-                                        { id: 'distance', label: 'Distance', icon: '🌍' },
-                                        { id: 'carbon', label: 'Carbon', icon: '🌱' }
-                                    ].map(tab => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={(e) => { e.stopPropagation(); setActiveMetricTab(tab.id); }}
-                                            className={`flex-1 py-3 px-2 text-xs font-semibold transition-all ${
-                                                activeMetricTab === tab.id
-                                                    ? 'text-blue-400 border-b-2 border-blue-400 bg-slate-800/50'
-                                                    : 'text-gray-400 hover:text-gray-300 hover:bg-slate-800/30'
-                                            }`}
-                                        >
-                                            <span className="mr-1">{tab.icon}</span>
-                                            {tab.label}
-                                        </button>
-                                    ))}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
+                                        <div className="text-gray-400 text-xs">Cost</div>
+                                        <div className="text-emerald-400 font-bold">${(metrics.totalCost/1000).toFixed(1)}k</div>
+                                    </div>
+                                    <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
+                                        <div className="text-gray-400 text-xs">Yield Loss</div>
+                                        <div className="text-red-400 font-bold">{metrics.totalYieldLoss}</div>
+                                    </div>
                                 </div>
-
-                                {/* Tab Content */}
-                                <div className="p-6 max-h-[500px] overflow-y-auto">
-                                    {activeMetricTab === 'overall' && (
-                                        <div className="space-y-6">
-                                            <div className="grid grid-cols-4 gap-3">
-                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                                    <div className="text-gray-400 text-xs mb-1">💰 Cost</div>
-                                                    <div className="text-emerald-400 font-bold text-lg">${(metrics.totalCost / 1000).toFixed(1)}k</div>
-                                                </div>
-                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                                    <div className="text-gray-400 text-xs mb-1">⏱️ Time</div>
-                                                    <div className="text-blue-400 font-bold text-lg">{metrics.totalTime.toFixed(1)}d</div>
-                                                </div>
-                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                                    <div className="text-gray-400 text-xs mb-1">🌍 Distance</div>
-                                                    <div className="text-purple-400 font-bold text-lg">{(metrics.totalDistance / 1000).toFixed(0)}k</div>
-                                                </div>
-                                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                                    <div className="text-gray-400 text-xs mb-1">🌱 Carbon</div>
-                                                    <div className="text-orange-400 font-bold text-lg">{(metrics.totalCarbon / 1000).toFixed(1)}t</div>
-                                                </div>
-                                            </div>
-                                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                                                <div className="text-gray-400 text-xs mb-1">📉 Yield Loss</div>
-                                                <div className="text-red-400 font-bold text-lg">{metrics.totalYieldLoss.toLocaleString()} units</div>
-                                            </div>
-
-                                            {metricsHistory.length > 0 && (
-                                                <div>
-                                                    <div className="text-gray-300 text-xs font-semibold mb-2">All Metrics Overview</div>
-                                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                                        <svg width="100%" height="150" viewBox="0 0 520 150" className="overflow-visible">
-                                                            {[0, 1, 2, 3, 4].map(i => <line key={i} x1="60" y1={25 + i * 25} x2="500" y2={25 + i * 25} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
-                                                            
-                                                            {['cost', 'time', 'carbon'].map((type, idx) => {
-                                                                const dataKey = type === 'cost' ? 'totalCost' : type === 'time' ? 'totalTime' : 'totalCarbon';
-                                                                const color = type === 'cost' ? '#10b981' : type === 'time' ? '#3b82f6' : '#fb923c';
-                                                                const maxVal = Math.max(...metricsHistory.map(p => p[dataKey]));
-                                                                
-                                                                return (
-                                                                    <g key={type}>
-                                                                        {metricsHistory.length > 1 && (
-                                                                            <polyline
-                                                                                points={metricsHistory.map((point, i) => {
-                                                                                    const x = 60 + (i / (metricsHistory.length - 1)) * 440;
-                                                                                    const y = 125 - (point[dataKey] / (maxVal || 1)) * 100;
-                                                                                    return `${x},${y}`;
-                                                                                }).join(' ')}
-                                                                                fill="none" stroke={color} strokeWidth="2" opacity="0.7"
-                                                                            />
-                                                                        )}
-                                                                    </g>
-                                                                );
-                                                            })}
-                                                            
-                                                            {metricsHistory.map((point, i) => {
-                                                                const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
-                                                                return <text key={i} x={x} y="145" fontSize="10" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
-                                                            })}
-                                                        </svg>
-                                                        <div className="flex justify-center gap-4 mt-3 text-xs">
-                                                            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-emerald-500"></div><span className="text-gray-400">Cost</span></div>
-                                                            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-blue-500"></div><span className="text-gray-400">Time</span></div>
-                                                            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-orange-500"></div><span className="text-gray-400">Carbon</span></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {['cost', 'time', 'distance', 'carbon'].map(type => {
-                                        if (activeMetricTab !== type) return null;
-                                        
-                                        const dataKey = type === 'cost' ? 'totalCost' : type === 'time' ? 'totalTime' : type === 'distance' ? 'totalDistance' : 'totalCarbon';
-                                        const color = type === 'cost' ? '#10b981' : type === 'time' ? '#3b82f6' : type === 'distance' ? '#a855f7' : '#fb923c';
-                                        const icon = type === 'cost' ? '💰' : type === 'time' ? '⏱️' : type === 'distance' ? '🌍' : '🌱';
-                                        const title = type === 'cost' ? 'Cost' : type === 'time' ? 'Time' : type === 'distance' ? 'Distance' : 'Carbon';
-                                        const unit = type === 'cost' ? 'dollars': type === 'time' ? 'days' : type === 'distance' ? 'km' : 'kg CO₂';
-                                        const currentValue = metrics[dataKey];
-                                        const formattedValue = type === 'cost' ? `${(currentValue / 1000).toFixed(1)}k` : 
-                                                              type === 'time' ? `${currentValue.toFixed(1)}d` :
-                                                              type === 'distance' ? `${(currentValue / 1000).toFixed(0)}k km` :
-                                                              `${(currentValue / 1000).toFixed(1)}t`;
-                                        
-                                        const maxVal = metricsHistory.length > 0 ? Math.max(...metricsHistory.map(p => p[dataKey])) : 0;
-                                        
-                                        return (
-                                            <div key={type} className="space-y-6">
-                                                <div className="bg-slate-900/50 p-6 rounded-lg border border-slate-700 text-center">
-                                                    <div className="text-gray-400 text-sm mb-2">Total {title}</div>
-                                                    <div style={{color}} className="font-bold text-4xl">{formattedValue}</div>
-                                                </div>
-
-                                                {metricsHistory.length > 0 && (
-                                                    <div>
-                                                        <div className="text-gray-300 text-xs font-semibold mb-2 flex items-center gap-2">
-                                                            <span>{icon}</span> {title} Progression
-                                                        </div>
-                                                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 relative">
-                                                            <svg width="100%" height="200" viewBox="0 0 520 200" className="overflow-visible">
-                                                                {[0, 1, 2, 3, 4, 5].map(i => <line key={i} x1="60" y1={30 + i * 30} x2="500" y2={30 + i * 30} stroke="#334155" strokeWidth="0.5" opacity="0.3" />)}
-                                                                
-                                                                <line x1="60" y1="30" x2="60" y2="180" stroke="#475569" strokeWidth="1" />
-                                                                <text x="55" y="35" fontSize="10" fill="#64748b" textAnchor="end">{formatYAxis(maxVal, type)}</text>
-                                                                <text x="55" y="105" fontSize="10" fill="#64748b" textAnchor="end">{formatYAxis(maxVal / 2, type)}</text>
-                                                                <text x="55" y="180" fontSize="10" fill="#64748b" textAnchor="end">0</text>
-
-                                                                {metricsHistory.length > 1 && (
-                                                                    <polyline
-                                                                        points={metricsHistory.map((point, i) => {
-                                                                            const x = 60 + (i / (metricsHistory.length - 1)) * 440;
-                                                                            const y = 180 - (point[dataKey] / (maxVal || 1)) * 150;
-                                                                            return `${x},${y}`;
-                                                                        }).join(' ')}
-                                                                        fill="none" stroke={color} strokeWidth="3"
-                                                                    />
-                                                                )}
-                                                                {metricsHistory.map((point, i) => {
-                                                                    const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
-                                                                    const y = 180 - (point[dataKey] / (maxVal || 1)) * 150;
-                                                                    return <circle key={i} cx={x} cy={y} r="5" fill={color} />;
-                                                                })}
-                                                                {metricsHistory.map((point, i) => {
-                                                                    const x = 60 + (i / Math.max(1, metricsHistory.length - 1)) * 440;
-                                                                    return <text key={i} x={x} y="195" fontSize="11" fill="#94a3b8" textAnchor="middle">{point.step}</text>;
-                                                                })}
-                                                            </svg>
-                                                        </div>
-
-                                                        {/* Step-by-step breakdown */}
-                                                        <div className="mt-4">
-                                                            <div className="text-gray-300 text-xs font-semibold mb-2">Step-by-Step Breakdown</div>
-                                                            <div className="bg-slate-900/50 rounded-lg border border-slate-700 overflow-hidden">
-                                                                {metricsHistory.map((point, i) => (
-                                                                    <div key={i} className="flex justify-between items-center p-3 border-b border-slate-700 last:border-b-0 hover:bg-slate-800/50 transition-colors">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-gray-500 font-mono text-xs">Step {point.step}</span>
-                                                                            <span className="text-gray-300 text-sm">{point.name}</span>
-                                                                        </div>
-                                                                        <span style={{color}} className="font-bold text-sm">
-                                                                            {type === 'cost' ? `${(point[dataKey] / 1000).toFixed(1)}k` : 
-                                                                             type === 'time' ? `${point[dataKey].toFixed(1)}d` :
-                                                                             type === 'distance' ? `${(point[dataKey] / 1000).toFixed(0)}k` :
-                                                                             `${(point[dataKey] / 1000).toFixed(1)}t`}
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
