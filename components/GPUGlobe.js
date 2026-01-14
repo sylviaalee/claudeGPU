@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { supplyChainData } from '../data/supplyChainData';
+import MiniSupplyChainDiagram from './MiniSupplyChainDiagram';
 
 // *** UTILITY: Animated Arc Line Generator ***
 const createArcLine = (startVector, endVector, color, opacity = 0.8) => {
@@ -668,6 +669,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
           </div>
         </div>
       )}
+      <MiniSupplyChainDiagram />
     </div>
   );
 };
