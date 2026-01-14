@@ -14,10 +14,45 @@ const CRITICAL_REASONS = [
     "Compliance Violation Seizure"
 ];
 
-// --- NEW COMPONENT: Mini Supply Chain Diagram ---
-// This matches the structure and visual style you requested
+// --- STRICT ORDERING SEQUENCE ---
+// This ensures the simulation runs leaves-first -> root (matching your diagram)
+const SIMULATION_SEQUENCE = [
+    // Branch 1: GPU Die
+    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2 },
+    { id: 'photoresist', name: 'Photoresist Production', type: 'PROCESSING', risk: 3 },
+    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2 },
+    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3 },
+    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu' },
+
+    // Branch 2: Memory (HBM)
+    { id: 'quartz_memory', name: 'Raw Quartz (Mem)', type: 'RAW_MATERIAL', risk: 2 },
+    { id: 'silicon_wafers_memory', name: 'Wafer Prep', type: 'PROCESSING', risk: 3 },
+    { id: 'dram_cells', name: 'DRAM Cell Fab', type: 'FAB', risk: 5 },
+    { id: 'hbm3e', name: 'HBM3e Stack', type: 'ASSEMBLY', risk: 6, isVendor: true, matchKey: 'hbm' },
+
+    // Branch 3: Substrate
+    { id: 'polymers_abf', name: 'Polymers', type: 'RAW_MATERIAL', risk: 2 },
+    { id: 'abf_film', name: 'ABF Film', type: 'PROCESSING', risk: 4 },
+    { id: 'copper_resin', name: 'Copper/Resin', type: 'RAW_MATERIAL', risk: 2 },
+    { id: 'copper_clad_laminates', name: 'Laminates', type: 'PROCESSING', risk: 3 },
+    { id: 'substrate_abf', name: 'ABF Substrate', type: 'ASSEMBLY', risk: 5, isVendor: true, matchKey: 'substrate' },
+
+    // Merge: Packaging
+    { id: 'packaging_merge', name: '2.5D Packaging (CoWoS)', type: 'ASSEMBLY', risk: 8, isVendor: true, matchKey: 'packaging' },
+
+    // Branch 4: Other Components
+    { id: 'pcb_motherboard', name: 'PCB Motherboard', type: 'COMPONENT', risk: 3, isVendor: true, matchKey: 'pcb' },
+    { id: 'aluminium_copper', name: 'Aluminium/Copper', type: 'RAW_MATERIAL', risk: 2 },
+    { id: 'coolers_heat_sinks', name: 'Thermal Solution', type: 'COMPONENT', risk: 2, isVendor: true, matchKey: 'cooler' },
+
+    // Final Root
+    { id: 'final_assembly', name: 'Final Assembly', type: 'MANUFACTURING', risk: 4, isVendor: true, matchKey: 'assembly' },
+    { id: 'dist', name: 'Global Distribution', type: 'DISTRIBUTION', risk: 1, isVendor: true, matchKey: 'dist' }
+];
+
+// --- COMPONENT: Mini Supply Chain Diagram ---
 const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) => {
-    // 1. Define the tree structure (Hardcoded IDs to match your supply chain logic)
+    // Tree structure matches SIMULATION_SEQUENCE hierarchy
     const tree = {
         name: "final assembly and testing",
         id: "final_assembly",
@@ -98,7 +133,6 @@ const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) 
         ]
     };
 
-    // Helper: Find if a node ID is currently active in the simulation
     const getCurrentStepId = () => {
         if (!activePath || currentStepIndex < 0 || currentStepIndex >= activePath.length) return null;
         return activePath[currentStepIndex].id;
@@ -106,71 +140,47 @@ const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) 
 
     const currentId = getCurrentStepId();
 
-    // Recursive component to render nodes
     const TreeNode = ({ node, level = 0 }) => {
         const hasChildren = node.children && node.children.length > 0;
-        
-        // Check Status
         const status = nodeStatuses[node.id] || 'pending';
         const isCurrent = node.id === currentId;
         const isCompleted = status === 'success';
         const isError = status === 'error' || status === 'blocked';
         const isWarning = status === 'warning';
 
-        // Determine styling
         let nodeClass = "bg-gradient-to-br from-slate-700 to-slate-800 border border-blue-500/30 text-blue-200/50";
         let textClass = "text-blue-200/50";
-        let borderClass = "border-blue-500/30";
 
         if (isCurrent) {
-            // Active Step: Pulse Blue
             nodeClass = "bg-gradient-to-br from-blue-600 to-blue-700 border-2 border-blue-400 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105 z-10";
             textClass = "text-white font-bold";
         } else if (isError) {
-            // Error: Red
             nodeClass = "bg-gradient-to-br from-red-900 to-red-800 border border-red-500 text-red-100";
             textClass = "text-red-100";
-            borderClass = "border-red-500";
         } else if (isWarning) {
-            // Warning: Orange
             nodeClass = "bg-gradient-to-br from-amber-900 to-amber-800 border border-amber-500 text-amber-100";
         } else if (isCompleted) {
-            // Completed: Green/Blue mix
             nodeClass = "bg-gradient-to-br from-emerald-900 to-slate-800 border border-emerald-500/50 text-emerald-100";
             textClass = "text-emerald-100";
-            borderClass = "border-emerald-500/50";
         }
 
         return (
             <div className="flex flex-col items-center">
-                {/* Node box */}
                 <div className={`${nodeClass} px-2 py-1 rounded text-[7px] text-center mb-1 whitespace-nowrap max-w-[80px] overflow-hidden text-ellipsis shadow-lg transition-all duration-300 relative`}>
                     <span className={textClass}>{node.name}</span>
                     {isCompleted && !isCurrent && <span className="ml-1 text-emerald-400">✓</span>}
                     {isCurrent && <span className="ml-1 text-white">●</span>}
                     {isError && <span className="ml-1 text-red-400">✕</span>}
                 </div>
-
-                {/* Children container */}
                 {hasChildren && (
                     <>
-                        {/* Vertical line down */}
                         <div className={`w-px h-2 ${isCurrent || isCompleted ? 'bg-blue-400/70' : 'bg-blue-400/20'}`}></div>
-
-                        {/* Horizontal container for children */}
                         <div className="flex items-start gap-1 relative">
-                            {/* Horizontal line across children */}
                             {node.children.length > 1 && (
-                                <div className={`absolute top-0 left-0 right-0 h-px ${isCurrent || isCompleted ? 'bg-blue-400/50' : 'bg-blue-400/20'}`} style={{
-                                    width: 'calc(100% - 2px)',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)'
-                                }}></div>
+                                <div className={`absolute top-0 left-0 right-0 h-px ${isCurrent || isCompleted ? 'bg-blue-400/50' : 'bg-blue-400/20'}`} style={{ width: 'calc(100% - 2px)', left: '50%', transform: 'translateX(-50%)' }}></div>
                             )}
-
                             {node.children.map((child, idx) => (
                                 <div key={idx} className="flex flex-col items-center">
-                                    {/* Vertical line to child */}
                                     <div className={`w-px h-2 ${isCurrent || isCompleted ? 'bg-blue-400/70' : 'bg-blue-400/20'}`}></div>
                                     <TreeNode node={child} level={level + 1} />
                                 </div>
@@ -185,9 +195,7 @@ const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) 
     return (
         <div className="fixed bottom-4 right-4 bg-slate-900/95 backdrop-blur-md border-2 border-blue-500/30 p-4 rounded-xl shadow-2xl overflow-y-auto max-h-[400px] w-auto max-w-[600px] z-[1500] pointer-events-auto transition-all duration-500">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-700">
-                <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                    <span>🕸️</span> Supply Chain Map
-                </div>
+                <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2"><span>🕸️</span> Supply Chain Map</div>
                 {currentId && <div className="text-[9px] text-blue-300">Active: {currentId}</div>}
             </div>
             <div className="w-full flex justify-center transform scale-90 origin-top">
@@ -197,7 +205,7 @@ const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) 
     );
 };
 
-// --- UTILITY: Geolocation Math ---
+// --- UTILITY: Math & Three.js ---
 const latLonToVector3 = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lon + 180) * (Math.PI / 180);
@@ -207,15 +215,12 @@ const latLonToVector3 = (lat, lon, radius) => {
     return new THREE.Vector3(x, y, z);
 };
 
-// --- UTILITY: Animated Arc Generator ---
 const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated = false) => {
     const distance = startVector.distanceTo(endVector);
     let midVector = startVector.clone().add(endVector);
     if (midVector.lengthSq() < 0.01) {
         const axis = new THREE.Vector3(0, 1, 0); 
-        if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
-            axis.set(0, 0, 1);
-        }
+        if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) axis.set(0, 0, 1);
         midVector.crossVectors(startVector, axis);
     }
     const arcHeight = 1.3 + (distance * 0.5); 
@@ -223,13 +228,8 @@ const createArcLine = (startVector, endVector, color, opacity = 0.8, isAnimated 
     const curve = new THREE.QuadraticBezierCurve3(startVector, midPoint, endVector);
     const geometry = new THREE.TubeGeometry(curve, 128, 0.015, 8, false);
     const totalIndices = 128 * 8 * 6;
-
-    if (isAnimated) {
-        geometry.setDrawRange(0, 0); 
-    } else {
-        geometry.setDrawRange(0, totalIndices);
-    }
-
+    if (isAnimated) geometry.setDrawRange(0, 0); 
+    else geometry.setDrawRange(0, totalIndices);
     const material = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.userData = { totalIndices: totalIndices, currentCount: 0 }; 
@@ -241,7 +241,6 @@ const parseCost = (costStr) => {
   if (!costStr || costStr === 'Internal Transfer') return 0;
   return Number(costStr.replace(/[^0-9.]/g, '')) || 0;
 };
-
 const parseTimeDays = (timeStr) => {
   if (!timeStr || timeStr.includes('Instant') || timeStr.includes('N/A')) return 0;
   const range = timeStr.match(/(\d+)\s*-\s*(\d+)/);
@@ -249,33 +248,12 @@ const parseTimeDays = (timeStr) => {
   const single = timeStr.match(/(\d+)/);
   return single ? Number(single[1]) : 0;
 };
-
-const formatYAxis = (value, type) => {
-    if (value === 0) return '0';
-    if (type === 'cost') return `$${(value / 1000).toFixed(1)}k`;
-    if (type === 'time') return `${value.toFixed(0)}d`;
-    if (type === 'distance') return `${(value / 1000).toFixed(0)}k`;
-    if (type === 'carbon') return `${(value / 1000).toFixed(1)}t`;
-    return value;
-};
-
 const METHOD_CARBON_FACTOR = {
   'Secure Air Freight': 0.6, 'Priority Secure Air': 0.7, 'Standard Air Freight': 0.55,
   'International Air': 0.75, 'Consolidated Air': 0.45, 'Ocean Freight': 0.2,
   'Sea/Air Hybrid': 0.35, 'Secure Trucking': 0.15, 'Rail/Truck Freight': 0.12,
   'Direct to Data Center': 0.1, 'Digital Transfer': 0.0
 };
-
-// --- MOCK DATA (Updated IDs to match MiniSupplyChainDiagram) ---
-const MOCK_PATH = [
-    { id: 'quartz_gpu', type: 'RAW_MATERIAL', name: 'Raw Quartz Mine', emoji: '⛏️', locations: [{ lat: 35.9154, lng: -82.0646, name: 'Spruce Pine, USA' }], risk: 2 },
-    { id: 'silicon_wafers_gpu', type: 'PROCESSING', name: 'Silicon Wafer Prep', emoji: '💿', locations: [{ lat: 35.6762, lng: 139.6503, name: 'Tokyo, Japan' }], risk: 3, shipping: { cost: '$1200', time: '5 days', method: 'Ocean Freight' } },
-    { id: 'gpu_die', type: 'FAB', name: 'TSMC Foundry (Fab)', emoji: '💾', locations: [{ lat: 24.8138, lng: 120.9675, name: 'Hsinchu, Taiwan' }], risk: 7.5, shipping: { cost: '$5000', time: '2-3 days', method: 'Secure Air Freight' } },
-    { id: 'packaging_merge', type: 'ASSEMBLY', name: 'CoWoS Packaging', emoji: '🔧', locations: [{ lat: 24.1477, lng: 120.6736, name: 'Taichung, Taiwan' }], risk: 5, shipping: { cost: '$800', time: '1 day', method: 'Secure Trucking' } },
-    { id: 'final_assembly', type: 'DISTRIBUTION', name: 'Final Assembly (Foxconn)', emoji: '🏭', locations: [{ lat: 22.5431, lng: 114.0579, name: 'Shenzhen, China' }], risk: 4, shipping: { cost: '$2500', time: '2 days', method: 'Secure Trucking' } },
-    { id: 'dist', type: 'DELIVERY', name: 'Global Distribution', emoji: '🚢', locations: [{ lat: 37.3688, lng: -122.0363, name: 'Santa Clara, USA' }], risk: 1, shipping: { cost: '$8500', time: '15-20 days', method: 'Ocean Freight' } }
-];
-
 const LOCATION_MAP = {
     'Spruce Pine, NC': { lat: 35.9154, lng: -82.0646 },
     'Tokyo, Japan': { lat: 35.6762, lng: 139.6503 },
@@ -310,72 +288,73 @@ const LOCATION_MAP = {
     'Santa Clara, USA': { lat: 37.3688, lng: -122.0363 }
 };
 
-const SimulationPage = ({ selectedPath, vendorSelections, levelInfo }) => {
+const SimulationPage = ({ selectedPath, vendorSelections }) => {
     const mountRef = useRef(null);
     const [sceneReady, setSceneReady] = useState(false);
     
-    // Build path from vendor selections
+    // Build path from strict SIMULATION_SEQUENCE
     const [builtPath, setBuiltPath] = useState([]);
     
     useEffect(() => {
+        // If no vendors selected, do nothing or use mocks
         if (!vendorSelections || Object.keys(vendorSelections).length === 0) {
-            if (!selectedPath || selectedPath.length === 0) {
-                setBuiltPath(MOCK_PATH);
-            }
+            setBuiltPath(selectedPath || []);
             return;
         }
-        
-        // Build the path from vendor selections
+
         const path = [];
         
-        // 1. RAW MATERIALS (Approximate mapping for visualization)
-        path.push({
-            id: 'quartz_gpu',
-            type: 'RAW_MATERIAL',
-            name: 'Raw Material Extraction',
-            emoji: '⛏️',
-            locations: [LOCATION_MAP['Spruce Pine, NC']],
-            risk: 2
-        });
+        // Iterate over the strict sequence defined above
+        SIMULATION_SEQUENCE.forEach((step) => {
+            let selectedVendor = null;
+            let shouldAdd = false;
+            let mockLocation = { lat: 0, lng: 0 };
+            
+            // 1. Try to find if this step corresponds to a user selection
+            if (step.isVendor && step.matchKey) {
+                // Find matching key in vendorSelections (e.g. 'gpu' matches 'gpu-chip-1')
+                const selectionKey = Object.keys(vendorSelections).find(k => k.toLowerCase().includes(step.matchKey));
+                if (selectionKey) {
+                    selectedVendor = vendorSelections[selectionKey];
+                    shouldAdd = true;
+                }
+            } 
+            // 2. Or if it is a raw material/processing step (implied dependencies)
+            else {
+                // Always add the raw material steps to make the diagram look complete
+                // In a real app, you might check if the parent component exists first
+                shouldAdd = true;
+                // Assign a Mock Location for raw materials based on step name
+                if (step.id.includes('quartz')) mockLocation = LOCATION_MAP['Spruce Pine, NC'];
+                else if (step.id.includes('wafer') || step.id.includes('photoresist')) mockLocation = LOCATION_MAP['Tokyo, Japan'];
+                else if (step.id.includes('abf') || step.id.includes('polymers')) mockLocation = LOCATION_MAP['Osaka, Japan'];
+                else if (step.id.includes('copper')) mockLocation = LOCATION_MAP['Chennai, India'];
+                else mockLocation = LOCATION_MAP['Multiple Global'];
+            }
 
-        // Go through each stage and component in order
-        if (levelInfo && levelInfo.stages) {
-            levelInfo.stages.forEach((stage, stageIdx) => {
-                stage.components.forEach((component, compIdx) => {
-                    const vendor = vendorSelections[component.id];
-                    if (vendor) {
-                        const location = LOCATION_MAP[vendor.location] || { lat: 0, lng: 0 };
-                        
-                        // Map the component ID to the Tree ID if possible, otherwise use generated
-                        // This allows the Minimap to light up corresponding nodes
-                        let mappedId = vendor.id || `${component.id}`;
-                        if(component.id.includes('gpu')) mappedId = 'gpu_die';
-                        if(component.id.includes('hbm')) mappedId = 'hbm3e';
-                        if(component.id.includes('substrate')) mappedId = 'substrate_abf';
-                        if(component.id.includes('assembly')) mappedId = 'final_assembly';
-
-                        path.push({
-                            id: mappedId,
-                            type: stage.name.toUpperCase(),
-                            name: vendor.name,
-                            emoji: component.emoji || '🏭',
-                            locations: [{ ...location, name: vendor.location }],
-                            risk: vendor.risk,
-                            shipping: {
-                                cost: `${vendor.cost}`,
-                                time: `${vendor.leadTime} days`,
-                                method: vendor.shippingMethod || 'Standard Air Freight'
-                            }
-                        });
-                    }
+            if (shouldAdd) {
+                const location = selectedVendor ? (LOCATION_MAP[selectedVendor.location] || { lat: 0, lng: 0 }) : mockLocation;
+                
+                path.push({
+                    id: step.id,
+                    type: step.type,
+                    name: selectedVendor ? selectedVendor.name : step.name,
+                    emoji: selectedVendor ? '🏭' : (step.type === 'RAW_MATERIAL' ? '⛏️' : '⚙️'),
+                    locations: [{ ...location, name: selectedVendor ? selectedVendor.location : 'Global' }],
+                    risk: selectedVendor ? selectedVendor.risk : step.risk,
+                    shipping: selectedVendor ? {
+                        cost: `${selectedVendor.cost}`,
+                        time: `${selectedVendor.leadTime} days`,
+                        method: selectedVendor.shippingMethod || 'Standard Air Freight'
+                    } : { cost: '$500', time: '1 day', method: 'Internal Transfer' }
                 });
-            });
-        }
+            }
+        });
         
         setBuiltPath(path);
-    }, [vendorSelections, levelInfo, selectedPath]);
+    }, [vendorSelections, selectedPath]);
 
-    const activePath = builtPath.length > 0 ? builtPath : (selectedPath || []);
+    const activePath = builtPath;
     
     // --- STATE ---
     const [isSimulating, setIsSimulating] = useState(false);
@@ -390,7 +369,6 @@ const SimulationPage = ({ selectedPath, vendorSelections, levelInfo }) => {
     const [metrics, setMetrics] = useState(metricsRef.current);
     const [metricsHistory, setMetricsHistory] = useState([]);
     const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
-    const [activeMetricTab, setActiveMetricTab] = useState('overall');
 
     // --- REFS ---
     const sceneRef = useRef(null);
@@ -405,7 +383,6 @@ const SimulationPage = ({ selectedPath, vendorSelections, levelInfo }) => {
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
     const frameIdRef = useRef(null);
-    const textureRef = useRef(null);
     const isMountedRef = useRef(true);
 
     // --- LOGIC: SIMULATION ENGINE ---
@@ -739,24 +716,6 @@ const SimulationPage = ({ selectedPath, vendorSelections, levelInfo }) => {
                 currentStepIndex={currentStepIndex}
                 nodeStatuses={nodeStatuses}
             />
-
-            {/* BOTTOM BAR (Simplified)
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[60%] pointer-events-auto">
-                <div className="bg-slate-800/80 backdrop-blur-md border border-slate-600 p-2 rounded-xl shadow-2xl flex items-center space-x-1 overflow-x-auto">
-                    {activePath.map((item, index) => {
-                         const status = nodeStatuses[item.id] || 'pending';
-                         let borderClass = status === 'active' ? 'border-white animate-pulse' : status === 'success' ? 'border-green-500' : status === 'error' ? 'border-red-500' : 'border-slate-600';
-                         return (
-                            <React.Fragment key={item.id}>
-                                {index > 0 && <div className={`h-0.5 w-3 ${status !== 'pending' ? 'bg-blue-500' : 'bg-slate-700'}`} />}
-                                <div className={`flex items-center justify-center w-8 h-8 rounded-lg border ${borderClass} ${status === 'active' ? 'bg-slate-700' : 'bg-slate-800'}`}>
-                                    <span className="text-xs">{item.emoji}</span>
-                                </div>
-                            </React.Fragment>
-                         );
-                    })}
-                </div>
-            </div> */}
 
             {/* METRICS DASHBOARD (Hidden while running for cleaner view, expands on click) */}
             {(metricsHistory.length > 0) && (
