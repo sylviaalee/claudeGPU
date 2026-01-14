@@ -4,55 +4,80 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
 // --- CONSTANTS & DATA ---
-const CRITICAL_REASONS = [
-    "Factory Fire Detected",
-    "Severe Geopolitical Sanctions",
-    "Massive Cyber Attack",
-    "7.0 Magnitude Earthquake",
-    "Indefinite Labor Strike",
-    "Raw Material Exhaustion",
-    "Compliance Violation Seizure"
-];
 
-// --- STRICT ORDERING SEQUENCE ---
-// This ensures the simulation runs leaves-first -> root (matching your diagram)
+// Specific risks mapped to node types for realistic simulation feedback
+const SPECIFIC_RISKS = {
+    RAW_MATERIAL: {
+        critical: ["Mine Collapse Detected", "Strict Export Ban Enforced", "Vein Exhaustion"],
+        warning: [" labor Strike in Progress", "Severe Weather Extraction Delay", "Purity Standards Missed"]
+    },
+    PROCESSING: {
+        critical: ["Chemical Plant Explosion", "EPA/Environmental Shutdown", "Contamination Breach"],
+        warning: ["Machinery Calibration Error", "Power Grid Instability", "Feedstock Shortage"]
+    },
+    FAB: {
+        critical: ["Clean Room Contamination", "Lithography Machine Failure", "Cyberattack on IP"],
+        warning: ["Wafer Yield Excursion", "Binning Efficiency Drop", "Neon Gas Shortage"]
+    },
+    ASSEMBLY: {
+        critical: ["Factory Fire", "Indefinite Labor Walkout", "Structural Integrity Failure"],
+        warning: ["Packaging Defect Rate Spike", "Glue Curing Delay", "Testing Backlog"]
+    },
+    MANUFACTURING: {
+        critical: ["Assembly Line Halt", "Component Incompatibility", "Recall Order Issued"],
+        warning: ["Shift Scheduling Conflict", "Cooling System Failure", "Quality Control Flag"]
+    },
+    DISTRIBUTION: {
+        critical: ["Port Closure (Geopolitical)", "Cargo Ship Sinking", "Customs Seizure"],
+        warning: ["Port Congestion", "Fuel Surcharge Dispute", "Container Shortage"]
+    },
+    COMPONENT: {
+        critical: ["Supplier Bankruptcy", "Design Flaw Detected", "Safety Certification Failed"],
+        warning: ["Batch Variance Detected", "Lead Time Extension", "Inventory Mismatch"]
+    },
+    DEFAULT: {
+        critical: ["Critical Infrastructure Failure", "Operations Ceased"],
+        warning: ["Operational Drag", "Capacity Limitations"]
+    }
+};
+
+// --- STRICT ORDERING SEQUENCE WITH PARENT LINKS ---
 const SIMULATION_SEQUENCE = [
-    // Branch 1: GPU Die
-    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'photoresist', name: 'Photoresist Production', type: 'PROCESSING', risk: 3 },
-    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3 },
-    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu' },
+    // Branch 1: GPU Die -> Feeds into Packaging
+    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'photoresist' },
+    { id: 'photoresist', name: 'Photoresist', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
+    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_gpu' },
+    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
+    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu', parentId: 'packaging_merge' },
 
-    // Branch 2: Memory (HBM)
-    { id: 'quartz_memory', name: 'Raw Quartz (Mem)', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'silicon_wafers_memory', name: 'Wafer Prep', type: 'PROCESSING', risk: 3 },
-    { id: 'dram_cells', name: 'DRAM Cell Fab', type: 'FAB', risk: 5 },
-    { id: 'hbm3e', name: 'HBM3e Stack', type: 'ASSEMBLY', risk: 6, isVendor: true, matchKey: 'hbm' },
+    // Branch 2: Memory (HBM) -> Feeds into Packaging
+    { id: 'quartz_memory', name: 'Raw Quartz (Mem)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_memory' },
+    { id: 'silicon_wafers_memory', name: 'Wafer Prep', type: 'PROCESSING', risk: 3, parentId: 'dram_cells' },
+    { id: 'dram_cells', name: 'DRAM Cell Fab', type: 'FAB', risk: 5, parentId: 'hbm3e' },
+    { id: 'hbm3e', name: 'HBM3e Stack', type: 'ASSEMBLY', risk: 6, isVendor: true, matchKey: 'hbm', parentId: 'packaging_merge' },
 
-    // Branch 3: Substrate
-    { id: 'polymers_abf', name: 'Polymers', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'abf_film', name: 'ABF Film', type: 'PROCESSING', risk: 4 },
-    { id: 'copper_resin', name: 'Copper/Resin', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'copper_clad_laminates', name: 'Laminates', type: 'PROCESSING', risk: 3 },
-    { id: 'substrate_abf', name: 'ABF Substrate', type: 'ASSEMBLY', risk: 5, isVendor: true, matchKey: 'substrate' },
+    // Branch 3: Substrate -> Feeds into Packaging
+    { id: 'polymers_abf', name: 'Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'abf_film' },
+    { id: 'abf_film', name: 'ABF Film', type: 'PROCESSING', risk: 4, parentId: 'substrate_abf' },
+    { id: 'copper_resin', name: 'Copper/Resin', type: 'RAW_MATERIAL', risk: 2, parentId: 'copper_clad_laminates' },
+    { id: 'copper_clad_laminates', name: 'Laminates', type: 'PROCESSING', risk: 3, parentId: 'substrate_abf' },
+    { id: 'substrate_abf', name: 'ABF Substrate', type: 'ASSEMBLY', risk: 5, isVendor: true, matchKey: 'substrate', parentId: 'packaging_merge' },
 
-    // Merge: Packaging
-    { id: 'packaging_merge', name: '2.5D Packaging (CoWoS)', type: 'ASSEMBLY', risk: 8, isVendor: true, matchKey: 'packaging' },
+    // Merge 1: Packaging -> Feeds into Final Assembly
+    { id: 'packaging_merge', name: '2.5D Packaging', type: 'ASSEMBLY', risk: 8, isVendor: true, matchKey: 'packaging', parentId: 'final_assembly' },
 
-    // Branch 4: Other Components
-    { id: 'pcb_motherboard', name: 'PCB Motherboard', type: 'COMPONENT', risk: 3, isVendor: true, matchKey: 'pcb' },
-    { id: 'aluminium_copper', name: 'Aluminium/Copper', type: 'RAW_MATERIAL', risk: 2 },
-    { id: 'coolers_heat_sinks', name: 'Thermal Solution', type: 'COMPONENT', risk: 2, isVendor: true, matchKey: 'cooler' },
+    // Branch 4: Other Components -> Feeds into Final Assembly
+    { id: 'pcb_motherboard', name: 'PCB Motherboard', type: 'COMPONENT', risk: 3, isVendor: true, matchKey: 'pcb', parentId: 'final_assembly' },
+    { id: 'aluminium_copper', name: 'Aluminium/Copper', type: 'RAW_MATERIAL', risk: 2, parentId: 'coolers_heat_sinks' },
+    { id: 'coolers_heat_sinks', name: 'Thermal Solution', type: 'COMPONENT', risk: 2, isVendor: true, matchKey: 'cooler', parentId: 'final_assembly' },
 
     // Final Root
-    { id: 'final_assembly', name: 'Final Assembly', type: 'MANUFACTURING', risk: 4, isVendor: true, matchKey: 'assembly' },
-    { id: 'dist', name: 'Global Distribution', type: 'DISTRIBUTION', risk: 1, isVendor: true, matchKey: 'dist' }
+    { id: 'final_assembly', name: 'Final Assembly', type: 'MANUFACTURING', risk: 4, isVendor: true, matchKey: 'assembly', parentId: 'dist' },
+    { id: 'dist', name: 'Global Distribution', type: 'DISTRIBUTION', risk: 1, isVendor: true, matchKey: 'dist', parentId: null }
 ];
 
 // --- COMPONENT: Mini Supply Chain Diagram ---
 const MiniSupplyChainDiagram = ({ activePath, currentStepIndex, nodeStatuses }) => {
-    // Tree structure matches SIMULATION_SEQUENCE hierarchy
     const tree = {
         name: "final assembly and testing",
         id: "final_assembly",
@@ -291,40 +316,28 @@ const LOCATION_MAP = {
 const SimulationPage = ({ selectedPath, vendorSelections }) => {
     const mountRef = useRef(null);
     const [sceneReady, setSceneReady] = useState(false);
-    
-    // Build path from strict SIMULATION_SEQUENCE
     const [builtPath, setBuiltPath] = useState([]);
     
+    // --- BUILD PATH ---
     useEffect(() => {
-        // If no vendors selected, do nothing or use mocks
         if (!vendorSelections || Object.keys(vendorSelections).length === 0) {
             setBuiltPath(selectedPath || []);
             return;
         }
-
         const path = [];
-        
-        // Iterate over the strict sequence defined above
         SIMULATION_SEQUENCE.forEach((step) => {
             let selectedVendor = null;
             let shouldAdd = false;
             let mockLocation = { lat: 0, lng: 0 };
             
-            // 1. Try to find if this step corresponds to a user selection
             if (step.isVendor && step.matchKey) {
-                // Find matching key in vendorSelections (e.g. 'gpu' matches 'gpu-chip-1')
                 const selectionKey = Object.keys(vendorSelections).find(k => k.toLowerCase().includes(step.matchKey));
                 if (selectionKey) {
                     selectedVendor = vendorSelections[selectionKey];
                     shouldAdd = true;
                 }
-            } 
-            // 2. Or if it is a raw material/processing step (implied dependencies)
-            else {
-                // Always add the raw material steps to make the diagram look complete
-                // In a real app, you might check if the parent component exists first
+            } else {
                 shouldAdd = true;
-                // Assign a Mock Location for raw materials based on step name
                 if (step.id.includes('quartz')) mockLocation = LOCATION_MAP['Spruce Pine, NC'];
                 else if (step.id.includes('wafer') || step.id.includes('photoresist')) mockLocation = LOCATION_MAP['Tokyo, Japan'];
                 else if (step.id.includes('abf') || step.id.includes('polymers')) mockLocation = LOCATION_MAP['Osaka, Japan'];
@@ -334,9 +347,9 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
 
             if (shouldAdd) {
                 const location = selectedVendor ? (LOCATION_MAP[selectedVendor.location] || { lat: 0, lng: 0 }) : mockLocation;
-                
                 path.push({
                     id: step.id,
+                    parentId: step.parentId,
                     type: step.type,
                     name: selectedVendor ? selectedVendor.name : step.name,
                     emoji: selectedVendor ? '🏭' : (step.type === 'RAW_MATERIAL' ? '⛏️' : '⚙️'),
@@ -350,7 +363,6 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                 });
             }
         });
-        
         setBuiltPath(path);
     }, [vendorSelections, selectedPath]);
 
@@ -383,14 +395,15 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
     const isDraggingRef = useRef(false);
     const previousMouseRef = useRef({ x: 0, y: 0 });
     const frameIdRef = useRef(null);
-    const isMountedRef = useRef(true);
+    const targetRotationRef = useRef(new THREE.Quaternion());
+    const currentRotationRef = useRef(new THREE.Quaternion());
 
     // --- LOGIC: SIMULATION ENGINE ---
     const runSimulationStep = useCallback((index, currentPayload) => {
         if (index >= activePath.length) {
             setIsSimulating(false);
             setSimulationStatus('completed');
-            setSimulationLog(prev => [...prev, { text: `✅ Supply Chain Completed. Delivered: ${currentPayload.toLocaleString()} units.`, type: "success", id: Date.now() + Math.random() }]);
+            setSimulationLog(prev => [{ step: index, time: Date.now(), title: "Simulation Complete", message: "All units delivered.", type: "success" }, ...prev]);
             return;
         }
 
@@ -398,6 +411,22 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         setCurrentStepIndex(index);
         setNodeStatuses(prev => ({ ...prev, [item.id]: 'active' }));
         setLivePayload(currentPayload); 
+
+        // --- CAMERA ROTATION LOGIC (FIXED) ---
+        if (item.locations && item.locations[0]) {
+            const { lat, lng } = item.locations[0];
+            const latRad = lat * (Math.PI / 180);
+            const lngRad = lng * (Math.PI / 180);
+
+            const qLon = new THREE.Quaternion();
+            qLon.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -lngRad - Math.PI / 2);
+
+            const qLat = new THREE.Quaternion();
+            qLat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), latRad);
+
+            const targetQ = new THREE.Quaternion().multiplyQuaternions(qLat, qLon);
+            targetRotationRef.current.copy(targetQ);
+        }
 
         let distance = 0;
         let legCost = 0;
@@ -411,6 +440,20 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
 
         const volumeScalingFactor = Math.max(1, currentPayload / 1000);
 
+        // --- RISK CALCULATION ---
+        const volumeRiskPenalty = Math.max(0, (currentPayload - 1000) / 5000) * 0.5;
+        const effectiveRisk = Math.min(18, item.risk + volumeRiskPenalty);
+        const failureChance = effectiveRisk * 0.05; 
+        const roll = Math.random();
+
+        if (roll < failureChance) {
+            const severity = Math.random();
+            if (severity > 0.85) disruptionType = 'CRITICAL';
+            else if (severity > 0.5) disruptionType = 'LOSS';
+            else disruptionType = 'DELAY';
+        }
+
+        // --- YIELD LOGIC ---
         if (item.type === 'FAB') {
             const baseYield = 0.75; 
             const variance = (Math.random() * 0.2) - 0.1; 
@@ -419,44 +462,40 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
             const binnedUnits = currentPayload - primeUnits;
             yieldLossCost = binnedUnits * 500;
             stepPayload = primeUnits;
+            
+            // Add Yield event to log
             setTimeout(() => {
-                setSimulationLog(prev => [...prev, { step: index, text: `📉 Yield: ${(actualYield * 100).toFixed(1)}%. ${binnedUnits.toLocaleString()} binned.`, type: "warning", id: Date.now() }]);
+                setSimulationLog(prev => [{ 
+                    step: index, 
+                    time: Date.now(), 
+                    title: "Yield Report", 
+                    message: `${(actualYield * 100).toFixed(1)}% efficiency. ${binnedUnits.toLocaleString()} units binned.`, 
+                    type: "warning" 
+                }, ...prev]);
             }, 500);
         }
 
-        if (index > 0) {
-            const prevItem = activePath[index - 1];
-            const prevPos = latLonToVector3(prevItem.locations[0].lat, prevItem.locations[0].lng, 1.3);
+        // --- PARENT/SHIPPING LOGIC ---
+        let parentItem = null;
+        if (item.parentId) {
+            parentItem = activePath.find(p => p.id === item.parentId);
+        }
+
+        if (parentItem) {
             const currPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.3);
+            const parentPos = latLonToVector3(parentItem.locations[0].lat, parentItem.locations[0].lng, 1.3);
             
-            distance = prevPos.distanceTo(currPos) * 5000;
+            distance = currPos.distanceTo(parentPos) * 5000;
             const shipping = item.shipping || {};
             
             legCost = parseCost(shipping.cost) * volumeScalingFactor;
             legTime = parseTimeDays(shipping.time);
             const methodFactor = METHOD_CARBON_FACTOR[shipping.method] ?? 0.4;
             legCarbon = (distance * methodFactor) * volumeScalingFactor;
-
-            const volumeRiskPenalty = Math.max(0, (currentPayload - 1000) / 5000) * 0.5;
-            const effectiveRisk = Math.min(18, item.risk + volumeRiskPenalty);
-            const failureChance = effectiveRisk * 0.05; 
-            const roll = Math.random();
-
-            if (roll < failureChance) {
-                const severity = Math.random();
-                const criticalThreshold = 0.85 - (volumeRiskPenalty * 0.02); 
-                if (severity > criticalThreshold) {
-                    disruptionType = 'CRITICAL';
-                } else if (severity > 0.5) {
-                    disruptionType = 'LOSS';
-                    penaltyCost = legCost * 0.6;
-                    penaltyTime = 2 + (volumeRiskPenalty * 0.2); 
-                } else {
-                    disruptionType = 'DELAY';
-                    penaltyTime = Math.ceil(Math.random() * 4) + 1;
-                }
-            }
         }
+
+        if (disruptionType === 'LOSS') { penaltyCost = legCost * 0.6; penaltyTime = 2; }
+        if (disruptionType === 'DELAY') { penaltyTime = Math.ceil(Math.random() * 4) + 1; }
 
         const prev = metricsRef.current;
         const appliedCost = disruptionType !== 'CRITICAL' ? (legCost + penaltyCost + yieldLossCost) : legCost;
@@ -479,25 +518,39 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         });
 
         setTimeout(() => {
+            // Get specific risk reason
+            const riskCategory = SPECIFIC_RISKS[item.type] || SPECIFIC_RISKS.DEFAULT;
+            let logEntry = null;
+
             if (disruptionType === 'CRITICAL') {
                 setNodeStatuses(prev => {
                     const newStatuses = { ...prev, [item.id]: 'error' };
                     for (let i = index + 1; i < activePath.length; i++) newStatuses[activePath[i].id] = 'blocked';
                     return newStatuses;
                 });
-                setSimulationLog(prev => [...prev, { step: index, text: `⛔ STOPPAGE at ${item.name}`, type: "danger", id: Date.now() }]);
+                const reason = riskCategory.critical[Math.floor(Math.random() * riskCategory.critical.length)];
+                logEntry = { step: index, time: Date.now(), title: `CRITICAL STOPPAGE`, message: `${reason} at ${item.name}`, type: "danger" };
+                setSimulationLog(prev => [logEntry, ...prev]);
                 setIsSimulating(false);
                 setSimulationStatus('failed');
             } else if (disruptionType === 'LOSS') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { step: index, text: `⚠️ Shipment damage at ${item.name}`, type: "warning", id: Date.now() }]);
+                const reason = riskCategory.warning[Math.floor(Math.random() * riskCategory.warning.length)];
+                logEntry = { step: index, time: Date.now(), title: `Shipment Loss`, message: `${reason} at ${item.name}`, type: "warning" };
+                setSimulationLog(prev => [logEntry, ...prev]);
                 setTimeout(() => runSimulationStep(index + 1, stepPayload), 2500);
             } else if (disruptionType === 'DELAY') {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'warning' }));
-                setSimulationLog(prev => [...prev, { step: index, text: `⏱️ Delay at ${item.name}`, type: "warning", id: Date.now() }]);
+                const reason = riskCategory.warning[Math.floor(Math.random() * riskCategory.warning.length)];
+                logEntry = { step: index, time: Date.now(), title: `Capacity Delay`, message: `${reason} (+${penaltyTime}d)`, type: "warning" };
+                setSimulationLog(prev => [logEntry, ...prev]);
                 setTimeout(() => runSimulationStep(index + 1, stepPayload), 2000);
             } else {
                 setNodeStatuses(prev => ({ ...prev, [item.id]: 'success' }));
+                if (item.type !== 'FAB' && index % 2 === 0) { // Log success occasionally to not spam
+                     logEntry = { step: index, time: Date.now(), title: "Operation Successful", message: `${item.name} completed successfully.`, type: "success" };
+                     setSimulationLog(prev => [logEntry, ...prev]);
+                }
                 setTimeout(() => runSimulationStep(index + 1, stepPayload), 1500);
             }
         }, 1000);
@@ -509,7 +562,7 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         setIsSimulating(true);
         setSimulationStatus('running');
         setLivePayload(gpuCount);
-        setSimulationLog([{ text: `🚀 Starting Simulation...`, type: "neutral", id: Date.now() }]);
+        setSimulationLog([{ time: Date.now(), title: "Simulation Started", message: `Initiating sequence for ${gpuCount.toLocaleString()} units.`, type: "neutral" }]);
         setNodeStatuses({});
         setCurrentStepIndex(-1);
         metricsRef.current = { totalCost: 0, totalTime: 0, totalDistance: 0, totalCarbon: 0, totalYieldLoss: 0 };
@@ -570,6 +623,8 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
             const dy = e.clientY - previousMouseRef.current.y;
             globeRef.current.rotation.x += dy * 0.005;
             globeRef.current.rotation.y += dx * 0.005;
+            currentRotationRef.current.setFromEuler(globeRef.current.rotation);
+            targetRotationRef.current.copy(currentRotationRef.current);
             previousMouseRef.current = { x: e.clientX, y: e.clientY };
         };
         const handleMouseUp = () => { isDraggingRef.current = false; };
@@ -578,9 +633,17 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
         
+        currentRotationRef.current.setFromEuler(globe.rotation);
+        targetRotationRef.current.copy(currentRotationRef.current);
+
         const animate = () => {
             frameIdRef.current = requestAnimationFrame(animate);
-            if (globeRef.current && !isDraggingRef.current) globeRef.current.rotation.y += 0.001;
+            if (globeRef.current) {
+                if (!isDraggingRef.current) {
+                    currentRotationRef.current.slerp(targetRotationRef.current, 0.05); 
+                    globeRef.current.setRotationFromQuaternion(currentRotationRef.current);
+                }
+            }
             if (animatingObjectsRef.current.length > 0) {
                 for (let i = animatingObjectsRef.current.length - 1; i >= 0; i--) {
                     const mesh = animatingObjectsRef.current[i];
@@ -622,7 +685,7 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         activePath.forEach((item, index) => {
             if (index > currentStepIndex + 1 && currentStepIndex !== -1) return;
 
-            const markerId = `marker-${index}`;
+            const markerId = `marker-${item.id}`;
             const status = nodeStatuses[item.id] || 'pending';
             
             if (!drawnMarkersRef.current.has(markerId) && item.locations && item.locations[0]) {
@@ -643,18 +706,27 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                 if (existing) existing.material.color.setHex(getStatusColor(status));
             }
 
-            if (index > 0 && index <= currentStepIndex + 1) {
-                const legId = `line-${index}`;
-                if (!drawnLinesRef.current.has(legId)) {
-                    const prev = latLonToVector3(activePath[index-1].locations[0].lat, activePath[index-1].locations[0].lng, 1.32);
-                    const curr = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
-                    const isCurrLeg = index === currentStepIndex + 1 || index === currentStepIndex;
-                    const color = isCurrLeg ? 0x3b82f6 : 0x22c55e;
-                    const arc = createArcLine(prev, curr, new THREE.Color(color), isCurrLeg ? 1 : 0.6, isCurrLeg);
-                    arc.userData = { id: legId };
-                    arcs.add(arc);
-                    drawnLinesRef.current.add(legId);
-                    if (isCurrLeg) animatingObjectsRef.current.push(arc);
+            if (item.parentId && (index <= currentStepIndex + 1)) {
+                const parentItem = activePath.find(p => p.id === item.parentId);
+                if (parentItem) {
+                    const legId = `line-${item.id}-to-${parentItem.id}`;
+                    if (!drawnLinesRef.current.has(legId)) {
+                        const startPos = latLonToVector3(item.locations[0].lat, item.locations[0].lng, 1.32);
+                        const endPos = latLonToVector3(parentItem.locations[0].lat, parentItem.locations[0].lng, 1.32);
+                        const isCurrLeg = index === currentStepIndex; 
+                        const color = isCurrLeg ? 0x3b82f6 : 0x22c55e;
+                        const arc = createArcLine(startPos, endPos, new THREE.Color(color), isCurrLeg ? 1 : 0.6, isCurrLeg);
+                        arc.userData = { id: legId };
+                        arcs.add(arc);
+                        drawnLinesRef.current.add(legId);
+                        if (isCurrLeg) animatingObjectsRef.current.push(arc);
+                    } else {
+                         const existingArc = arcs.children.find(c => c.userData.id === legId);
+                         if (existingArc && index < currentStepIndex) {
+                             existingArc.material.color.setHex(0x22c55e); 
+                             existingArc.material.opacity = 0.6;
+                         }
+                    }
                 }
             }
         });
@@ -673,8 +745,9 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                 <p className="text-blue-200/60 text-sm font-medium mt-1">Simulating probability-based supply chain disruptions.</p>
             </div>
 
-            {/* CONTROLS */}
-            <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto">
+            {/* CONTROLS & EVENT LOG */}
+            <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-4 pointer-events-auto h-[calc(100vh-48px)]">
+                {/* 1. Simulation Control Box */}
                 <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-500 ${isSimulating ? 'p-3 w-64' : 'p-4 w-80'}`}>
                     {!isSimulating ? (
                         <>
@@ -698,19 +771,45 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                                 <h2 className="text-white font-bold text-sm flex items-center gap-2"><span className="animate-spin">⚙️</span> <span>Running</span></h2>
                                 <span className={`text-[10px] font-bold border px-2 py-0.5 rounded ${riskColor}`}>{currentRiskLevel}</span>
                             </div>
-                            <div className="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700 mb-3">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-emerald-400 font-mono text-2xl font-bold animate-pulse">{livePayload.toLocaleString()}</span>
-                                    <span className="text-emerald-500/60 text-[10px]">live units</span>
-                                </div>
-                            </div>
                             <button onClick={startSimulation} disabled={simulationStatus === 'running'} className={`w-full py-2 rounded-lg font-bold text-xs ${simulationStatus === 'running' ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-red-600 text-white'}`}>{simulationStatus === 'running' ? '⚙️ Running...' : '↻ Retry'}</button>
                         </>
                     )}
                 </div>
+
+                {/* 2. Live Event Feed Box */}
+                <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-500 ${isSimulating ? 'w-64 h-64' : 'w-80 h-48'}`}>
+                    <div className="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
+                        <span className="text-xs font-bold text-blue-400 uppercase gap-2 flex"><span>📡</span> Live Feed</span>
+                        <span className="text-[10px] text-gray-500">{simulationLog.length} Events</span>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
+                        {simulationLog.length === 0 ? (
+                            <div className="text-center text-gray-600 text-xs py-8 italic">Waiting for simulation data...</div>
+                        ) : (
+                            simulationLog.map((log, i) => {
+                                const style = {
+                                    danger: 'bg-red-900/20 border-red-500/30 border-l-red-500',
+                                    warning: 'bg-amber-900/20 border-amber-500/30 border-l-amber-500',
+                                    success: 'bg-emerald-900/20 border-emerald-500/30 border-l-emerald-500'
+                                }[log.type] || 'bg-slate-700/30 border-slate-600 border-l-slate-500';
+
+                                return (
+                                    <div key={i} className={`p-2 rounded border border-l-4 text-xs animate-in slide-in-from-right fade-in duration-300 ${style}`}>
+                                        <div className="flex justify-between text-[10px] opacity-70 mb-1">
+                                            <span>Step {log.step + 1 || '-'}</span>
+                                        </div>
+                                        <div className="font-bold text-gray-200 mb-0.5">{log.title}</div>
+                                        <div className="text-gray-400 leading-tight">{log.message}</div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* --- NEW MINIMAP COMPONENT INTEGRATION --- */}
+            {/* --- MINIMAP --- */}
             <MiniSupplyChainDiagram 
                 activePath={activePath} 
                 currentStepIndex={currentStepIndex}
