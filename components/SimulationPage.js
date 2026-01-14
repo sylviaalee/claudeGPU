@@ -41,37 +41,47 @@ const SPECIFIC_RISKS = {
     }
 };
 
-// --- STRICT ORDERING SEQUENCE WITH PARENT LINKS ---
+// --- STRICT ORDERING SEQUENCE WITH PARENT LINKS (Bottom to Top, Left to Right) ---
 const SIMULATION_SEQUENCE = [
-    // Branch 1: GPU Die -> Feeds into Packaging
-    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'photoresist' },
-    { id: 'photoresist', name: 'Photoresist', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
-    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_gpu' },
-    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
-    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu', parentId: 'packaging_merge' },
-
-    // Branch 2: Memory (HBM) -> Feeds into Packaging
+    // Branch 1 (Leftmost): HBM3e Memory Chain - Bottom to Top
     { id: 'quartz_memory', name: 'Raw Quartz (Mem)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_memory' },
     { id: 'silicon_wafers_memory', name: 'Wafer Prep', type: 'PROCESSING', risk: 3, parentId: 'dram_cells' },
     { id: 'dram_cells', name: 'DRAM Cell Fab', type: 'FAB', risk: 5, parentId: 'hbm3e' },
     { id: 'hbm3e', name: 'HBM3e Stack', type: 'ASSEMBLY', risk: 6, isVendor: true, matchKey: 'hbm', parentId: 'packaging_merge' },
 
-    // Branch 3: Substrate -> Feeds into Packaging
+    // Branch 2 (Middle-Left): ABF Substrate - ABF Film Sub-branch (Bottom to Top)
     { id: 'polymers_abf', name: 'Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'abf_film' },
     { id: 'abf_film', name: 'ABF Film', type: 'PROCESSING', risk: 4, parentId: 'substrate_abf' },
+    
+    // Branch 2 (Middle-Left): ABF Substrate - Copper Clad Sub-branch (Bottom to Top)
     { id: 'copper_resin', name: 'Copper/Resin', type: 'RAW_MATERIAL', risk: 2, parentId: 'copper_clad_laminates' },
     { id: 'copper_clad_laminates', name: 'Laminates', type: 'PROCESSING', risk: 3, parentId: 'substrate_abf' },
+    
+    // Branch 2 (Middle-Left): ABF Substrate Merge
     { id: 'substrate_abf', name: 'ABF Substrate', type: 'ASSEMBLY', risk: 5, isVendor: true, matchKey: 'substrate', parentId: 'packaging_merge' },
 
-    // Merge 1: Packaging -> Feeds into Final Assembly
+    // Branch 3 (Middle-Right): GPU Die - Photoresist Sub-branch (Bottom to Top)
+    { id: 'polymers_photoresist', name: 'Base Polymers', type: 'RAW_MATERIAL', risk: 2, parentId: 'photoresist' },
+    { id: 'photoresist', name: 'Photoresist', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
+    
+    // Branch 3 (Middle-Right): GPU Die - Silicon Wafer Sub-branch (Bottom to Top)
+    { id: 'quartz_gpu', name: 'Raw Quartz (GPU)', type: 'RAW_MATERIAL', risk: 2, parentId: 'silicon_wafers_gpu' },
+    { id: 'silicon_wafers_gpu', name: 'Silicon Wafers', type: 'PROCESSING', risk: 3, parentId: 'gpu_die' },
+    
+    // Branch 3 (Middle-Right): GPU Die Merge
+    { id: 'gpu_die', name: 'GPU Die Fab', type: 'FAB', risk: 7.5, isVendor: true, matchKey: 'gpu', parentId: 'packaging_merge' },
+
+    // Merge Point: 2.5D Packaging (combines HBM, Substrate, GPU Die)
     { id: 'packaging_merge', name: '2.5D Packaging', type: 'ASSEMBLY', risk: 8, isVendor: true, matchKey: 'packaging', parentId: 'final_assembly' },
 
-    // Branch 4: Other Components -> Feeds into Final Assembly
+    // Branch 4 (Right): PCB Motherboard (single node)
     { id: 'pcb_motherboard', name: 'PCB Motherboard', type: 'COMPONENT', risk: 3, isVendor: true, matchKey: 'pcb', parentId: 'final_assembly' },
+    
+    // Branch 5 (Rightmost): Thermal Solution (Bottom to Top)
     { id: 'aluminium_copper', name: 'Aluminium/Copper', type: 'RAW_MATERIAL', risk: 2, parentId: 'coolers_heat_sinks' },
     { id: 'coolers_heat_sinks', name: 'Thermal Solution', type: 'COMPONENT', risk: 2, isVendor: true, matchKey: 'cooler', parentId: 'final_assembly' },
 
-    // Final Root
+    // Final Assembly & Distribution (Top of tree)
     { id: 'final_assembly', name: 'Final Assembly', type: 'MANUFACTURING', risk: 4, isVendor: true, matchKey: 'assembly', parentId: 'dist' },
     { id: 'dist', name: 'Global Distribution', type: 'DISTRIBUTION', risk: 1, isVendor: true, matchKey: 'dist', parentId: null }
 ];
@@ -313,6 +323,43 @@ const LOCATION_MAP = {
     'Santa Clara, USA': { lat: 37.3688, lng: -122.0363 }
 };
 
+// --- ADD SPARKLINE COMPONENT HERE ---
+const Sparkline = ({ data, color }) => {
+    if (!data || data.length < 2) return <div className="h-8 w-full bg-slate-800/50 rounded animate-pulse" />;
+
+    // 1. Normalize Data to 0-100 Range
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    const range = max - min || 1;
+    
+    // 2. Generate SVG Path
+    const points = data.map((val, i) => {
+        const x = (i / (data.length - 1)) * 100;
+        const y = 100 - ((val - min) / range) * 100; // Invert Y because SVG 0 is top
+        return `${x},${y}`;
+    }).join(' ');
+
+    const fillPath = `M ${points} L 100,100 L 0,100 Z`;
+    const strokePath = `M ${points}`;
+
+    const colorMap = {
+        emerald: '#34d399',
+        purple: '#c084fc',
+        blue: '#60a5fa',
+        amber: '#fbbf24'
+    };
+    const strokeColor = colorMap[color] || '#94a3b8';
+
+    return (
+        <div className="h-10 w-full mt-2 overflow-hidden relative">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                <path d={fillPath} fill={strokeColor} fillOpacity="0.15" stroke="none" />
+                <path d={strokePath} fill="none" stroke={strokeColor} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+        </div>
+    );
+};
+
 const SimulationPage = ({ selectedPath, vendorSelections }) => {
     const mountRef = useRef(null);
     const [sceneReady, setSceneReady] = useState(false);
@@ -511,9 +558,20 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
         metricsRef.current = newMetrics;
         setMetrics(newMetrics);
         
+        // UPDATED: Now includes totalYieldLoss in the history object
         setMetricsHistory(history => {
             if (history.length > 0 && history[history.length - 1].step === index) return history;
-            const newEntry = { step: index, name: item.name, totalCost: newMetrics.totalCost, totalTime: newMetrics.totalTime, totalDistance: newMetrics.totalDistance, totalCarbon: newMetrics.totalCarbon };
+            
+            const newEntry = { 
+                step: index, 
+                name: item.name, 
+                totalCost: newMetrics.totalCost, 
+                totalTime: newMetrics.totalTime, 
+                totalDistance: newMetrics.totalDistance, 
+                totalCarbon: newMetrics.totalCarbon,
+                totalYieldLoss: newMetrics.totalYieldLoss // <--- ADD THIS LINE
+            };
+            
             return index === 0 ? [newEntry] : [...history, newEntry];
         });
 
@@ -735,6 +793,12 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
     const currentRiskLevel = gpuCount < 10000 ? "Low" : gpuCount < 50000 ? "Medium" : "High";
     const riskColor = currentRiskLevel === "Low" ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/10" : currentRiskLevel === "Medium" ? "text-yellow-400 border-yellow-500/50 bg-yellow-500/10" : "text-red-400 border-red-500/50 bg-red-500/10";
 
+    // --- CALCULATE LIVE METRICS ---
+    const currentLiveUnits = gpuCount - metrics.totalYieldLoss;
+    const currentYieldRate = ((currentLiveUnits / gpuCount) * 100).toFixed(1);
+    const unitCost = currentLiveUnits > 0 ? (metrics.totalCost / currentLiveUnits).toFixed(2) : 0;
+    const totalDays = metrics.totalTime.toFixed(1);
+
     return (
         <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
             <div ref={mountRef} className="absolute inset-0 w-full h-full" />
@@ -816,29 +880,101 @@ const SimulationPage = ({ selectedPath, vendorSelections }) => {
                 nodeStatuses={nodeStatuses}
             />
 
-            {/* METRICS DASHBOARD (Hidden while running for cleaner view, expands on click) */}
-            {(metricsHistory.length > 0) && (
-                <div className="absolute bottom-8 left-6 z-10 pointer-events-auto">
-                    <div className={`bg-slate-800/90 backdrop-blur border border-slate-600 rounded-xl shadow-2xl ${isMetricsExpanded ? 'w-[500px]' : 'w-64 cursor-pointer p-4 hover:border-blue-400'}`} onClick={() => !isMetricsExpanded && setIsMetricsExpanded(true)}>
+            {/* METRICS DASHBOARD (Live Updating with Graphs) */}
+            {(isSimulating || metrics.totalCost > 0) && (
+                <div className="absolute bottom-6 left-6 z-20 pointer-events-auto transition-all duration-300">
+                    <div 
+                        className={`bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 ease-in-out ${isMetricsExpanded ? 'w-[600px]' : 'w-72 cursor-pointer hover:border-blue-400 hover:shadow-blue-500/20'}`} 
+                        onClick={() => !isMetricsExpanded && setIsMetricsExpanded(true)}
+                    >
                         {!isMetricsExpanded ? (
-                             <div className="flex justify-between items-center">
-                                <h3 className="text-white font-bold text-xs">📊 Metrics</h3>
-                                <div className="text-emerald-400 font-bold text-xs">${(metrics.totalCost/1000).toFixed(0)}k</div>
-                             </div>
-                        ) : (
-                            <div className="p-4">
-                                <div className="flex justify-between mb-4 border-b border-slate-700 pb-2">
-                                    <h3 className="text-white font-bold">Metrics</h3>
-                                    <button onClick={(e) => { e.stopPropagation(); setIsMetricsExpanded(false); }} className="text-xs text-gray-400">Collapse</button>
+                            // COLLAPSED VIEW
+                            <div className="p-4 flex justify-between items-center group">
+                                <div className="flex flex-col">
+                                    <h3 className="text-white font-bold text-xs flex items-center gap-2">
+                                        <span>📊</span> Live Metrics
+                                        {isSimulating && <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>}
+                                    </h3>
+                                    <span className="text-[10px] text-gray-400">Click to expand details</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                                        <div className="text-gray-400 text-xs">Cost</div>
-                                        <div className="text-emerald-400 font-bold">${(metrics.totalCost/1000).toFixed(1)}k</div>
+                                <div className="text-right">
+                                    <div className="text-emerald-400 font-mono font-bold text-sm">${(metrics.totalCost/1000).toFixed(1)}k</div>
+                                    <div className="text-[10px] text-purple-400">{currentYieldRate}% Yield</div>
+                                </div>
+                            </div>
+                        ) : (
+                            // EXPANDED VIEW WITH GRAPHS
+                            <div className="p-4">
+                                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                                    <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                                        <span>📊</span> Simulation Analytics
+                                        {isSimulating && <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded uppercase">Live</span>}
+                                    </h3>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setIsMetricsExpanded(false); }} 
+                                        className="text-xs text-gray-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded transition-colors"
+                                    >
+                                        Collapse ✕
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* 1. FINANCIALS */}
+                                    <div className="bg-slate-900/60 p-3 rounded-lg border border-emerald-500/20 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Total Spent</span>
+                                                <span className="text-emerald-500 text-xs">💰</span>
+                                            </div>
+                                            <div className="text-emerald-400 font-mono font-bold text-lg leading-none">
+                                                ${(metrics.totalCost/1000).toFixed(1)}k
+                                            </div>
+                                        </div>
+                                        <Sparkline data={metricsHistory.map(m => m.totalCost)} color="emerald" />
                                     </div>
-                                    <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                                        <div className="text-gray-400 text-xs">Yield Loss</div>
-                                        <div className="text-red-400 font-bold">{metrics.totalYieldLoss}</div>
+
+                                    {/* 2. YIELD / PRODUCTION */}
+                                    <div className="bg-slate-900/60 p-3 rounded-lg border border-purple-500/20 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Yield Rate</span>
+                                                <span className="text-purple-500 text-xs">📉</span>
+                                            </div>
+                                            <div className={`font-mono font-bold text-lg leading-none ${Number(currentYieldRate) < 90 ? 'text-purple-400' : 'text-purple-400'}`}>
+                                                {currentYieldRate}%
+                                            </div>
+                                        </div>
+                                        {/* We invert yield loss to show Yield Rate dropping, or plot Yield Loss directly. 
+                                            Let's plot Yield Loss (accumulating) which goes UP */}
+                                        <Sparkline data={metricsHistory.map(m => m.totalYieldLoss)} color="purple" />
+                                    </div>
+
+                                    {/* 3. LOGISTICS */}
+                                    <div className="bg-slate-900/60 p-3 rounded-lg border border-blue-500/20 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Logistics</span>
+                                                <span className="text-blue-500 text-xs">🌍</span>
+                                            </div>
+                                            <div className="text-blue-400 font-mono font-bold text-lg leading-none">
+                                                {(metrics.totalDistance/1000).toFixed(0)}k <span className="text-sm">km</span>
+                                            </div>
+                                        </div>
+                                        <Sparkline data={metricsHistory.map(m => m.totalDistance)} color="blue" />
+                                    </div>
+
+                                    {/* 4. SUSTAINABILITY */}
+                                    <div className="bg-slate-900/60 p-3 rounded-lg border border-amber-500/20 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Carbon</span>
+                                                <span className="text-amber-500 text-xs">☁️</span>
+                                            </div>
+                                            <div className="text-amber-400 font-mono font-bold text-lg leading-none">
+                                                {(metrics.totalCarbon/1000).toFixed(1)}T
+                                            </div>
+                                        </div>
+                                        <Sparkline data={metricsHistory.map(m => m.totalCarbon)} color="amber" />
                                     </div>
                                 </div>
                             </div>

@@ -2,33 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { supplyChainData } from '../data/supplyChainData';
+// Ensure getFilteredComponents is exported from your data file
+import { supplyChainData, getFilteredComponents } from '../data/supplyChainData';
 import MiniSupplyChainDiagram from './MiniSupplyChainDiagram';
-
-// *** UTILITY: Animated Arc Line Generator ***
-const createArcLine = (startVector, endVector, color, opacity = 0.8) => {
-    const distance = startVector.distanceTo(endVector);
-    
-    const midVector = startVector.clone().add(endVector);
-    if (midVector.lengthSq() < 0.01) {
-        const axis = new THREE.Vector3(0, 1, 0); 
-        if (Math.abs(startVector.clone().normalize().dot(axis)) > 0.99) {
-            axis.set(0, 0, 1);
-        }
-        midVector.crossVectors(startVector, axis);
-    }
-    
-    const arcHeight = 1.3 + (distance * 0.5); 
-    const midPoint = midVector.normalize().multiplyScalar(arcHeight);
-
-    const curve = new THREE.QuadraticBezierCurve3(startVector, midPoint, endVector);
-    const tubularSegments = 64; 
-    const radialSegments = 8;
-    const geometry = new THREE.TubeGeometry(curve, tubularSegments, 0.015, radialSegments, false);
-    const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
-
-    return new THREE.Mesh(geometry, material);
-};
 
 const GPUGlobe = ({ levelInfo, onSimulate }) => {
   const mountRef = useRef(null);
@@ -60,13 +36,17 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
     return stage.components[currentComponentIndex];
   };
 
-  // Get vendors for current component
+  // *** LOGIC UPDATE: FILTER VENDORS BASED ON PREVIOUS SELECTIONS ***
   const getCurrentVendors = () => {
     const component = getCurrentComponent();
     if (!component) return [];
     
-    const vendors = supplyChainData[component.id] || [];
-    return vendors.map(vendor => ({
+    // 1. Get the raw list of vendors for this component ID
+    // 2. Pass the ID and CURRENT SELECTIONS to the helper function
+    // This looks at 'validSources' in the items you have already picked
+    const filteredVendors = getFilteredComponents(component.id, vendorSelections);
+
+    return filteredVendors.map(vendor => ({
       ...vendor,
       componentId: component.id,
       componentName: component.name
@@ -75,10 +55,13 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
 
   const currentVendors = getCurrentVendors();
   const currentComponent = getCurrentComponent();
+  
+  // Check if the current list is smaller than the full list (for UI feedback)
+  const isFiltered = currentComponent && 
+    (supplyChainData[currentComponent.id]?.length || 0) > currentVendors.length;
 
-  // Location mapping for vendors (you'll need to add coordinates to your data)
+  // Location mapping for vendors
   const getVendorLocation = (vendor) => {
-    // Extract location from vendor name - you may need to enhance this
     const locationMap = {
       'Spruce Pine, NC': { lat: 35.9154, lng: -82.0646 },
       'Tokyo, Japan': { lat: 35.6762, lng: 139.6503 },
@@ -109,7 +92,13 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
       'Laconia, NH': { lat: 43.5279, lng: -71.4703 },
       'Vienna, Austria': { lat: 48.2082, lng: 16.3738 },
       'Shenzhen, China': { lat: 22.5431, lng: 114.0579 },
-      'Austin, TX': { lat: 30.2672, lng: -97.7431 }
+      'Austin, TX': { lat: 30.2672, lng: -97.7431 },
+      'Lisle, IL': { lat: 41.8000, lng: -88.0700 },
+      'Wallingford, CT': { lat: 41.4500, lng: -72.8200 },
+      'Fort Mill, SC': { lat: 35.0000, lng: -80.9400 },
+      'Suwon, South Korea': { lat: 37.2636, lng: 127.0286 },
+      'Munich, Germany': { lat: 48.1351, lng: 11.5820 },
+      'Dallas, TX': { lat: 32.7767, lng: -96.7970 }
     };
     
     return locationMap[vendor.location] || { lat: 0, lng: 0 };
@@ -141,23 +130,26 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
       setCurrentStageIndex(currentStageIndex + 1);
       setCurrentComponentIndex(0);
     } else {
-      // All components selected, ready to simulate
       onSimulate(newSelections);
     }
   };
 
   // Auto-select function
   const handleAutoSelect = (strategy = 'first') => {
-    // Start with existing selections
     const selections = { ...vendorSelections };
     
-    levelInfo.stages.forEach(stage => {
-      stage.components.forEach(component => {
-        // Skip if already selected
-        if (selections[component.id]) return;
+    // We must iterate sequentially to respect the filtering
+    for (const stage of levelInfo.stages) {
+      for (const component of stage.components) {
+        if (selections[component.id]) continue;
         
-        const vendors = supplyChainData[component.id] || [];
-        if (vendors.length === 0) return;
+        // DYNAMIC FILTERING INSIDE AUTO-SELECT LOOP
+        const vendors = getFilteredComponents(component.id, selections);
+        
+        if (vendors.length === 0) {
+            console.warn(`No valid vendors found for ${component.name} given previous choices.`);
+            continue; 
+        }
         
         let selectedVendor;
         if (strategy === 'first') {
@@ -173,8 +165,8 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         }
         
         selections[component.id] = selectedVendor;
-      });
-    });
+      }
+    }
     
     setIsDropdownOpen(false);
     setVendorSelections(selections);
@@ -189,14 +181,31 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
     setSelectedItem(null);
   };
 
-  // Go back one component
   const handleGoBack = () => {
     if (currentComponentIndex > 0) {
-      setCurrentComponentIndex(currentComponentIndex - 1);
+      // We must remove the selection of the item we are stepping back TO
+      // so the filtering logic resets for that step
+      const prevComponentIndex = currentComponentIndex - 1;
+      const stage = levelInfo.stages[currentStageIndex];
+      const prevComponentId = stage.components[prevComponentIndex].id;
+      
+      const newSelections = { ...vendorSelections };
+      delete newSelections[prevComponentId];
+      setVendorSelections(newSelections);
+      
+      setCurrentComponentIndex(prevComponentIndex);
     } else if (currentStageIndex > 0) {
-      setCurrentStageIndex(currentStageIndex - 1);
-      const prevStage = levelInfo.stages[currentStageIndex - 1];
-      setCurrentComponentIndex(prevStage.components.length - 1);
+      const prevStageIndex = currentStageIndex - 1;
+      const prevStage = levelInfo.stages[prevStageIndex];
+      const prevComponentIndex = prevStage.components.length - 1;
+      const prevComponentId = prevStage.components[prevComponentIndex].id;
+
+      const newSelections = { ...vendorSelections };
+      delete newSelections[prevComponentId];
+      setVendorSelections(newSelections);
+
+      setCurrentStageIndex(prevStageIndex);
+      setCurrentComponentIndex(prevComponentIndex);
     }
     setSelectedItem(null);
   };
@@ -213,7 +222,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
     camera.position.z = 5;
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -287,6 +296,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
     const updateLabels = () => {
+      if (!sceneRef.current) return;
       scene.updateMatrixWorld();
       
       const visibleLabels = [];
@@ -331,8 +341,8 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         }
       });
 
+      // Simple collision avoidance for labels
       visibleLabels.sort((a, b) => a.y - b.y);
-
       const BOX_WIDTH = 210; 
       const BOX_HEIGHT = 85;
 
@@ -402,10 +412,12 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
     };
   }, []);
 
-  // Update markers for current vendors
+  // Update markers for current vendors (dependency: currentVendors)
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const markersGroup = markersGroupRef.current;
+    
+    // Clear old markers
     while (markersGroup.children.length > 0) markersGroup.remove(markersGroup.children[0]);
     markersDataRef.current = [];
 
@@ -416,6 +428,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         return 0x44ff44;
     };
 
+    // Use filtered vendors here
     currentVendors.forEach((vendor) => {
       const loc = getVendorLocation(vendor);
       const position = latLonToVector3(loc.lat, loc.lng, 1.3);
@@ -436,7 +449,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         labelPosition: lineEnd 
       });
     });
-  }, [currentVendors]);
+  }, [currentVendors]); // Re-run when vendors change (which happens when filtering changes)
 
   const totalComponents = levelInfo.stages.reduce((sum, stage) => sum + stage.components.length, 0);
   const selectedCount = Object.keys(vendorSelections).length;
@@ -457,6 +470,12 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
               {currentVendors.length} Vendors Available
             </div>
+            {/* Visual Feedback for Filtering */}
+            {isFiltered && (
+              <div className="mt-2 text-xs text-amber-300 bg-amber-900/40 px-2 py-1 rounded border border-amber-800 flex items-center gap-1">
+                <span>🔒</span> Options filtered by previous choices
+              </div>
+            )}
           </div>
           <div className="bg-slate-700/50 p-2 rounded-lg text-2xl">
             🏭
@@ -533,7 +552,7 @@ const GPUGlobe = ({ levelInfo, onSimulate }) => {
         </div>
       </div>
 
-      {/* Vendor Labels */}
+      {/* Vendor Labels - Renders currentVendors (which is now filtered) */}
       {currentVendors.map((vendor, index) => {
         const riskColor = vendor.risk >= 8 ? 'border-red-500' : 
                          vendor.risk >= 6 ? 'border-orange-500' : 

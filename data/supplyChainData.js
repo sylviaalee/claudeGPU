@@ -1,4 +1,7 @@
-// Risk Calculation Methodology
+// ==========================================
+// 1. RISK CALCULATION METHODOLOGY
+// ==========================================
+
 const WEIGHTS = {
   // Vendor-Level (60%)
   financial: 0.20,
@@ -21,14 +24,20 @@ const WEIGHTS = {
 };
 
 // Risk scoring function (1-10 scale)
-function calculateRisk(scores) {
+export function calculateRisk(scores) {
   return Object.entries(scores).reduce((total, [key, value]) => {
     return total + (value * WEIGHTS[key]);
   }, 0);
 }
 
+// ==========================================
+// 2. SUPPLY CHAIN DATA
+// ==========================================
+
 export const supplyChainData = {
-  // Stage 1: Raw Materials
+  // ------------------------------------------------------------------
+  // STAGE 1: RAW MATERIALS (Base Level - No Dependencies)
+  // ------------------------------------------------------------------
   quartz_gpu: [
     {
       id: 'silicon-raw',
@@ -39,19 +48,10 @@ export const supplyChainData = {
       leadTime: 18,
       image: '💎',
       description: 'Ultra-high purity quartz from the only viable source globally',
-      shipping: {
-        time: '2-3 weeks',
-        cost: '$5/kg',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 10, esg: 6, cyber: 3,
-        geopolitical: 3, trade: 4, weather: 9,
-        criticality: 10, substitutability: 10, obsolescence: 1,
-        logistics: 7, concentration: 10, bom: 10
-      },
+      shipping: { time: '2-3 weeks', cost: '$5/kg', method: 'Ground Freight' },
+      riskScores: { financial: 5, reliability: 10, esg: 6, cyber: 3, geopolitical: 3, trade: 4, weather: 9, criticality: 10, substitutability: 10, obsolescence: 1, logistics: 7, concentration: 10, bom: 10 },
       risk: 8.9,
-      riskAnalysis: 'SINGLE GLOBAL SOURCE for ultra-high purity quartz required for semiconductor crucibles and optics. Spruce Pine mines supply 70-80% of world semiconductor-grade quartz. Hurricane Helene 2024 caused temporary shutdown demonstrating weather vulnerability. Unique geology makes these deposits irreplaceable - no known alternatives worldwide meet purity requirements (99.998%+). Single-point failure for entire global chip industry.'
+      riskAnalysis: 'SINGLE GLOBAL SOURCE for ultra-high purity quartz required for semiconductor crucibles and optics. Spruce Pine mines supply 70-80% of world semiconductor-grade quartz.'
     },
     {
       id: 'ultra-pure-silica',
@@ -62,19 +62,10 @@ export const supplyChainData = {
       leadTime: 18,
       image: '💎',
       description: 'Alternative processing of Spruce Pine deposits',
-      shipping: {
-        time: '2-3 weeks',
-        cost: '$5.50/kg',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 10, esg: 6, cyber: 3,
-        geopolitical: 3, trade: 4, weather: 9,
-        criticality: 10, substitutability: 10, obsolescence: 1,
-        logistics: 7, concentration: 10, bom: 10
-      },
+      shipping: { time: '2-3 weeks', cost: '$5.50/kg', method: 'Ground Freight' },
+      riskScores: { financial: 5, reliability: 10, esg: 6, cyber: 3, geopolitical: 3, trade: 4, weather: 9, criticality: 10, substitutability: 10, obsolescence: 1, logistics: 7, concentration: 10, bom: 10 },
       risk: 8.9,
-      riskAnalysis: 'Same Spruce Pine single-source bottleneck with identical risks. Hurricane Helene 2024 demonstrated systemic vulnerability of this geographic concentration. Alternative processing methods cannot overcome fundamental geology constraints - no viable substitutes worldwide meet required purity specifications.'
+      riskAnalysis: 'Same Spruce Pine single-source bottleneck with identical risks. Hurricane Helene 2024 demonstrated systemic vulnerability.'
     }
   ],
 
@@ -88,19 +79,10 @@ export const supplyChainData = {
       leadTime: 18,
       image: '💎',
       description: 'Critical ultra-high purity quartz for memory wafers',
-      shipping: {
-        time: '2-3 weeks',
-        cost: '$5/kg',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 10, esg: 6, cyber: 3,
-        geopolitical: 3, trade: 4, weather: 9,
-        criticality: 10, substitutability: 10, obsolescence: 1,
-        logistics: 7, concentration: 10, bom: 10
-      },
+      shipping: { time: '2-3 weeks', cost: '$5/kg', method: 'Ground Freight' },
+      riskScores: { financial: 5, reliability: 10, esg: 6, cyber: 3, geopolitical: 3, trade: 4, weather: 9, criticality: 10, substitutability: 10, obsolescence: 1, logistics: 7, concentration: 10, bom: 10 },
       risk: 8.9,
-      riskAnalysis: 'Memory-grade silicon wafers require identical ultra-high purity quartz from Spruce Pine deposits. No alternative sources exist globally that meet stringent contamination specifications for DRAM and NAND production. Geographic single-point-of-failure creates systemic risk across entire memory industry.'
+      riskAnalysis: 'Memory-grade silicon wafers require identical ultra-high purity quartz. No alternative sources exist globally.'
     },
     {
       id: 'ultra-pure-silica',
@@ -111,19 +93,10 @@ export const supplyChainData = {
       leadTime: 18,
       image: '💎',
       description: 'Specialized silica for memory applications',
-      shipping: {
-        time: '2-3 weeks',
-        cost: '$5.50/kg',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 10, esg: 6, cyber: 3,
-        geopolitical: 3, trade: 4, weather: 9,
-        criticality: 10, substitutability: 10, obsolescence: 1,
-        logistics: 7, concentration: 10, bom: 10
-      },
+      shipping: { time: '2-3 weeks', cost: '$5.50/kg', method: 'Ground Freight' },
+      riskScores: { financial: 5, reliability: 10, esg: 6, cyber: 3, geopolitical: 3, trade: 4, weather: 9, criticality: 10, substitutability: 10, obsolescence: 1, logistics: 7, concentration: 10, bom: 10 },
       risk: 8.9,
-      riskAnalysis: 'Specialized processing for memory applications does not overcome fundamental geographic concentration at Spruce Pine. Memory-specific purity requirements even more stringent than logic applications. Any Spruce Pine disruption impacts global memory production capacity.'
+      riskAnalysis: 'Specialized processing for memory applications does not overcome fundamental geographic concentration.'
     }
   ],
 
@@ -137,19 +110,10 @@ export const supplyChainData = {
       leadTime: 45,
       image: '🧪',
       description: 'Leading EUV photoresist manufacturer',
-      shipping: {
-        time: '5-7 days',
-        cost: '$15/liter',
-        method: 'Air Freight (Hazmat)'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 7, weather: 8,
-        criticality: 9, substitutability: 8, obsolescence: 2,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '5-7 days', cost: '$15/liter', method: 'Air Freight (Hazmat)' },
+      riskScores: { financial: 3, reliability: 7, esg: 4, cyber: 5, geopolitical: 6, trade: 7, weather: 8, criticality: 9, substitutability: 8, obsolescence: 2, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.8,
-      riskAnalysis: 'Market leader in EUV photoresist chemistry with proven performance at 5nm and below. Japanese concentration creates earthquake, tsunami, and typhoon exposure. Export control restrictions affect technology transfer and China market access. Long qualification cycles (12-18 months) create switching barriers.'
+      riskAnalysis: 'Market leader in EUV photoresist chemistry. Japanese concentration creates earthquake risks.'
     },
     {
       id: 'tokyo-ohka',
@@ -160,19 +124,10 @@ export const supplyChainData = {
       leadTime: 40,
       image: '🧪',
       description: 'Comprehensive photoresist supplier',
-      shipping: {
-        time: '5-7 days',
-        cost: '$14/liter',
-        method: 'Air Freight (Hazmat)'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 8,
-        criticality: 8, substitutability: 7, obsolescence: 2,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '5-7 days', cost: '$14/liter', method: 'Air Freight (Hazmat)' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 8, criticality: 8, substitutability: 7, obsolescence: 2, logistics: 5, concentration: 7, bom: 7 },
       risk: 6.5,
-      riskAnalysis: 'Comprehensive photoresist portfolio across multiple technology nodes from mature to advanced. Kawasaki location in greater Tokyo area creates identical seismic and weather risks as other Japanese suppliers. Better availability due to less constrained capacity versus market leader.'
+      riskAnalysis: 'Comprehensive photoresist portfolio. Kawasaki location in greater Tokyo area creates identical seismic risks.'
     },
     {
       id: 'dupont-photoresist',
@@ -183,19 +138,10 @@ export const supplyChainData = {
       leadTime: 35,
       image: '🧪',
       description: 'US alternative for advanced nodes',
-      shipping: {
-        time: '3-4 days',
-        cost: '$12/liter',
-        method: 'Ground Freight (Hazmat)'
-      },
-      riskScores: {
-        financial: 3, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 7, substitutability: 6, obsolescence: 3,
-        logistics: 3, concentration: 5, bom: 6
-      },
+      shipping: { time: '3-4 days', cost: '$12/liter', method: 'Ground Freight (Hazmat)' },
+      riskScores: { financial: 3, reliability: 5, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 7, substitutability: 6, obsolescence: 3, logistics: 3, concentration: 5, bom: 6 },
       risk: 4.8,
-      riskAnalysis: 'US-based photoresist manufacturing eliminates Asian geopolitical and natural disaster dependencies. Massachusetts location provides stable regulatory environment. Lower EUV market share reflects later technology entry versus Japanese incumbents. Growing investment in advanced photoresist chemistry supported by CHIPS Act.'
+      riskAnalysis: 'US-based photoresist manufacturing eliminates Asian geopolitical dependencies. Lower EUV market share.'
     }
   ],
 
@@ -209,19 +155,10 @@ export const supplyChainData = {
       leadTime: 50,
       image: '📄',
       description: 'Market leader in ABF film with 90%+ market share',
-      shipping: {
-        time: '7-10 days',
-        cost: '$8/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 9, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 6, weather: 8,
-        criticality: 10, substitutability: 9, obsolescence: 2,
-        logistics: 6, concentration: 10, bom: 9
-      },
+      shipping: { time: '7-10 days', cost: '$8/sqm', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 9, esg: 4, cyber: 4, geopolitical: 6, trade: 6, weather: 8, criticality: 10, substitutability: 9, obsolescence: 2, logistics: 6, concentration: 10, bom: 9 },
       risk: 7.2,
-      riskAnalysis: 'Near-monopoly with 90%+ market share in advanced IC substrates creates single-vendor dependency for global semiconductor packaging. Tokyo location exposes to earthquake, tsunami, and typhoon risks. Decades of R&D investment create insurmountable technical barriers. Critical for high-performance computing and AI accelerator packaging.'
+      riskAnalysis: 'Near-monopoly with 90%+ market share in advanced IC substrates. Tokyo location exposes to earthquake risks.'
     },
     {
       id: 'mitsubishi-abf',
@@ -232,19 +169,10 @@ export const supplyChainData = {
       leadTime: 55,
       image: '📄',
       description: 'Secondary ABF film supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$8.50/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 6, weather: 8,
-        criticality: 8, substitutability: 8, obsolescence: 2,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '7-10 days', cost: '$8.50/sqm', method: 'Air Freight' },
+      riskScores: { financial: 4, reliability: 7, esg: 4, cyber: 4, geopolitical: 6, trade: 6, weather: 8, criticality: 8, substitutability: 8, obsolescence: 2, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.8,
-      riskAnalysis: 'Secondary supplier attempting to break Ajinomoto monopoly but faces significant technical and market share gaps. Tokyo location creates identical natural disaster exposure. Long customer qualification cycles (2+ years) limit adoption velocity. Primarily serves as backup source rather than primary supplier.'
+      riskAnalysis: 'Secondary supplier facing significant technical barriers. Tokyo location creates identical natural disaster exposure.'
     },
     {
       id: 'doosan-abf',
@@ -255,19 +183,10 @@ export const supplyChainData = {
       leadTime: 45,
       image: '📄',
       description: 'Emerging Korean ABF alternative',
-      shipping: {
-        time: '5-7 days',
-        cost: '$7/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 6, esg: 5, cyber: 5,
-        geopolitical: 6, trade: 5, weather: 5,
-        criticality: 6, substitutability: 7, obsolescence: 3,
-        logistics: 5, concentration: 6, bom: 7
-      },
+      shipping: { time: '5-7 days', cost: '$7/sqm', method: 'Air Freight' },
+      riskScores: { financial: 5, reliability: 6, esg: 5, cyber: 5, geopolitical: 6, trade: 5, weather: 5, criticality: 6, substitutability: 7, obsolescence: 3, logistics: 5, concentration: 6, bom: 7 },
       risk: 5.9,
-      riskAnalysis: 'Korean supplier provides geographic diversification from Japanese monopoly but performance gap remains. Cost competitiveness attractive but quality and reliability lag incumbents. Expanding capacity investments supported by Korean semiconductor ecosystem. Primarily qualified for mainstream applications rather than cutting-edge nodes.'
+      riskAnalysis: 'Korean supplier provides geographic diversification but performance gap remains.'
     }
   ],
 
@@ -281,19 +200,10 @@ export const supplyChainData = {
       leadTime: 35,
       image: '🔶',
       description: 'Premium copper clad laminate manufacturer',
-      shipping: {
-        time: '6-8 days',
-        cost: '$6/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 7,
-        criticality: 7, substitutability: 6, obsolescence: 3,
-        logistics: 5, concentration: 6, bom: 7
-      },
+      shipping: { time: '6-8 days', cost: '$6/sqm', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 7, criticality: 7, substitutability: 6, obsolescence: 3, logistics: 5, concentration: 6, bom: 7 },
       risk: 6.0,
-      riskAnalysis: 'Premium CCL manufacturer with superior high-frequency performance for advanced applications. Kyoto location in seismically active region creates natural disaster exposure. Technical leadership in low-loss materials for high-speed signaling. Premium pricing reflects quality and performance characteristics.'
+      riskAnalysis: 'Premium CCL manufacturer. Kyoto location in seismically active region.'
     },
     {
       id: 'panasonic-ccl',
@@ -304,19 +214,10 @@ export const supplyChainData = {
       leadTime: 40,
       image: '🔶',
       description: 'Major CCL supplier with integrated materials',
-      shipping: {
-        time: '6-8 days',
-        cost: '$5.50/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 7,
-        criticality: 7, substitutability: 6, obsolescence: 3,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '6-8 days', cost: '$5.50/sqm', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 7, criticality: 7, substitutability: 6, obsolescence: 3, logistics: 5, concentration: 7, bom: 7 },
       risk: 6.2,
-      riskAnalysis: 'Vertically integrated materials capabilities provide cost advantages and supply security. Osaka location shares Kyoto seismic risks. Good availability and competitive pricing for mainstream applications. Limited cutting-edge capability versus specialized suppliers.'
+      riskAnalysis: 'Vertically integrated. Osaka location shares Kyoto seismic risks.'
     },
     {
       id: 'isola-ccl',
@@ -327,19 +228,10 @@ export const supplyChainData = {
       leadTime: 30,
       image: '🔶',
       description: 'US-based laminate manufacturer',
-      shipping: {
-        time: '3-5 days',
-        cost: '$5/sqm',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 4, bom: 6
-      },
+      shipping: { time: '3-5 days', cost: '$5/sqm', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 5, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 4, bom: 6 },
       risk: 4.5,
-      riskAnalysis: 'US-based manufacturing eliminates Asian geopolitical and natural disaster dependencies. Chandler Arizona location benefits from semiconductor ecosystem. Faster delivery and responsive customer support. CHIPS Act and reshoring trends support growth prospects. Preferred supplier for defense and critical applications.'
+      riskAnalysis: 'US-based manufacturing eliminates Asian geopolitical dependencies. Chandler location benefits from ecosystem.'
     }
   ],
 
@@ -353,19 +245,10 @@ export const supplyChainData = {
       leadTime: 25,
       image: '⚙️',
       description: 'Major aluminum producer with global operations',
-      shipping: {
-        time: '2-3 weeks',
-        cost: '$2.50/kg',
-        method: 'Ground/Rail Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 5, esg: 5, cyber: 3,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 4, obsolescence: 2,
-        logistics: 3, concentration: 4, bom: 6
-      },
+      shipping: { time: '2-3 weeks', cost: '$2.50/kg', method: 'Ground/Rail Freight' },
+      riskScores: { financial: 4, reliability: 5, esg: 5, cyber: 3, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 4, obsolescence: 2, logistics: 3, concentration: 4, bom: 6 },
       risk: 4.2,
-      riskAnalysis: 'Global aluminum leader with diversified production footprint. US headquarters provide supply chain stability. Energy-intensive operations sensitive to electricity costs. Environmental regulations increasing focus on low-carbon aluminum production. Multiple sourcing alternatives available in global aluminum market.'
+      riskAnalysis: 'Global aluminum leader. US headquarters provide supply chain stability.'
     },
     {
       id: 'freeport-copper',
@@ -376,19 +259,10 @@ export const supplyChainData = {
       leadTime: 30,
       image: '⚙️',
       description: 'Leading copper producer',
-      shipping: {
-        time: '2-4 weeks',
-        cost: '$3/kg',
-        method: 'Ground/Rail Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 5, esg: 6, cyber: 3,
-        geopolitical: 3, trade: 4, weather: 5,
-        criticality: 7, substitutability: 5, obsolescence: 2,
-        logistics: 4, concentration: 5, bom: 6
-      },
+      shipping: { time: '2-4 weeks', cost: '$3/kg', method: 'Ground/Rail Freight' },
+      riskScores: { financial: 4, reliability: 5, esg: 6, cyber: 3, geopolitical: 3, trade: 4, weather: 5, criticality: 7, substitutability: 5, obsolescence: 2, logistics: 4, concentration: 5, bom: 6 },
       risk: 4.8,
-      riskAnalysis: 'Leading copper producer with high-purity grades suitable for semiconductor applications. Global mining operations create geographic diversification. Copper price volatility tied to industrial demand. Strong mining expertise and established refining capabilities. Commodity market liquidity provides multiple sourcing alternatives.'
+      riskAnalysis: 'Leading copper producer. Global mining operations create geographic diversification.'
     },
     {
       id: 'rio-tinto',
@@ -399,23 +273,16 @@ export const supplyChainData = {
       leadTime: 35,
       image: '⚙️',
       description: 'Diversified metals and mining',
-      shipping: {
-        time: '3-5 weeks',
-        cost: '$2.80/kg',
-        method: 'Ocean/Rail Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 5, esg: 6, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 5,
-        criticality: 6, substitutability: 5, obsolescence: 2,
-        logistics: 5, concentration: 5, bom: 6
-      },
+      shipping: { time: '3-5 weeks', cost: '$2.80/kg', method: 'Ocean/Rail Freight' },
+      riskScores: { financial: 4, reliability: 5, esg: 6, cyber: 4, geopolitical: 5, trade: 5, weather: 5, criticality: 6, substitutability: 5, obsolescence: 2, logistics: 5, concentration: 5, bom: 6 },
       risk: 5.1,
-      riskAnalysis: 'Globally diversified mining operations across multiple continents. Complex supply chain requires coordination across mining, refining, and logistics. Quality variability across deposits requires careful sourcing. ESG considerations increasingly important. Large scale provides supply reliability but operational complexity.'
+      riskAnalysis: 'Globally diversified mining operations. Complex supply chain requires coordination.'
     }
   ],
 
-  // Stage 2: Component Fabrication
+  // ------------------------------------------------------------------
+  // STAGE 2: FABRICATION (Limited by Stage 3 choices)
+  // ------------------------------------------------------------------
   silicon_wafers_gpu: [
     {
       id: 'shin-etsu-wafer',
@@ -426,19 +293,10 @@ export const supplyChainData = {
       leadTime: 90,
       image: '⚫',
       description: 'Global market leader with 30%+ share',
-      shipping: {
-        time: '1-2 weeks',
-        cost: '$25/wafer',
-        method: 'Specialized Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 4, trade: 5, weather: 4,
-        criticality: 9, substitutability: 8, obsolescence: 3,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '1-2 weeks', cost: '$25/wafer', method: 'Specialized Air Freight' },
+      riskScores: { financial: 3, reliability: 7, esg: 4, cyber: 4, geopolitical: 4, trade: 5, weather: 4, criticality: 9, substitutability: 8, obsolescence: 3, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.7,
-      riskAnalysis: 'Global market leader with 30%+ share in silicon wafers. Vancouver WA facility provides US production but company is Japanese-owned. Oligopoly market structure enables pricing power and allocation during shortages. 300mm wafer production requires $3-5B investment per fab limiting new entrants. Critical for all semiconductor manufacturing.'
+      riskAnalysis: 'Global market leader. Vancouver WA facility provides US production but company is Japanese-owned.'
     },
     {
       id: 'sumco-wafer',
@@ -449,19 +307,10 @@ export const supplyChainData = {
       leadTime: 95,
       image: '⚫',
       description: 'Second-largest wafer supplier',
-      shipping: {
-        time: '10-14 days',
-        cost: '$28/wafer',
-        method: 'Specialized Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 5, weather: 8,
-        criticality: 9, substitutability: 8, obsolescence: 3,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '10-14 days', cost: '$28/wafer', method: 'Specialized Air Freight' },
+      riskScores: { financial: 4, reliability: 7, esg: 4, cyber: 4, geopolitical: 6, trade: 5, weather: 8, criticality: 9, substitutability: 8, obsolescence: 3, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.9,
-      riskAnalysis: 'Second-largest wafer supplier with 25%+ market share in global oligopoly. Imari facility in Kyushu region subject to earthquakes, tsunamis, and typhoons. Oligopoly structure enables allocation-based supply management during shortages. Geographic concentration in Japan creates correlated risk.'
+      riskAnalysis: 'Second-largest wafer supplier. Imari facility in Kyushu region subject to earthquakes.'
     },
     {
       id: 'globalwafers',
@@ -472,19 +321,10 @@ export const supplyChainData = {
       leadTime: 85,
       image: '⚫',
       description: 'Third-largest with expanding US capacity',
-      shipping: {
-        time: '1 week',
-        cost: '$22/wafer',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 6, esg: 5, cyber: 4,
-        geopolitical: 5, trade: 6, weather: 5,
-        criticality: 8, substitutability: 7, obsolescence: 3,
-        logistics: 6, concentration: 7, bom: 7
-      },
+      shipping: { time: '1 week', cost: '$22/wafer', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 6, esg: 5, cyber: 4, geopolitical: 5, trade: 6, weather: 5, criticality: 8, substitutability: 7, obsolescence: 3, logistics: 6, concentration: 7, bom: 7 },
       risk: 6.1,
-      riskAnalysis: 'Third-largest wafer supplier expanding US production with CHIPS Act funding. Sherman TX facility reduces Taiwan concentration risk. Taiwan parent company creates some geopolitical consideration. Growing 300mm capacity addresses market needs. Quality improving through technology investments.'
+      riskAnalysis: 'Sherman TX facility reduces Taiwan concentration risk. Taiwan parent company.'
     }
   ],
 
@@ -498,19 +338,10 @@ export const supplyChainData = {
       leadTime: 90,
       image: '⚫',
       description: 'Premium wafers for memory applications',
-      shipping: {
-        time: '1-2 weeks',
-        cost: '$24/wafer',
-        method: 'Specialized Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 4, trade: 5, weather: 4,
-        criticality: 9, substitutability: 8, obsolescence: 3,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '1-2 weeks', cost: '$24/wafer', method: 'Specialized Air Freight' },
+      riskScores: { financial: 3, reliability: 7, esg: 4, cyber: 4, geopolitical: 4, trade: 5, weather: 4, criticality: 9, substitutability: 8, obsolescence: 3, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.7,
-      riskAnalysis: 'Memory-optimized wafer specifications require best-in-class uniformity and defect density. Vancouver WA production provides domestic supply security. Memory manufacturers require extremely tight specifications for DRAM and NAND yields. Technical expertise in crystal growth critical for memory applications.'
+      riskAnalysis: 'Memory-optimized wafer specifications require best-in-class uniformity.'
     },
     {
       id: 'sk-siltron',
@@ -521,19 +352,10 @@ export const supplyChainData = {
       leadTime: 80,
       image: '⚫',
       description: 'Korean supplier with memory focus',
-      shipping: {
-        time: '7-10 days',
-        cost: '$20/wafer',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 6, esg: 5, cyber: 5,
-        geopolitical: 6, trade: 5, weather: 5,
-        criticality: 7, substitutability: 7, obsolescence: 3,
-        logistics: 5, concentration: 6, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$20/wafer', method: 'Air Freight' },
+      riskScores: { financial: 4, reliability: 6, esg: 5, cyber: 5, geopolitical: 6, trade: 5, weather: 5, criticality: 7, substitutability: 7, obsolescence: 3, logistics: 5, concentration: 6, bom: 7 },
       risk: 5.9,
-      riskAnalysis: 'Fifth-largest wafer supplier with strategic focus on memory applications. Gumi location benefits from Korean semiconductor ecosystem proximity to Samsung and SK Hynix. SK Group financial backing provides stability. Smaller scale versus top three suppliers but memory specialization creates niche.'
+      riskAnalysis: 'Fifth-largest wafer supplier. Gumi location benefits from Korean semiconductor ecosystem.'
     },
     {
       id: 'sumco-wafer',
@@ -544,19 +366,10 @@ export const supplyChainData = {
       leadTime: 95,
       image: '⚫',
       description: 'Established memory wafer supplier',
-      shipping: {
-        time: '10-14 days',
-        cost: '$26/wafer',
-        method: 'Specialized Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 5, weather: 8,
-        criticality: 9, substitutability: 8, obsolescence: 3,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '10-14 days', cost: '$26/wafer', method: 'Specialized Air Freight' },
+      riskScores: { financial: 4, reliability: 7, esg: 4, cyber: 4, geopolitical: 6, trade: 5, weather: 8, criticality: 9, substitutability: 8, obsolescence: 3, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.9,
-      riskAnalysis: 'Established supplier to major memory manufacturers with proven quality track record. Large volume capability supports memory industry capacity needs. Memory-specific quality control processes ensure specification compliance. Geographic concentration in Japan limits diversification benefits.'
+      riskAnalysis: 'Established supplier to major memory manufacturers with proven quality track record.'
     }
   ],
 
@@ -570,19 +383,10 @@ export const supplyChainData = {
       leadTime: 45,
       image: '🧪',
       description: 'EUV photoresist leader',
-      shipping: {
-        time: '5-7 days',
-        cost: '$18/liter',
-        method: 'Air Freight (Hazmat)'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 7, weather: 8,
-        criticality: 9, substitutability: 8, obsolescence: 2,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '5-7 days', cost: '$18/liter', method: 'Air Freight (Hazmat)' },
+      riskScores: { financial: 3, reliability: 7, esg: 4, cyber: 5, geopolitical: 6, trade: 7, weather: 8, criticality: 9, substitutability: 8, obsolescence: 2, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.8,
-      riskAnalysis: 'Market leader in EUV photoresist with best performance at cutting-edge nodes. Tokyo location creates earthquake, tsunami, and typhoon exposure. Export control restrictions affect China market access. Limited capacity creates allocation challenges. Premium pricing reflects technical leadership and supply constraints.'
+      riskAnalysis: 'Market leader in EUV photoresist. Tokyo location creates earthquake, tsunami risk.'
     },
     {
       id: 'tokyo-ohka',
@@ -593,19 +397,10 @@ export const supplyChainData = {
       leadTime: 40,
       image: '🧪',
       description: 'Comprehensive photoresist supplier',
-      shipping: {
-        time: '5-7 days',
-        cost: '$16/liter',
-        method: 'Air Freight (Hazmat)'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 8,
-        criticality: 8, substitutability: 7, obsolescence: 2,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '5-7 days', cost: '$16/liter', method: 'Air Freight (Hazmat)' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 8, criticality: 8, substitutability: 7, obsolescence: 2, logistics: 5, concentration: 7, bom: 7 },
       risk: 6.5,
-      riskAnalysis: 'Comprehensive photoresist portfolio across multiple technology nodes. Kawasaki location creates identical seismic and weather risks. Smaller market share in cutting-edge EUV applications. Better availability than JSR due to less constrained capacity. Japanese chemical industry expertise supports formulation development.'
+      riskAnalysis: 'Kawasaki location creates identical seismic and weather risks.'
     },
     {
       id: 'dupont-photoresist',
@@ -616,19 +411,10 @@ export const supplyChainData = {
       leadTime: 35,
       image: '🧪',
       description: 'US alternative for advanced nodes',
-      shipping: {
-        time: '3-4 days',
-        cost: '$14/liter',
-        method: 'Ground Freight (Hazmat)'
-      },
-      riskScores: {
-        financial: 3, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 7, substitutability: 6, obsolescence: 3,
-        logistics: 3, concentration: 5, bom: 6
-      },
+      shipping: { time: '3-4 days', cost: '$14/liter', method: 'Ground Freight (Hazmat)' },
+      riskScores: { financial: 3, reliability: 5, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 7, substitutability: 6, obsolescence: 3, logistics: 3, concentration: 5, bom: 6 },
       risk: 4.8,
-      riskAnalysis: 'US-based photoresist manufacturing eliminates Asian geopolitical and natural disaster dependencies. Massachusetts location provides stable regulatory environment. Lower EUV market share reflects later technology entry. Higher domestic manufacturing costs offset by supply chain security and faster delivery.'
+      riskAnalysis: 'US-based photoresist manufacturing eliminates Asian geopolitical dependencies.'
     }
   ],
 
@@ -642,19 +428,10 @@ export const supplyChainData = {
       leadTime: 50,
       image: '📄',
       description: 'Dominant ABF film supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$10/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 9, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 6, weather: 8,
-        criticality: 10, substitutability: 9, obsolescence: 2,
-        logistics: 6, concentration: 10, bom: 9
-      },
+      shipping: { time: '7-10 days', cost: '$10/sqm', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 9, esg: 4, cyber: 4, geopolitical: 6, trade: 6, weather: 8, criticality: 10, substitutability: 9, obsolescence: 2, logistics: 6, concentration: 10, bom: 9 },
       risk: 7.2,
-      riskAnalysis: 'Dominant market position with 90%+ share creates near-total dependency for advanced IC substrates globally. Tokyo location exposes to earthquake, tsunami, and typhoon risks. Allocation-based supply management during high demand. Critical enabler for high-performance computing and AI accelerators. Any significant disruption would halt global advanced packaging production.'
+      riskAnalysis: 'Dominant market position with 90%+ share. Critical enabler for high-performance computing.'
     },
     {
       id: 'mitsubishi-abf',
@@ -665,19 +442,10 @@ export const supplyChainData = {
       leadTime: 55,
       image: '📄',
       description: 'Alternative ABF supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$11/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 6, weather: 8,
-        criticality: 8, substitutability: 8, obsolescence: 2,
-        logistics: 6, concentration: 8, bom: 8
-      },
+      shipping: { time: '7-10 days', cost: '$11/sqm', method: 'Air Freight' },
+      riskScores: { financial: 4, reliability: 7, esg: 4, cyber: 4, geopolitical: 6, trade: 6, weather: 8, criticality: 8, substitutability: 8, obsolescence: 2, logistics: 6, concentration: 8, bom: 8 },
       risk: 6.8,
-      riskAnalysis: 'Secondary supplier attempting to challenge Ajinomoto monopoly but faces significant technical and market share challenges. Tokyo location creates identical natural disaster exposure. Long customer qualification cycles (24+ months) limit market penetration velocity. Serves primarily as backup source.'
+      riskAnalysis: 'Secondary supplier. Serves primarily as backup source.'
     },
     {
       id: 'doosan-abf',
@@ -688,19 +456,10 @@ export const supplyChainData = {
       leadTime: 45,
       image: '📄',
       description: 'Emerging Korean supplier',
-      shipping: {
-        time: '5-7 days',
-        cost: '$9/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 6, esg: 5, cyber: 5,
-        geopolitical: 6, trade: 5, weather: 5,
-        criticality: 6, substitutability: 7, obsolescence: 3,
-        logistics: 5, concentration: 6, bom: 7
-      },
+      shipping: { time: '5-7 days', cost: '$9/sqm', method: 'Air Freight' },
+      riskScores: { financial: 5, reliability: 6, esg: 5, cyber: 5, geopolitical: 6, trade: 5, weather: 5, criticality: 6, substitutability: 7, obsolescence: 3, logistics: 5, concentration: 6, bom: 7 },
       risk: 5.9,
-      riskAnalysis: 'Korean supplier provides critical geographic diversification from Japanese monopoly though performance and reliability gaps remain. Cost competitiveness attractive. Expanding capacity investments supported by Korean government. Primarily qualified for mainstream packaging applications. Represents best alternative for supply diversification strategy.'
+      riskAnalysis: 'Korean supplier provides critical geographic diversification from Japanese monopoly.'
     }
   ],
 
@@ -714,19 +473,10 @@ export const supplyChainData = {
       leadTime: 35,
       image: '🔶',
       description: 'Premium high-frequency laminates',
-      shipping: {
-        time: '6-8 days',
-        cost: '$7/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 7,
-        criticality: 7, substitutability: 6, obsolescence: 3,
-        logistics: 5, concentration: 6, bom: 7
-      },
+      shipping: { time: '6-8 days', cost: '$7/sqm', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 7, criticality: 7, substitutability: 6, obsolescence: 3, logistics: 5, concentration: 6, bom: 7 },
       risk: 6.0,
-      riskAnalysis: 'Premium CCL manufacturer leveraging ceramic and advanced materials expertise for superior high-frequency performance. Kyoto location in Kansai region subject to Nankai Trough earthquake risk. Technical leadership in low-loss materials critical for high-speed server and networking applications. Premium pricing justified by electrical performance characteristics.'
+      riskAnalysis: 'Premium CCL manufacturer. Kyoto location subject to Nankai Trough earthquake risk.'
     },
     {
       id: 'panasonic-ccl',
@@ -737,19 +487,10 @@ export const supplyChainData = {
       leadTime: 40,
       image: '🔶',
       description: 'Integrated materials supplier',
-      shipping: {
-        time: '6-8 days',
-        cost: '$6.50/sqm',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 7,
-        criticality: 7, substitutability: 6, obsolescence: 3,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '6-8 days', cost: '$6.50/sqm', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 7, criticality: 7, substitutability: 6, obsolescence: 3, logistics: 5, concentration: 7, bom: 7 },
       risk: 6.2,
-      riskAnalysis: 'Vertically integrated materials capabilities from resin chemistry through laminate production provide cost advantages and supply chain control. Osaka location shares Kansai region seismic vulnerability. Diversified electronics business provides financial stability but may result in capacity allocation trade-offs during component shortages. Good availability and competitive pricing.'
+      riskAnalysis: 'Vertically integrated capabilities. Osaka location shares Kansai region seismic vulnerability.'
     },
     {
       id: 'isola-ccl',
@@ -760,19 +501,10 @@ export const supplyChainData = {
       leadTime: 30,
       image: '🔶',
       description: 'US-based laminate manufacturer',
-      shipping: {
-        time: '3-5 days',
-        cost: '$6/sqm',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 4, bom: 6
-      },
+      shipping: { time: '3-5 days', cost: '$6/sqm', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 5, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 4, bom: 6 },
       risk: 4.5,
-      riskAnalysis: 'US-based laminate manufacturing eliminates Asian geopolitical dependencies. Chandler Arizona location benefits from established semiconductor ecosystem. Smaller market share in cutting-edge advanced packaging. Higher domestic labor costs impact pricing. Faster delivery times and responsive customer support. CHIPS Act funding supports growth. Preferred supplier for defense and aerospace applications.'
+      riskAnalysis: 'US-based laminate manufacturing. Chandler location benefits from ecosystem.'
     }
   ],
 
@@ -786,19 +518,10 @@ export const supplyChainData = {
       leadTime: 60,
       image: '🧠',
       description: 'Leading DRAM manufacturer',
-      shipping: {
-        time: '7-10 days',
-        cost: '$30/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 8, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 5,
-        criticality: 9, substitutability: 7, obsolescence: 2,
-        logistics: 5, concentration: 8, bom: 8
-      },
+      shipping: { time: '7-10 days', cost: '$30/unit', method: 'Air Freight' },
+      riskScores: { financial: 2, reliability: 8, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 5, criticality: 9, substitutability: 7, obsolescence: 2, logistics: 5, concentration: 8, bom: 8 },
       risk: 6.2,
-      riskAnalysis: 'Global DRAM market leader with cutting-edge process technology and largest production capacity. Pyeongtaek facility represents world\'s largest semiconductor fabrication site. Leading HBM technology for AI accelerators. North Korea proximity creates modest geopolitical consideration. Capacity constraints during AI boom create allocation challenges. Technology leadership in advanced DRAM nodes.'
+      riskAnalysis: 'Global DRAM market leader. Pyeongtaek facility represents world\'s largest semi fab site.'
     },
     {
       id: 'sk-hynix-dram',
@@ -809,19 +532,10 @@ export const supplyChainData = {
       leadTime: 65,
       image: '🧠',
       description: 'Major HBM supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$28/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 8, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 5,
-        criticality: 9, substitutability: 7, obsolescence: 2,
-        logistics: 5, concentration: 8, bom: 8
-      },
+      shipping: { time: '7-10 days', cost: '$28/unit', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 8, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 5, criticality: 9, substitutability: 7, obsolescence: 2, logistics: 5, concentration: 8, bom: 8 },
       risk: 6.4,
-      riskAnalysis: 'Second-largest DRAM manufacturer with market-leading HBM technology position. Icheon campus concentration creates single-site dependency. Strong process yields and manufacturing excellence. HBM3E technology leadership critical for NVIDIA and AMD AI accelerator supply. Allocation-based supply management during high demand. SK Group financial backing provides stability.'
+      riskAnalysis: 'Second-largest DRAM manufacturer. Icheon campus concentration creates single-site dependency.'
     },
     {
       id: 'micron-dram',
@@ -832,23 +546,16 @@ export const supplyChainData = {
       leadTime: 70,
       image: '🧠',
       description: 'US-based memory manufacturer',
-      shipping: {
-        time: '3-5 days',
-        cost: '$25/unit',
-        method: 'Ground/Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 8, substitutability: 6, obsolescence: 2,
-        logistics: 4, concentration: 6, bom: 7
-      },
+      shipping: { time: '3-5 days', cost: '$25/unit', method: 'Ground/Air Freight' },
+      riskScores: { financial: 3, reliability: 7, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 8, substitutability: 6, obsolescence: 2, logistics: 4, concentration: 6, bom: 7 },
       risk: 5.1,
-      riskAnalysis: 'Only US-headquartered major DRAM manufacturer providing critical supply chain diversification from Korean oligopoly. Boise Idaho headquarters with global manufacturing footprint. Smaller HBM market share but rapidly growing capabilities. Process technology lag versus Korean competitors but sufficient for most applications. No geopolitical risk from US ownership. CHIPS Act funding supports US manufacturing expansion.'
+      riskAnalysis: 'Only US-headquartered major DRAM manufacturer. Boise headquarters with global footprint.'
     }
   ],
 
-  // Stage 3: Advanced Packaging Components
+  // ------------------------------------------------------------------
+  // STAGE 3: COMPONENT (Constrained by Packaging, Constrains Materials)
+  // ------------------------------------------------------------------
   gpu_die: [
     {
       id: 'tsmc',
@@ -859,19 +566,15 @@ export const supplyChainData = {
       leadTime: 120,
       image: '🔲',
       description: 'Leading-edge GPU manufacturing',
-      shipping: {
-        time: '7-10 days',
-        cost: '$150/unit',
-        method: 'Secured Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 10, esg: 4, cyber: 5,
-        geopolitical: 10, trade: 9, weather: 7,
-        criticality: 10, substitutability: 10, obsolescence: 1,
-        logistics: 7, concentration: 10, bom: 10
-      },
+      shipping: { time: '7-10 days', cost: '$150/unit', method: 'Secured Air Freight' },
+      riskScores: { financial: 2, reliability: 10, esg: 4, cyber: 5, geopolitical: 10, trade: 9, weather: 7, criticality: 10, substitutability: 10, obsolescence: 1, logistics: 7, concentration: 10, bom: 10 },
       risk: 8.7,
-      riskAnalysis: 'Absolute technology leadership in leading-edge logic manufacturing with proven 4nm/5nm process yields. Taiwan geopolitical risk from cross-strait tensions creates existential supply chain vulnerability. 90%+ market share for advanced AI accelerator production creates single-point-of-failure. Allocation-based supply management prioritizes strategic customers. No viable alternative exists for cutting-edge performance requirements. This represents THE critical bottleneck for AI infrastructure.'
+      riskAnalysis: 'Absolute technology leadership. Taiwan geopolitical risk is existential.',
+      // Logic: TSMC only validates specific high-grade wafer/resist suppliers
+      validSources: {
+        silicon_wafers_gpu: ['shin-etsu-wafer', 'sumco-wafer'],
+        photoresist: ['jsr-photoresist', 'tokyo-ohka']
+      }
     },
     {
       id: 'samsung',
@@ -882,19 +585,15 @@ export const supplyChainData = {
       leadTime: 110,
       image: '🔲',
       description: 'Alternative advanced foundry',
-      shipping: {
-        time: '7-10 days',
-        cost: '$140/unit',
-        method: 'Secured Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 7, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 5,
-        criticality: 8, substitutability: 7, obsolescence: 2,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$140/unit', method: 'Secured Air Freight' },
+      riskScores: { financial: 2, reliability: 7, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 5, criticality: 8, substitutability: 7, obsolescence: 2, logistics: 5, concentration: 7, bom: 7 },
       risk: 5.9,
-      riskAnalysis: 'Second-largest advanced foundry with growing 4nm/5nm capabilities but persistent yield challenges versus TSMC. South Korea location provides geopolitical diversification from Taiwan. Better availability than TSMC due to less constrained demand. Performance and power efficiency gap versus TSMC limits adoption. Represents best alternative for customers seeking TSMC alternatives despite technical limitations.'
+      riskAnalysis: 'Second-largest advanced foundry. South Korea location provides diversification.',
+      // Logic: Samsung prioritizes Korean ecosystem and specific partners
+      validSources: {
+        silicon_wafers_gpu: ['sk-siltron', 'shin-etsu-wafer'],
+        photoresist: ['tokyo-ohka', 'dupont-photoresist']
+      }
     },
     {
       id: 'intel-fab',
@@ -905,19 +604,15 @@ export const supplyChainData = {
       leadTime: 130,
       image: '🔲',
       description: 'US-based advanced foundry',
-      shipping: {
-        time: '3-5 days',
-        cost: '$130/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 6, obsolescence: 3,
-        logistics: 3, concentration: 5, bom: 6
-      },
+      shipping: { time: '3-5 days', cost: '$130/unit', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 6, esg: 4, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 6, obsolescence: 3, logistics: 3, concentration: 5, bom: 6 },
       risk: 4.5,
-      riskAnalysis: 'US-based advanced foundry eliminates geopolitical dependencies but limited third-party customer track record. Chandler Arizona operations benefit from established semiconductor ecosystem. Intel 4 process technology competitive but limited GPU manufacturing experience. Premium pricing reflects domestic manufacturing costs. CHIPS Act funding supports expansion but execution risk remains. Represents strategic option for customers prioritizing supply chain security.'
+      riskAnalysis: 'US-based advanced foundry eliminates geopolitical dependencies.',
+      // Logic: Intel certifies US/EU sources alongside top tier Asian suppliers
+      validSources: {
+        silicon_wafers_gpu: ['globalwafers', 'shin-etsu-wafer'],
+        photoresist: ['dupont-photoresist', 'tokyo-ohka']
+      }
     }
   ],
 
@@ -931,19 +626,15 @@ export const supplyChainData = {
       leadTime: 75,
       image: '📐',
       description: 'Market leader in advanced substrates',
-      shipping: {
-        time: '8-10 days',
-        cost: '$35/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 7, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 8,
-        criticality: 9, substitutability: 8, obsolescence: 3,
-        logistics: 5, concentration: 8, bom: 7
-      },
+      shipping: { time: '8-10 days', cost: '$35/unit', method: 'Air Freight' },
+      riskScores: { financial: 4, reliability: 7, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 8, criticality: 9, substitutability: 8, obsolescence: 3, logistics: 5, concentration: 8, bom: 7 },
       risk: 6.5,
-      riskAnalysis: 'Market leader in high-end IC substrates for processors with proprietary ALIVH (Any Layer Interstitial Via Hole) technology. Ogaki facility concentration creates single-point failure risk. Japan location subject to earthquake, tsunami, and typhoon exposure. Advanced any-layer via technology critical for high-performance computing thermal and electrical performance. Long-term supply agreements with Intel, AMD, and other processor manufacturers.'
+      riskAnalysis: 'Market leader in high-end IC substrates. Ogaki facility concentration.',
+      // Logic: High-end substrates require Ajinomoto film
+      validSources: {
+        abf_film: ['ajinomoto-abf'],
+        copper_clad_laminates: ['kyocera-ccl', 'panasonic-ccl']
+      }
     },
     {
       id: 'kyocera-eds',
@@ -954,19 +645,15 @@ export const supplyChainData = {
       leadTime: 70,
       image: '📐',
       description: 'Major substrate manufacturer',
-      shipping: {
-        time: '8-10 days',
-        cost: '$33/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 7,
-        criticality: 8, substitutability: 7, obsolescence: 3,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '8-10 days', cost: '$33/unit', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 7, criticality: 8, substitutability: 7, obsolescence: 3, logistics: 5, concentration: 7, bom: 7 },
       risk: 6.0,
-      riskAnalysis: 'Major IC substrate manufacturer leveraging ceramic and materials expertise for advanced packaging. Kyoto location in Kansai region creates similar seismic vulnerability as other Japanese suppliers. Fine-line lithography capabilities support high-density interconnect requirements. Good manufacturing capacity but still subject to industry-wide capacity constraints. Diversified ceramics and materials business provides financial stability.'
+      riskAnalysis: 'Major IC substrate manufacturer. Kyoto location in Kansai region.',
+      // Logic: Kyocera prefers internal CCL
+      validSources: {
+        abf_film: ['ajinomoto-abf', 'mitsubishi-abf'],
+        copper_clad_laminates: ['kyocera-ccl']
+      }
     },
     {
       id: 'at&s-eds',
@@ -977,19 +664,15 @@ export const supplyChainData = {
       leadTime: 80,
       image: '📐',
       description: 'European company with Indian operations',
-      shipping: {
-        time: '10-14 days',
-        cost: '$28/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 5, reliability: 6, esg: 6, cyber: 6,
-        geopolitical: 4, trade: 4, weather: 6,
-        criticality: 6, substitutability: 5, obsolescence: 4,
-        logistics: 7, concentration: 5, bom: 6
-      },
+      shipping: { time: '10-14 days', cost: '$28/unit', method: 'Air Freight' },
+      riskScores: { financial: 5, reliability: 6, esg: 6, cyber: 6, geopolitical: 4, trade: 4, weather: 6, criticality: 6, substitutability: 5, obsolescence: 4, logistics: 7, concentration: 5, bom: 6 },
       risk: 5.5,
-      riskAnalysis: 'Austrian company with strategic expansion into India providing critical geographic diversification from Asian concentration. Chennai facility part of broader "China Plus One" and supply chain resilience strategies. Infrastructure challenges including power reliability and logistics affect operational efficiency. Growing technical capabilities but still developing competencies for most advanced applications. Benefits from Indian government semiconductor manufacturing incentives.'
+      riskAnalysis: 'Austrian company with strategic expansion into India.',
+      // Logic: AT&S certifies alternative sources for cost/diversity
+      validSources: {
+        abf_film: ['doosan-abf', 'mitsubishi-abf'],
+        copper_clad_laminates: ['isola-ccl', 'panasonic-ccl']
+      }
     }
   ],
 
@@ -1003,19 +686,15 @@ export const supplyChainData = {
       leadTime: 90,
       image: '🧱',
       description: 'HBM market leader',
-      shipping: {
-        time: '7-10 days',
-        cost: '$60/unit',
-        method: 'Secured Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 9, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 5,
-        criticality: 10, substitutability: 9, obsolescence: 1,
-        logistics: 6, concentration: 9, bom: 9
-      },
+      shipping: { time: '7-10 days', cost: '$60/unit', method: 'Secured Air Freight' },
+      riskScores: { financial: 2, reliability: 9, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 5, criticality: 10, substitutability: 9, obsolescence: 1, logistics: 6, concentration: 9, bom: 9 },
       risk: 6.4,
-      riskAnalysis: 'Market leader in HBM technology with highest bandwidth and most advanced packaging integration. Icheon campus concentration creates single-site dependency for majority of HBM3E production globally. Proven reliability and performance critical for NVIDIA H100/H200 supply. Tight allocation during AI boom creates severe supply constraints. Premium pricing reflects technology leadership and demand/supply imbalance. TSV technology and high-stack integration represent significant technical barriers.'
+      riskAnalysis: 'Market leader in HBM technology. Proven reliability for NVIDIA H100.',
+      // Logic: HBM leader demands top tier memory wafers
+      validSources: {
+        silicon_wafers_memory: ['sk-siltron', 'shin-etsu-wafer'],
+        polymers_photoresist: ['jsr-photoresist']
+      }
     },
     {
       id: 'samsung-hbm',
@@ -1026,19 +705,15 @@ export const supplyChainData = {
       leadTime: 85,
       image: '🧱',
       description: 'Major HBM supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$58/unit',
-        method: 'Secured Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 8, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 5,
-        criticality: 9, substitutability: 8, obsolescence: 1,
-        logistics: 5, concentration: 8, bom: 9
-      },
+      shipping: { time: '7-10 days', cost: '$58/unit', method: 'Secured Air Freight' },
+      riskScores: { financial: 2, reliability: 8, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 5, criticality: 9, substitutability: 8, obsolescence: 1, logistics: 5, concentration: 8, bom: 9 },
       risk: 6.2,
-      riskAnalysis: 'Second-largest HBM supplier with strong technology capabilities and large manufacturing capacity. Pyeongtaek facility concentration creates geographic dependency though different site than SK Hynix. Good process yields improving but initial qualification challenges with some customers. Technology roadmap competitive with SK Hynix. Korean concentration creates correlated geopolitical and natural disaster risk. Vertical integration advantages from DRAM leadership.'
+      riskAnalysis: 'Second-largest HBM supplier. Pyeongtaek facility concentration.',
+      // Logic: Samsung internal stack
+      validSources: {
+        silicon_wafers_memory: ['sumco-wafer', 'sk-siltron'],
+        polymers_photoresist: ['tokyo-ohka']
+      }
     },
     {
       id: 'micron-hbm',
@@ -1049,23 +724,21 @@ export const supplyChainData = {
       leadTime: 95,
       image: '🧱',
       description: 'US-based HBM supplier',
-      shipping: {
-        time: '3-5 days',
-        cost: '$55/unit',
-        method: 'Ground/Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 7, substitutability: 7, obsolescence: 2,
-        logistics: 4, concentration: 6, bom: 7
-      },
+      shipping: { time: '3-5 days', cost: '$55/unit', method: 'Ground/Air Freight' },
+      riskScores: { financial: 3, reliability: 7, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 7, substitutability: 7, obsolescence: 2, logistics: 4, concentration: 6, bom: 7 },
       risk: 5.1,
-      riskAnalysis: 'US-based HBM supplier providing critical geographic diversification from Korean oligopoly. Later market entry results in technology gap and smaller production capacity versus established competitors. Higher cost structure reflects domestic operations and development investments. No geopolitical risk from US ownership appeals to customers prioritizing supply chain security. Growing production capacity and customer qualifications but market share remains limited. CHIPS Act funding supports US manufacturing expansion.'
+      riskAnalysis: 'US-based HBM supplier providing critical geographic diversification.',
+      // Logic: Micron supports US supply chain where possible
+      validSources: {
+        silicon_wafers_memory: ['shin-etsu-wafer', 'sumco-wafer'],
+        polymers_photoresist: ['dupont-photoresist']
+      }
     }
   ],
 
-  // Stage 4: Integration
+  // ------------------------------------------------------------------
+  // STAGE 4: PACKAGING (Constrains Stage 3)
+  // ------------------------------------------------------------------
   packaging_merge: [
     {
       id: 'tsmc',
@@ -1076,19 +749,16 @@ export const supplyChainData = {
       leadTime: 150,
       image: '📦',
       description: 'Industry-leading 2.5D packaging',
-      shipping: {
-        time: '7-10 days',
-        cost: '$80/unit',
-        method: 'Secured Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 10, esg: 4, cyber: 5,
-        geopolitical: 10, trade: 9, weather: 7,
-        criticality: 10, substitutability: 10, obsolescence: 1,
-        logistics: 7, concentration: 10, bom: 10
-      },
+      shipping: { time: '7-10 days', cost: '$80/unit', method: 'Secured Air Freight' },
+      riskScores: { financial: 2, reliability: 10, esg: 4, cyber: 5, geopolitical: 10, trade: 9, weather: 7, criticality: 10, substitutability: 10, obsolescence: 1, logistics: 7, concentration: 10, bom: 10 },
       risk: 8.7,
-      riskAnalysis: 'ABSOLUTE MONOPOLY on advanced 2.5D/3D packaging technology - THE single point of failure for entire AI accelerator industry. CoWoS (Chip on Wafer on Substrate) capacity represents primary bottleneck for H100/H200 production globally, not wafer manufacturing. Capital intensity ($8-10B for new facility) and 24-30 month construction cycles severely limit expansion velocity. Taiwan concentration creates existential risk from cross-strait tensions, earthquakes, and typhoons. 70%+ market share for AI accelerator packaging with no viable short-term alternatives. This is THE critical chokepoint in global semiconductor supply chain.'
+      riskAnalysis: 'ABSOLUTE MONOPOLY on advanced 2.5D/3D packaging technology.',
+      // Logic: CoWoS generally implies TSMC silicon and top-tier HBM
+      validSources: {
+        gpu_die: ['tsmc'],
+        hbm3e: ['sk-hynix-hbm', 'micron-hbm'],
+        substrate_abf: ['ibiden-eds']
+      }
     },
     {
       id: 'samsung',
@@ -1099,19 +769,16 @@ export const supplyChainData = {
       leadTime: 140,
       image: '📦',
       description: 'Alternative advanced packaging',
-      shipping: {
-        time: '7-10 days',
-        cost: '$75/unit',
-        method: 'Secured Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 7, esg: 4, cyber: 5,
-        geopolitical: 6, trade: 6, weather: 5,
-        criticality: 8, substitutability: 7, obsolescence: 2,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$75/unit', method: 'Secured Air Freight' },
+      riskScores: { financial: 2, reliability: 7, esg: 4, cyber: 5, geopolitical: 6, trade: 6, weather: 5, criticality: 8, substitutability: 7, obsolescence: 2, logistics: 5, concentration: 7, bom: 7 },
       risk: 5.9,
-      riskAnalysis: 'Secondary advanced packaging provider with I-Cube4 technology approaching CoWoS capabilities but execution gaps remain. South Korea location offers meaningful geopolitical diversification from Taiwan risk. Capacity constrained by capital allocation decisions prioritizing memory business over foundry services. Technical capabilities proven in lab but production scale and yield maturity lag TSMC. Customer qualification cycles extending 18-24 months limit rapid adoption. Represents best near-term alternative for customers seeking Taiwan risk mitigation.'
+      riskAnalysis: 'Secondary advanced packaging provider. South Korea location.',
+      // Logic: Samsung I-Cube is flexible but optimized for Samsung
+      validSources: {
+        gpu_die: ['samsung'],
+        hbm3e: ['samsung-hbm'],
+        substrate_abf: ['kyocera-eds', 'at&s-eds']
+      }
     },
     {
       id: 'intel-foveros',
@@ -1122,23 +789,22 @@ export const supplyChainData = {
       leadTime: 145,
       image: '📦',
       description: 'US-based 3D packaging',
-      shipping: {
-        time: '3-5 days',
-        cost: '$70/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 6, obsolescence: 3,
-        logistics: 3, concentration: 5, bom: 6
-      },
+      shipping: { time: '3-5 days', cost: '$70/unit', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 6, esg: 4, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 6, obsolescence: 3, logistics: 3, concentration: 5, bom: 6 },
       risk: 4.5,
-      riskAnalysis: 'US-based 3D packaging technology eliminates geopolitical dependencies but limited third-party foundry track record. Chandler operations benefit from established infrastructure. Foveros technology innovative for chiplet integration but less proven for GPU packaging. IFS strategy competes with internal priorities. Premium pricing reflects domestic costs and market positioning. CHIPS Act funding supports capacity expansion. Represents strategic option for customers prioritizing supply chain security over proven performance.'
+      riskAnalysis: 'US-based 3D packaging technology eliminates geopolitical dependencies.',
+      // Logic: Foveros is heterogenous, allowing Intel or TSMC die
+      validSources: {
+        gpu_die: ['intel-fab', 'tsmc'],
+        hbm3e: ['sk-hynix-hbm'],
+        substrate_abf: ['ibiden-eds', 'at&s-eds']
+      }
     }
   ],
 
-  // Stage 5: Final Assembly
+  // ------------------------------------------------------------------
+  // STAGE 5: FINAL ASSEMBLY
+  // ------------------------------------------------------------------
   pcb_motherboard: [
     {
       id: 'unimicron-pcb',
@@ -1149,19 +815,10 @@ export const supplyChainData = {
       leadTime: 45,
       image: '🟩',
       description: 'Largest PCB manufacturer globally',
-      shipping: {
-        time: '7-10 days',
-        cost: '$20/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 4, cyber: 5,
-        geopolitical: 8, trade: 7, weather: 7,
-        criticality: 8, substitutability: 6, obsolescence: 2,
-        logistics: 6, concentration: 8, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$20/unit', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 7, esg: 4, cyber: 5, geopolitical: 8, trade: 7, weather: 7, criticality: 8, substitutability: 6, obsolescence: 2, logistics: 6, concentration: 8, bom: 7 },
       risk: 7.2,
-      riskAnalysis: 'Largest PCB manufacturer globally with leading technology for high-layer-count boards. Taipei location creates Taiwan concentration risk correlated with other critical components. Earthquake and typhoon exposure affects production continuity. Advanced HDI (High-Density Interconnect) capabilities essential for modern GPU cards. Market leader in server and high-end computing PCBs. Premium quality justifies higher pricing versus competitors.'
+      riskAnalysis: 'Largest PCB manufacturer globally. Taipei location creates Taiwan concentration risk.'
     },
     {
       id: 'tripod-pcb',
@@ -1172,19 +829,10 @@ export const supplyChainData = {
       leadTime: 40,
       image: '🟩',
       description: 'Major Taiwan PCB supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$18/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 5,
-        geopolitical: 8, trade: 7, weather: 7,
-        criticality: 7, substitutability: 6, obsolescence: 2,
-        logistics: 6, concentration: 7, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$18/unit', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 5, geopolitical: 8, trade: 7, weather: 7, criticality: 7, substitutability: 6, obsolescence: 2, logistics: 6, concentration: 7, bom: 7 },
       risk: 7.0,
-      riskAnalysis: 'Major Taiwan PCB supplier with strong capabilities in multi-layer boards. Taoyuan location maintains Taiwan concentration risk. Good quality and competitive pricing for volume production. Faster turnaround than market leader. Technology capabilities sufficient for most GPU applications. Taiwan semiconductor ecosystem integration provides advantages. Same geopolitical and natural disaster exposure as Unimicron but different facility locations provide some risk mitigation.'
+      riskAnalysis: 'Major Taiwan PCB supplier. Taoyuan location maintains Taiwan concentration risk.'
     },
     {
       id: 'ttm-pcb',
@@ -1195,19 +843,10 @@ export const supplyChainData = {
       leadTime: 35,
       image: '🟩',
       description: 'US-based PCB manufacturer',
-      shipping: {
-        time: '3-5 days',
-        cost: '$15/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 4, bom: 6
-      },
+      shipping: { time: '3-5 days', cost: '$15/unit', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 5, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 4, bom: 6 },
       risk: 4.3,
-      riskAnalysis: 'Largest North American PCB manufacturer providing domestic supply chain option. Santa Ana California operations eliminate Asian geopolitical dependencies. Higher domestic labor and regulatory costs impact pricing. Limited advanced capability for most complex GPU boards versus Taiwan leaders. Fast delivery and responsive engineering support for North American customers. Preferred supplier for defense and aerospace applications requiring domestic sourcing. ITAR compliance capabilities. Growing importance as customers seek supply chain resilience.'
+      riskAnalysis: 'Largest North American PCB manufacturer. Higher domestic costs.'
     }
   ],
 
@@ -1221,19 +860,10 @@ export const supplyChainData = {
       leadTime: 30,
       image: '❄️',
       description: 'Leading thermal management supplier',
-      shipping: {
-        time: '2-3 days',
-        cost: '$8/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 4, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 5, substitutability: 4, obsolescence: 4,
-        logistics: 3, concentration: 3, bom: 5
-      },
+      shipping: { time: '2-3 days', cost: '$8/unit', method: 'Ground Freight' },
+      riskScores: { financial: 4, reliability: 4, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 5, substitutability: 4, obsolescence: 4, logistics: 3, concentration: 3, bom: 5 },
       risk: 3.8,
-      riskAnalysis: 'Leading thermal management supplier with extensive engineering expertise. New Hampshire US location provides stable operations and no geopolitical risk. Custom solution capabilities for high-power GPU cooling requirements. Excellent engineering support and rapid prototyping. Premium pricing reflects domestic manufacturing and engineering services. Fast delivery for North American customers. Preferred for complex thermal challenges requiring collaboration.'
+      riskAnalysis: 'Leading thermal management supplier. New Hampshire US location.'
     },
     {
       id: 'cooler-master',
@@ -1244,19 +874,10 @@ export const supplyChainData = {
       leadTime: 35,
       image: '❄️',
       description: 'Major cooling solutions manufacturer',
-      shipping: {
-        time: '7-10 days',
-        cost: '$10/unit',
-        method: 'Ocean Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 7, trade: 6, weather: 6,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 5, concentration: 6, bom: 6
-      },
+      shipping: { time: '7-10 days', cost: '$10/unit', method: 'Ocean Freight' },
+      riskScores: { financial: 3, reliability: 6, esg: 4, cyber: 4, geopolitical: 7, trade: 6, weather: 6, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 5, concentration: 6, bom: 6 },
       risk: 6.5,
-      riskAnalysis: 'Major cooling solutions manufacturer with high-volume production capabilities. Taipei location creates Taiwan concentration risk though less critical than semiconductors. Cost-effective solutions for standard cooling requirements. High-volume manufacturing expertise. Proven designs for consumer and commercial GPUs. Taiwan geopolitical risk consideration but cooling solutions have multiple alternatives. Standard solutions with limited customization options.'
+      riskAnalysis: 'Major cooling solutions manufacturer. Taipei location creates Taiwan concentration risk.'
     },
     {
       id: 'noctua',
@@ -1267,19 +888,10 @@ export const supplyChainData = {
       leadTime: 40,
       image: '❄️',
       description: 'Premium cooling solutions',
-      shipping: {
-        time: '5-7 days',
-        cost: '$12/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 4, reliability: 4, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 4, substitutability: 4, obsolescence: 4,
-        logistics: 4, concentration: 3, bom: 5
-      },
+      shipping: { time: '5-7 days', cost: '$12/unit', method: 'Air Freight' },
+      riskScores: { financial: 4, reliability: 4, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 4, substitutability: 4, obsolescence: 4, logistics: 4, concentration: 3, bom: 5 },
       risk: 3.5,
-      riskAnalysis:'Premium Austrian cooling specialist with exceptional performance and acoustics. Vienna location provides European supply chain stability with no geopolitical dependencies. Premium pricing reflects engineering excellence and low-volume specialized manufacturing. Exceptional thermal performance for high-power GPUs. Limited production capacity constrains availability for large-scale deployments. Preferred for premium and enthusiast applications where performance justifies cost.'
+      riskAnalysis:'Premium Austrian cooling specialist. Vienna location provides European stability.'
     }
   ],
 
@@ -1293,19 +905,14 @@ export const supplyChainData = {
       leadTime: 25,
       image: '🏭',
       description: 'Largest electronics manufacturer globally',
-      shipping: {
-        time: '10-14 days',
-        cost: '$5/unit',
-        method: 'Ocean Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 8, esg: 6, cyber: 6,
-        geopolitical: 9, trade: 10, weather: 5,
-        criticality: 8, substitutability: 5, obsolescence: 2,
-        logistics: 6, concentration: 7, bom: 7
-      },
+      shipping: { time: '10-14 days', cost: '$5/unit', method: 'Ocean Freight' },
+      riskScores: { financial: 2, reliability: 8, esg: 6, cyber: 6, geopolitical: 9, trade: 10, weather: 5, criticality: 8, substitutability: 5, obsolescence: 2, logistics: 6, concentration: 7, bom: 7 },
       risk: 7.5,
-      riskAnalysis: 'Largest electronics manufacturer globally with unmatched scale and cost efficiency. Shenzhen location in China creates significant geopolitical risk from US-China trade tensions and potential export controls. Proven high-volume manufacturing processes and quality systems. Labor practice scrutiny and ESG concerns. Massive capacity enables rapid production ramp for large orders. Technology transfer and IP protection considerations. Export control compliance increasingly complex. Best cost structure but highest geopolitical risk profile.'
+      riskAnalysis: 'Largest electronics manufacturer globally. Shenzhen location creates significant geopolitical risk.',
+      // Logic: Foxconn works best with Taiwan/Asian supply chain
+      validSources: {
+        pcb_motherboard: ['unimicron-pcb', 'tripod-pcb']
+      }
     },
     {
       id: 'pegatron-assembly',
@@ -1316,19 +923,13 @@ export const supplyChainData = {
       leadTime: 30,
       image: '🏭',
       description: 'Major Taiwan-based assembler',
-      shipping: {
-        time: '7-10 days',
-        cost: '$6/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 7, esg: 4, cyber: 5,
-        geopolitical: 8, trade: 7, weather: 7,
-        criticality: 7, substitutability: 6, obsolescence: 2,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$6/unit', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 7, esg: 4, cyber: 5, geopolitical: 8, trade: 7, weather: 7, criticality: 7, substitutability: 6, obsolescence: 2, logistics: 5, concentration: 7, bom: 7 },
       risk: 6.8,
-      riskAnalysis: 'Major Taiwan-based assembler with strong capabilities in complex electronics. Taipei location creates Taiwan concentration risk correlated with semiconductor manufacturing. Good quality and competitive pricing for volume production. Flexible capacity allocation and responsive to customer needs. Cross-strait tensions create geopolitical consideration. Earthquake and typhoon exposure affects continuity planning. Better pricing than US alternatives but higher geopolitical risk. Integrated into Taiwan electronics ecosystem.'
+      riskAnalysis: 'Major Taiwan-based assembler. Cross-strait tensions create geopolitical consideration.',
+      validSources: {
+        pcb_motherboard: ['unimicron-pcb', 'tripod-pcb']
+      }
     },
     {
       id: 'flex-assembly',
@@ -1339,23 +940,19 @@ export const supplyChainData = {
       leadTime: 28,
       image: '🏭',
       description: 'US-based manufacturing services',
-      shipping: {
-        time: '2-3 days',
-        cost: '$4/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 2, trade: 3, weather: 4,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 4, bom: 6
-      },
+      shipping: { time: '2-3 days', cost: '$4/unit', method: 'Ground Freight' },
+      riskScores: { financial: 3, reliability: 5, esg: 3, cyber: 4, geopolitical: 2, trade: 3, weather: 4, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 4, bom: 6 },
       risk: 4.2,
-      riskAnalysis: 'US-based manufacturing services provider eliminating Asian geopolitical dependencies. Austin Texas location benefits from established tech ecosystem and skilled workforce. Higher domestic labor costs impact pricing versus Asian alternatives. No export control restrictions or trade war exposure. Stable regulatory environment and strong IP protection. Quality focus and engineering collaboration capabilities. Fast delivery for North American customers. CHIPS Act and reshoring trends support growth. Preferred for defense, aerospace, and customers prioritizing supply chain security. Premium pricing justified by risk mitigation.'
+      riskAnalysis: 'US-based manufacturing services provider. Higher domestic labor costs.',
+      validSources: {
+        pcb_motherboard: ['ttm-pcb']
+      }
     }
   ],
 
-  // Additional component categories
+  // ------------------------------------------------------------------
+  // ANCILLARY COMPONENTS
+  // ------------------------------------------------------------------
   power_delivery: [
     {
       id: 'ti-power',
@@ -1366,19 +963,10 @@ export const supplyChainData = {
       leadTime: 20,
       image: '⚡',
       description: 'Leading power management semiconductor',
-      shipping: {
-        time: '2-3 days',
-        cost: '$3/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 4, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 7, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 4, bom: 6
-      },
+      shipping: { time: '2-3 days', cost: '$3/unit', method: 'Ground Freight' },
+      riskScores: { financial: 2, reliability: 4, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 7, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 4, bom: 6 },
       risk: 4.0,
-      riskAnalysis: 'Market leader in power management with extensive product portfolio. Dallas headquarters with global manufacturing footprint including substantial US capacity. Excellent availability and competitive pricing. Long product lifecycles reduce obsolescence risk. Multiple alternative sources available for most applications. Strong technical support and design resources. Domestic manufacturing for critical components supported by CHIPS Act investments.'
+      riskAnalysis: 'Market leader in power management. Dallas headquarters.'
     },
     {
       id: 'infineon-power',
@@ -1389,19 +977,10 @@ export const supplyChainData = {
       leadTime: 25,
       image: '⚡',
       description: 'European power semiconductor leader',
-      shipping: {
-        time: '5-7 days',
-        cost: '$4/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 5, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 3, weather: 3,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 4, concentration: 4, bom: 6
-      },
+      shipping: { time: '5-7 days', cost: '$4/unit', method: 'Air Freight' },
+      riskScores: { financial: 3, reliability: 5, esg: 3, cyber: 3, geopolitical: 2, trade: 3, weather: 3, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 4, concentration: 4, bom: 6 },
       risk: 4.2,
-      riskAnalysis: 'European power semiconductor leader with strong automotive and industrial heritage. Munich headquarters provides stable European supply chain. Premium efficiency and performance characteristics. Higher pricing reflects German engineering and manufacturing standards. Excellent technical support and co-development capabilities. European strategic autonomy initiatives support growth. Wide-bandgap semiconductor expertise positions well for next-generation power delivery.'
+      riskAnalysis: 'European power semiconductor leader. Munich headquarters.'
     },
     {
       id: 'on-semi-power',
@@ -1412,19 +991,10 @@ export const supplyChainData = {
       leadTime: 22,
       image: '⚡',
       description: 'US power and sensing solutions',
-      shipping: {
-        time: '2-4 days',
-        cost: '$3/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 5, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 4, bom: 5
-      },
+      shipping: { time: '2-4 days', cost: '$3/unit', method: 'Ground Freight' },
+      riskScores: { financial: 3, reliability: 5, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 4, bom: 5 },
       risk: 3.9,
-      riskAnalysis: 'US-based power and sensing solutions provider with competitive cost structure. Phoenix Arizona operations benefit from semiconductor ecosystem. Good availability and responsive customer support. Automotive qualification and reliability standards. Growing silicon carbide capabilities for high-efficiency applications. CHIPS Act funding supports US manufacturing expansion. Cost-effective alternative to premium European suppliers.'
+      riskAnalysis: 'US-based power and sensing solutions provider. Phoenix Arizona operations.'
     }
   ],
 
@@ -1438,19 +1008,10 @@ export const supplyChainData = {
       leadTime: 18,
       image: '🔌',
       description: 'Global connectivity and sensor leader',
-      shipping: {
-        time: '2-3 days',
-        cost: '$2/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 4, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 5, substitutability: 4, obsolescence: 3,
-        logistics: 3, concentration: 3, bom: 5
-      },
+      shipping: { time: '2-3 days', cost: '$2/unit', method: 'Ground Freight' },
+      riskScores: { financial: 3, reliability: 4, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 5, substitutability: 4, obsolescence: 3, logistics: 3, concentration: 3, bom: 5 },
       risk: 3.5,
-      riskAnalysis: 'Global connectivity leader with comprehensive product portfolio. Pennsylvania headquarters with diversified global manufacturing. Excellent quality and reliability for critical applications. Multiple alternative connector solutions available in market. Strong design and engineering support. Automotive and aerospace qualifications demonstrate quality focus. Supply chain relatively low risk due to commoditized nature of many connector products.'
+      riskAnalysis: 'Global connectivity leader. Pennsylvania headquarters.'
     },
     {
       id: 'molex',
@@ -1461,19 +1022,10 @@ export const supplyChainData = {
       leadTime: 20,
       image: '🔌',
       description: 'Major connector manufacturer',
-      shipping: {
-        time: '3-4 days',
-        cost: '$2/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 4, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 5, substitutability: 4, obsolescence: 3,
-        logistics: 3, concentration: 3, bom: 5
-      },
+      shipping: { time: '3-4 days', cost: '$2/unit', method: 'Ground Freight' },
+      riskScores: { financial: 3, reliability: 4, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 5, substitutability: 4, obsolescence: 3, logistics: 3, concentration: 3, bom: 5 },
       risk: 3.5,
-      riskAnalysis: 'Major connector manufacturer with broad product range and global presence. Illinois headquarters with extensive Asian manufacturing. Koch Industries ownership provides financial stability. Competitive pricing and good availability. Standard connector interfaces ensure multiple sourcing options. Fast delivery and responsive customer service for North American customers. Relatively low supply chain risk due to product commoditization and multiple alternatives.'
+      riskAnalysis: 'Major connector manufacturer. Illinois headquarters.'
     },
     {
       id: 'amphenol',
@@ -1484,19 +1036,10 @@ export const supplyChainData = {
       leadTime: 22,
       image: '🔌',
       description: 'High-performance connector specialist',
-      shipping: {
-        time: '2-3 days',
-        cost: '$2.50/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 4, esg: 3, cyber: 3,
-        geopolitical: 2, trade: 2, weather: 3,
-        criticality: 5, substitutability: 4, obsolescence: 3,
-        logistics: 3, concentration: 3, bom: 5
-      },
+      shipping: { time: '2-3 days', cost: '$2.50/unit', method: 'Ground Freight' },
+      riskScores: { financial: 3, reliability: 4, esg: 3, cyber: 3, geopolitical: 2, trade: 2, weather: 3, criticality: 5, substitutability: 4, obsolescence: 3, logistics: 3, concentration: 3, bom: 5 },
       risk: 3.5,
-      riskAnalysis: 'High-performance connector specialist with focus on military, aerospace, and industrial applications. Connecticut headquarters with global manufacturing network. Premium quality and reliability justify higher pricing. Extensive engineering capabilities for custom solutions. Strong presence in defense and aerospace with ITAR compliance. Multiple sourcing alternatives available but premium applications may require specific Amphenol solutions. Overall supply chain risk remains moderate.'
+      riskAnalysis: 'High-performance connector specialist. Connecticut headquarters.'
     }
   ],
 
@@ -1510,19 +1053,10 @@ export const supplyChainData = {
       leadTime: 30,
       image: '🔋',
       description: 'Global MLCC market leader',
-      shipping: {
-        time: '7-10 days',
-        cost: '$1.50/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 5, trade: 5, weather: 7,
-        criticality: 8, substitutability: 6, obsolescence: 2,
-        logistics: 5, concentration: 7, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$1.50/unit', method: 'Air Freight' },
+      riskScores: { financial: 2, reliability: 6, esg: 4, cyber: 4, geopolitical: 5, trade: 5, weather: 7, criticality: 8, substitutability: 6, obsolescence: 2, logistics: 5, concentration: 7, bom: 7 },
       risk: 5.9,
-      riskAnalysis: 'Dominant MLCC (multilayer ceramic capacitor) manufacturer with 40%+ global market share. Kyoto location creates earthquake and typhoon exposure. Market leader in miniaturization and high-capacitance products. Allocation-based supply during capacity shortages. Critical for high-density GPU power delivery. Japanese concentration creates correlated risk with other key components. Premium quality commands premium pricing. Long lead times during tight markets.'
+      riskAnalysis: 'Dominant MLCC manufacturer. Kyoto location creates earthquake risk.'
     },
     {
       id: 'samsung-electro',
@@ -1533,19 +1067,10 @@ export const supplyChainData = {
       leadTime: 28,
       image: '🔋',
       description: 'Major MLCC and passive component supplier',
-      shipping: {
-        time: '7-10 days',
-        cost: '$1.30/unit',
-        method: 'Air Freight'
-      },
-      riskScores: {
-        financial: 2, reliability: 6, esg: 4, cyber: 4,
-        geopolitical: 6, trade: 5, weather: 5,
-        criticality: 7, substitutability: 6, obsolescence: 2,
-        logistics: 5, concentration: 6, bom: 7
-      },
+      shipping: { time: '7-10 days', cost: '$1.30/unit', method: 'Air Freight' },
+      riskScores: { financial: 2, reliability: 6, esg: 4, cyber: 4, geopolitical: 6, trade: 5, weather: 5, criticality: 7, substitutability: 6, obsolescence: 2, logistics: 5, concentration: 6, bom: 7 },
       risk: 5.6,
-      riskAnalysis: 'Second-largest MLCC manufacturer with strong technology capabilities. Suwon location benefits from Samsung Group ecosystem. Competitive pricing and good availability. Technology roadmap competitive with Murata. Korean location provides some geographic diversification from Japan. Vertical integration with Samsung Electronics creates internal demand priority. Growing capacity investments support market growth. Alternative to Japanese suppliers for customers seeking diversification.'
+      riskAnalysis: 'Second-largest MLCC manufacturer. Suwon location benefits from Samsung ecosystem.'
     },
     {
       id: 'kemet-yageo',
@@ -1556,66 +1081,100 @@ export const supplyChainData = {
       leadTime: 25,
       image: '🔋',
       description: 'US operations with Taiwan parent',
-      shipping: {
-        time: '2-3 days',
-        cost: '$1/unit',
-        method: 'Ground Freight'
-      },
-      riskScores: {
-        financial: 3, reliability: 5, esg: 3, cyber: 4,
-        geopolitical: 4, trade: 4, weather: 4,
-        criticality: 6, substitutability: 5, obsolescence: 3,
-        logistics: 3, concentration: 5, bom: 6
-      },
+      shipping: { time: '2-3 days', cost: '$1/unit', method: 'Ground Freight' },
+      riskScores: { financial: 3, reliability: 5, esg: 3, cyber: 4, geopolitical: 4, trade: 4, weather: 4, criticality: 6, substitutability: 5, obsolescence: 3, logistics: 3, concentration: 5, bom: 6 },
       risk: 4.5,
-      riskAnalysis: 'US-based operations under Taiwan parent Yageo ownership. South Carolina manufacturing provides domestic supply option. Broader product portfolio including tantalum and polymer capacitors beyond MLCC focus. Smaller market share but better availability during allocation periods. Competitive pricing and fast delivery for North American customers. Taiwan parent creates modest geopolitical consideration. Good alternative for customers seeking supply chain diversification from Asian concentration.'
+      riskAnalysis: 'US-based operations. Taiwan parent creates modest geopolitical consideration.'
     }
   ]
 };
 
-// Export helper functions for component selection
-export const componentChoices = {
-  quartz_gpu: supplyChainData.quartz_gpu,
-  quartz_memory: supplyChainData.quartz_memory,
-  polymers_photoresist: supplyChainData.polymers_photoresist,
-  polymers_abf: supplyChainData.polymers_abf,
-  copper_resin: supplyChainData.copper_resin,
-  aluminium_copper: supplyChainData.aluminium_copper,
-  silicon_wafers_gpu: supplyChainData.silicon_wafers_gpu,
-  silicon_wafers_memory: supplyChainData.silicon_wafers_memory,
-  photoresist: supplyChainData.photoresist,
-  abf_film: supplyChainData.abf_film,
-  copper_clad_laminates: supplyChainData.copper_clad_laminates,
-  dram_cells: supplyChainData.dram_cells,
-  gpu_die: supplyChainData.gpu_die,
-  substrate_abf: supplyChainData.substrate_abf,
-  hbm3e: supplyChainData.hbm3e,
-  packaging_merge: supplyChainData.packaging_merge,
-  pcb_motherboard: supplyChainData.pcb_motherboard,
-  coolers_heat_sinks: supplyChainData.coolers_heat_sinks,
-  final_assembly: supplyChainData.final_assembly,
-  power_delivery: supplyChainData.power_delivery,
-  connectors_io: supplyChainData.connectors_io,
-  capacitors_passives: supplyChainData.capacitors_passives
-};
+// ==========================================
+// 3. LOGIC & HELPERS
+// ==========================================
 
-// Helper function to get choices for a component
+export const componentChoices = Object.keys(supplyChainData).reduce((acc, key) => {
+  acc[key] = supplyChainData[key];
+  return acc;
+}, {});
+
+// Standard getter
 export function getComponentChoices(componentId) {
   return componentChoices[componentId] || [];
 }
 
-// Helper function to calculate total risk score
+/**
+ * Calculates valid options for a specific component category based on 
+ * selections made at higher levels of the supply chain.
+ * @param {string} targetCategory - The category ID we want to populate (e.g., 'gpu_die')
+ * @param {object} currentSelections - Key-value pair of category:selectedItemObj
+ * @returns {array} - Array of valid component objects
+ */
+export function getFilteredComponents(targetCategory, currentSelections) {
+  const allOptions = supplyChainData[targetCategory] || [];
+  let allowedIds = null;
+
+  // Scan current selections for constraints
+  Object.values(currentSelections).forEach(selection => {
+    if (selection && selection.validSources && selection.validSources[targetCategory]) {
+      const constraint = selection.validSources[targetCategory];
+      
+      if (allowedIds === null) {
+        allowedIds = new Set(constraint);
+      } else {
+        // Intersect constraints if multiple parents restrict the same child
+        const intersection = new Set(
+          constraint.filter(x => allowedIds.has(x))
+        );
+        allowedIds = intersection;
+      }
+    }
+  });
+
+  // If no constraints exist, return all options
+  if (allowedIds === null) {
+    return allOptions;
+  }
+
+  // Otherwise filter
+  return allOptions.filter(item => allowedIds.has(item.id));
+}
+
+/**
+ * Validates the entire chain for compatibility conflicts
+ */
+export function validateSupplyChain(selections) {
+  let errors = [];
+  
+  Object.entries(selections).forEach(([category, item]) => {
+    if (item && item.validSources) {
+      Object.entries(item.validSources).forEach(([childCategory, allowedIds]) => {
+        const childSelection = selections[childCategory];
+        if (childSelection && !allowedIds.includes(childSelection.id)) {
+          errors.push(`Conflict: ${item.name} requires specific ${childCategory}, but ${childSelection.name} was selected.`);
+        }
+      });
+    }
+  });
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 export function calculateTotalRisk(selections) {
-  const risks = Object.values(selections).map(choice => choice.risk);
+  const risks = Object.values(selections).filter(x => x).map(choice => choice.risk);
+  if (risks.length === 0) return 0;
   return risks.reduce((sum, risk) => sum + risk, 0) / risks.length;
 }
 
-// Helper function to calculate total cost
 export function calculateTotalCost(selections) {
-  return Object.values(selections).reduce((sum, choice) => sum + choice.cost, 0);
+  return Object.values(selections).filter(x => x).reduce((sum, choice) => sum + choice.cost, 0);
 }
 
-// Helper function to get maximum lead time
 export function getMaxLeadTime(selections) {
-  return Math.max(...Object.values(selections).map(choice => choice.leadTime));
+  const times = Object.values(selections).filter(x => x).map(choice => choice.leadTime);
+  if (times.length === 0) return 0;
+  return Math.max(...times);
 }
